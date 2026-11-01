@@ -47,7 +47,6 @@ namespace MinecraftClone.UI
 
         private string _lanNick = "Player";
         private string _lanError = "";
-        private GUIStyle _textFieldStyle;
 
         private string _loadingTitle = "Загрузка уровня";
         private string _loadingStatus = "Загрузка мира..";
@@ -595,12 +594,6 @@ namespace MinecraftClone.UI
         {
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), _backgroundTexture);
 
-            if (_textFieldStyle == null)
-            {
-                _textFieldStyle = new GUIStyle(GUI.skin.textField) { fontSize = 20, alignment = TextAnchor.MiddleCenter };
-                if (customFont != null) _textFieldStyle.font = customFont;
-            }
-
             float cx = Screen.width / 2f;
             float cy = Screen.height / 2f;
             int port = Transport.active is PortTransport pt ? pt.Port : 7777;
@@ -608,24 +601,19 @@ namespace MinecraftClone.UI
             GUI.Label(new Rect(cx - 298, cy - 130 + 2, 600, 40), "Открыть для сети", _menuTitleShadowStyle);
             GUI.Label(new Rect(cx - 300, cy - 130, 600, 40), "Открыть для сети", _menuTitleStyle);
 
-            GUI.Label(new Rect(cx - 300, cy - 80, 600, 30), "Введите ваш ник:", _statusStyle);
-            GUI.enabled = !LauncherArgs.HasNickname;
-            _lanNick = GUI.TextField(new Rect(cx - 150, cy - 45, 300, 36), _lanNick ?? "", 16, _textFieldStyle);
-            GUI.enabled = true;
-
-            GUI.Label(new Rect(cx - 300, cy + 0, 600, 30), $"Порт мира: {port}", _statusStyle);
+            GUI.Label(new Rect(cx - 300, cy - 60, 600, 30), $"Порт мира: {port}", _statusStyle);
 
             if (!string.IsNullOrEmpty(_lanError))
-                GUI.Label(new Rect(cx - 300, cy + 30, 600, 30), _lanError, _statusStyle);
+                GUI.Label(new Rect(cx - 300, cy - 25, 600, 30), _lanError, _statusStyle);
 
-            if (GUI.Button(new Rect(cx - 190, cy + 70, 180, 40), "Открыть", _buttonStyle)) ConfirmOpenToLan();
-            if (GUI.Button(new Rect(cx + 10, cy + 70, 180, 40), "Отмена", _buttonStyle)) SwitchMenuState(MenuState.Main);
+            if (GUI.Button(new Rect(cx - 190, cy + 20, 180, 40), "Открыть", _buttonStyle)) ConfirmOpenToLan();
+            if (GUI.Button(new Rect(cx + 10, cy + 20, 180, 40), "Отмена", _buttonStyle)) SwitchMenuState(MenuState.Main);
         }
 
         private void ConfirmOpenToLan()
         {
-            string nick = LauncherArgs.HasNickname ? LauncherArgs.Nickname : (_lanNick ?? "").Trim();
-            if (string.IsNullOrEmpty(nick)) { _lanError = "Введите ник!"; return; }
+            string nick = LauncherArgs.HasNickname ? LauncherArgs.Nickname : PlayerPrefs.GetString("PlayerNickname", "Player");
+            if (string.IsNullOrWhiteSpace(nick)) nick = "Player";
             if (NetworkManager.singleton == null) { _lanError = "NetworkManager не найден"; return; }
 
             PlayerPrefs.SetString("PlayerNickname", nick);
