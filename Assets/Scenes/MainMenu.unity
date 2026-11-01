@@ -1504,7 +1504,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Minecraft classic 0.0.19a
+  m_text: Minecraft classic 0.0.20a
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 7ee247caf3880de48bbbbd979184d295, type: 2}
   m_sharedMaterial: {fileID: -8673221938894199221, guid: 7ee247caf3880de48bbbbd979184d295, type: 2}

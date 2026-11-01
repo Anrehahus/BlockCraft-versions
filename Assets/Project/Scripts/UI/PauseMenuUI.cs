@@ -261,7 +261,8 @@ namespace MinecraftClone.UI
         {
             if (SceneManager.GetActiveScene().name == mainMenuSceneName) return;
 
-            if (!_isGenerating && !ChatUI.IsOpen && Input.GetKeyDown(KeyCode.Escape))
+            if (!_isGenerating && !ChatUI.IsOpen && !InventoryUI.IsOpen && InventoryUI.ClosedFrame != Time.frameCount
+                && Input.GetKeyDown(KeyCode.Escape))
             {
                 if (_isPaused && _currentState != MenuState.Main)
                 {

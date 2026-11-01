@@ -96,7 +96,7 @@ namespace MinecraftClone.Player
             }
 
             bool isLoading = RuntimeLoadingScreen.IsShown;
-            bool isPaused = (_pauseMenu != null && _pauseMenu.IsPaused) || Time.timeScale == 0f || isLoading || ChatUI.IsOpen;
+            bool isPaused = (_pauseMenu != null && _pauseMenu.IsPaused) || Time.timeScale == 0f || isLoading || ChatUI.IsOpen || InventoryUI.IsOpen;
 
             UpdateCursorState(isPaused);
 

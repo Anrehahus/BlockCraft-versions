@@ -11,6 +11,9 @@ namespace MinecraftClone.UI
     {
         private const int IconSize = 64;
 
+        public static PlayerHotbarUI Instance { get; private set; }
+        public PlayerBlockInteraction Player => _player;
+
         public static float BarHeight
         {
             get
@@ -28,6 +31,8 @@ namespace MinecraftClone.UI
 
         private void Awake()
         {
+            Instance = this;
+
             _bar = Resources.Load<Texture2D>("UI/hotbar");
             _sel = Resources.Load<Texture2D>("UI/hotbar_selection");
             if (_bar != null) _bar.filterMode = FilterMode.Point;
@@ -52,6 +57,8 @@ namespace MinecraftClone.UI
 
         private void OnDestroy()
         {
+            if (Instance == this) Instance = null;
+
             foreach (var t in _icons.Values) if (t != null) Destroy(t);
             _icons.Clear();
         }
@@ -59,6 +66,7 @@ namespace MinecraftClone.UI
         private void OnGUI()
         {
             if (Event.current.type != EventType.Repaint) return;
+            if (InventoryUI.IsOpen) return; // в инвентаре рисуется свой хотбар
             if (_player == null || RuntimeLoadingScreen.IsShown) return;
 
             WorldManager wm = WorldManager.Instance;
@@ -90,7 +98,7 @@ namespace MinecraftClone.UI
 
         // ---------- Иконки ----------
 
-        private Texture2D GetIcon(BlockType type, WorldManager wm)
+        public Texture2D GetIcon(BlockType type, WorldManager wm)
         {
             if (_icons.TryGetValue(type, out Texture2D cached)) return cached;
 

@@ -144,6 +144,11 @@ namespace MinecraftClone.Management
                 new GameObject("[Hotbar]").AddComponent<PlayerHotbarUI>();
             }
 
+            if (FindFirstObjectByType<InventoryUI>() == null)
+            {
+                new GameObject("[Inventory]").AddComponent<InventoryUI>();
+            }
+
             // SaveSystem должен существовать всегда, иначе загрузка и сохранение молча не работают
             if (SaveSystem.Instance == null && FindFirstObjectByType<SaveSystem>() == null)
             {

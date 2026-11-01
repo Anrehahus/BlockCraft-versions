@@ -70,8 +70,8 @@ namespace MinecraftClone.Player
                 _pauseMenu = PauseMenuUI.Instance != null ? PauseMenuUI.Instance : FindFirstObjectByType<PauseMenuUI>();
             }
 
-            // Если игра на паузе, открыт чат или меню — полностью отключаем выделение блоков и взаимодействие
-            if (Time.timeScale == 0f || ChatUI.IsOpen || (_pauseMenu != null && _pauseMenu.IsPaused))
+            // Если игра на паузе, открыт чат, инвентарь или меню — полностью отключаем выделение блоков и взаимодействие
+            if (Time.timeScale == 0f || ChatUI.IsOpen || InventoryUI.IsOpen || (_pauseMenu != null && _pauseMenu.IsPaused))
             {
                 if (outlineRenderer != null) outlineRenderer.Hide();
                 _hasTargetBlock = false;
@@ -128,8 +128,8 @@ namespace MinecraftClone.Player
                     if (solidOnly)
                     {
                         ok = _worldManager.BlockDatabase != null
-                             && _worldManager.BlockDatabase.TryGetValue(b, out BlockDataSO data)
-                             && data != null && data.IsSolid;
+                           && _worldManager.BlockDatabase.TryGetValue(b, out BlockDataSO data)
+                           && data != null && data.IsSolid;
                     }
                     if (ok)
                     {
