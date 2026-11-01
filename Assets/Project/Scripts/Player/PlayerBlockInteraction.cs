@@ -19,8 +19,8 @@ namespace MinecraftClone.Player
         [SerializeField] private BlockOutlineRenderer outlineRenderer;
 
         [Header("Layer Masks")]
-        [SerializeField] private LayerMask blockLayerMask; // Слой блоков
-        [SerializeField] private LayerMask waterLayerMask; // Слой воды/жидкостей
+        [SerializeField] private LayerMask blockLayerMask; // Слой блоков (больше не используется)
+        [SerializeField] private LayerMask waterLayerMask; // Слой воды/жидкостей (больше не используется)
 
         public static readonly BlockType[] HotbarBlocks =
         {
@@ -99,35 +99,63 @@ namespace MinecraftClone.Player
                 if (Input.GetKeyDown(KeyCode.Alpha1 + i)) _selectedBlockIndex = i;
         }
 
+        private bool VoxelRaycast(Ray ray, float maxDist, bool solidOnly, out Vector3Int hit, out Vector3Int normal)
+        {
+            hit = default;
+            normal = default;
+
+            Vector3 o = ray.origin, d = ray.direction;
+            int x = Mathf.FloorToInt(o.x), y = Mathf.FloorToInt(o.y), z = Mathf.FloorToInt(o.z);
+            int sx = d.x > 0f ? 1 : -1, sy = d.y > 0f ? 1 : -1, sz = d.z > 0f ? 1 : -1;
+
+            float tdx = d.x != 0f ? Mathf.Abs(1f / d.x) : float.PositiveInfinity;
+            float tdy = d.y != 0f ? Mathf.Abs(1f / d.y) : float.PositiveInfinity;
+            float tdz = d.z != 0f ? Mathf.Abs(1f / d.z) : float.PositiveInfinity;
+
+            float tmx = d.x != 0f ? (d.x > 0f ? x + 1 - o.x : o.x - x) * tdx : float.PositiveInfinity;
+            float tmy = d.y != 0f ? (d.y > 0f ? y + 1 - o.y : o.y - y) * tdy : float.PositiveInfinity;
+            float tmz = d.z != 0f ? (d.z > 0f ? z + 1 - o.z : o.z - z) * tdz : float.PositiveInfinity;
+
+            Vector3Int last = Vector3Int.zero;
+            float t = 0f;
+
+            while (t <= maxDist)
+            {
+                BlockType b = _worldManager.GetBlockAtWorldPosition(x, y, z);
+                if (last != Vector3Int.zero && b != BlockType.Air && b != BlockType.Water && b != BlockType.Lava)
+                {
+                    bool ok = true;
+                    if (solidOnly)
+                    {
+                        ok = _worldManager.BlockDatabase != null
+                             && _worldManager.BlockDatabase.TryGetValue(b, out BlockDataSO data)
+                             && data != null && data.IsSolid;
+                    }
+                    if (ok)
+                    {
+                        hit = new Vector3Int(x, y, z);
+                        normal = -last;
+                        return true;
+                    }
+                }
+
+                if (tmx < tmy && tmx < tmz) { x += sx; t = tmx; tmx += tdx; last = new Vector3Int(sx, 0, 0); }
+                else if (tmy < tmz) { y += sy; t = tmy; tmy += tdy; last = new Vector3Int(0, sy, 0); }
+                else { z += sz; t = tmz; tmz += tdz; last = new Vector3Int(0, 0, sz); }
+            }
+            return false;
+        }
+
         private void UpdateTargetBlock()
         {
             if (cameraTransform == null || _worldManager == null) return;
 
-            LayerMask currentMask = blockLayerMask | waterLayerMask;
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
-
-            RaycastHit[] hits = UnityEngine.Physics.RaycastAll(ray, reachDistance, currentMask, QueryTriggerInteraction.Collide);
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-            foreach (var h in hits)
+            if (VoxelRaycast(ray, reachDistance, false, out Vector3Int hit, out _))
             {
-                if (_playerCollider != null && h.collider == _playerCollider) continue;
-
-                Vector3 targetPoint = h.point + (h.normal * -0.01f);
-                Vector3Int blockPos = new Vector3Int(
-                    Mathf.FloorToInt(targetPoint.x),
-                    Mathf.FloorToInt(targetPoint.y),
-                    Mathf.FloorToInt(targetPoint.z)
-                );
-
-                BlockType blockType = _worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z);
-
-                // Воздух, воду и лаву пропускаем — подсвечивать можно только твердый блок
-                if (blockType == BlockType.Air || blockType == BlockType.Water || blockType == BlockType.Lava) continue;
-
-                _selectedBlockPos = blockPos;
+                _selectedBlockPos = hit;
                 _hasTargetBlock = true;
-                if (outlineRenderer != null) outlineRenderer.Show(_selectedBlockPos);
+                if (outlineRenderer != null) outlineRenderer.Show(hit);
                 return;
             }
 
@@ -175,52 +203,13 @@ namespace MinecraftClone.Player
         {
             if (cameraTransform == null || _worldManager == null) return;
 
-            LayerMask currentMask = blockLayerMask | waterLayerMask;
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
+            if (!VoxelRaycast(ray, reachDistance, true, out Vector3Int hit, out Vector3Int normal)) return;
 
-            RaycastHit[] hits = UnityEngine.Physics.RaycastAll(ray, reachDistance, currentMask, QueryTriggerInteraction.Collide);
-            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-
-            foreach (var h in hits)
-            {
-                if (_playerCollider != null && h.collider == _playerCollider) continue;
-
-                // Находим блок, по которому пришелся клик
-                Vector3 insidePoint = h.point - (h.normal * 0.01f);
-                Vector3Int hitBlockPos = new Vector3Int(
-                    Mathf.FloorToInt(insidePoint.x),
-                    Mathf.FloorToInt(insidePoint.y),
-                    Mathf.FloorToInt(insidePoint.z)
-                );
-
-                BlockType hitBlockType = _worldManager.GetBlockAtWorldPosition(hitBlockPos.x, hitBlockPos.y, hitBlockPos.z);
-
-                // Игнорируем воздух, воду и лаву при поиске опорной поверхности
-                if (hitBlockType == BlockType.Air || hitBlockType == BlockType.Water || hitBlockType == BlockType.Lava) continue;
-
-                // Проверяем, твердый ли блок, на который мы опираемся
-                if (_worldManager.BlockDatabase.TryGetValue(hitBlockType, out BlockDataSO hitData) && hitData.IsSolid)
-                {
-                    // Вычисляем позицию установки (на шаг наружу по нормали)
-                    Vector3 outsidePoint = h.point + (h.normal * 0.01f);
-                    Vector3Int placePos = new Vector3Int(
-                        Mathf.FloorToInt(outsidePoint.x),
-                        Mathf.FloorToInt(outsidePoint.y),
-                        Mathf.FloorToInt(outsidePoint.z)
-                    );
-
-                    // Проверяем, что за блок сейчас на позиции установки
-                    BlockType targetPosBlock = _worldManager.GetBlockAtWorldPosition(placePos.x, placePos.y, placePos.z);
-
-                    // Ставить можно только в Воздух, Воду или Лаву (замещая их)
-                    if (targetPosBlock == BlockType.Air || targetPosBlock == BlockType.Water || targetPosBlock == BlockType.Lava)
-                    {
-                        PlaceBlock(placePos);
-                    }
-
-                    break; // Опирание произошло об первый твердый блок
-                }
-            }
+            Vector3Int placePos = hit + normal;
+            BlockType target = _worldManager.GetBlockAtWorldPosition(placePos.x, placePos.y, placePos.z);
+            if (target == BlockType.Air || target == BlockType.Water || target == BlockType.Lava)
+                PlaceBlock(placePos);
         }
 
         private void BreakBlock(Vector3Int blockPos)

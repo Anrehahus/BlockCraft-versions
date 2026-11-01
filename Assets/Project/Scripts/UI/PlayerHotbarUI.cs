@@ -11,6 +11,15 @@ namespace MinecraftClone.UI
     {
         private const int IconSize = 64;
 
+        public static float BarHeight
+        {
+            get
+            {
+                int scale = Mathf.Clamp(Mathf.FloorToInt(Screen.height / 240f), 2, 8);
+                return 22f * scale;
+            }
+        }
+
         private readonly Dictionary<BlockType, Texture2D> _icons = new Dictionary<BlockType, Texture2D>();
         private PlayerBlockInteraction _player;
         private float _findTimer;
@@ -59,7 +68,7 @@ namespace MinecraftClone.UI
 
             if (_bar == null || _sel == null) return; // нет текстур в Resources/UI
 
-            int scale = Mathf.Clamp(Mathf.FloorToInt(Screen.height / 300f), 2, 6);
+            int scale = Mathf.Clamp(Mathf.FloorToInt(Screen.height / 240f), 2, 8);
             float u = scale * (_bar.width / 182f);      // 1 "пиксель оригинала" в экранных пикселях
             float x0 = (Screen.width - 182f * u) / 2f;
             float y0 = Screen.height - 22f * u;
@@ -138,20 +147,23 @@ namespace MinecraftClone.UI
             Color32[] tp = top.GetPixels32();
             Color32[] sp = side.GetPixels32();
 
+            const float H = 1.059f;  // высота куба при ширине 1: вертикальное ребро равно ребру ромба
+            const float k = 0.82f;   // размер куба относительно ячейки
+
             for (int y = 0; y < IconSize; y++)
             {
                 for (int x = 0; x < IconSize; x++)
                 {
-                    float nx = (x + 0.5f) / IconSize;
-                    float ny = (y + 0.5f) / IconSize;
+                    float cx = ((x + 0.5f) / IconSize - 0.5f) * H / k + 0.5f;
+                    float cy = ((y + 0.5f) / IconSize - 0.5f) * H / k + H * 0.5f;
                     float u, v;
                     Color32 c;
 
-                    if (Hit(nx, ny, 0f, 0.75f, 0.5f, 0.25f, 0.5f, -0.25f, out u, out v))
+                    if (Hit(cx, cy, 0f, H - 0.25f, 0.5f, 0.25f, 0.5f, -0.25f, out u, out v))
                         c = Sample(tp, top.width, top.height, u, v, 1.0f);       // верх
-                    else if (Hit(nx, ny, 0f, 0.75f, 0.5f, -0.25f, 0f, -0.5f, out u, out v))
+                    else if (Hit(cx, cy, 0f, H - 0.25f, 0.5f, -0.25f, 0f, -0.559f, out u, out v))
                         c = Sample(sp, side.width, side.height, u, v, 0.8f);     // левая грань
-                    else if (Hit(nx, ny, 0.5f, 0.5f, 0.5f, 0.25f, 0f, -0.5f, out u, out v))
+                    else if (Hit(cx, cy, 0.5f, H - 0.5f, 0.5f, 0.25f, 0f, -0.559f, out u, out v))
                         c = Sample(sp, side.width, side.height, u, v, 0.6f);     // правая грань
                     else continue;
 

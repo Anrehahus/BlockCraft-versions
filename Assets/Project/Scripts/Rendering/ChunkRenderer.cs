@@ -273,9 +273,6 @@ namespace MinecraftClone.Rendering
             // Диагональ 2
             AddQuad(blockPos, new Vector3(0, 0, 1), new Vector3(1, 1, 0), new Vector3(1, 0, 0), new Vector3(0, 1, 1), uvRect);
             AddQuad(blockPos, new Vector3(1, 0, 0), new Vector3(0, 1, 1), new Vector3(0, 0, 1), new Vector3(1, 1, 0), uvRect);
-
-            // Создаем объемный невидимый куб-триггер для удобного выделения Raycast-ом с любой стороны
-            AddPlantTriggerBox(blockPos);
         }
 
         private void AddQuad(Vector3 offset, Vector3 v0, Vector3 v1, Vector3 v2, Vector3 v3, Rect uvRect)
