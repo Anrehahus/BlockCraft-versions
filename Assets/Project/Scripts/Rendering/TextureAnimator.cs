@@ -15,6 +15,7 @@ namespace MinecraftClone.Rendering
 
         public void Init(Texture2D atlas, Rect uv, Texture2D strip)
         {
+            this.frameTime = frameTime;
             _atlas = atlas;
             _x = Mathf.RoundToInt(uv.x * atlas.width);
             _y = Mathf.RoundToInt(uv.y * atlas.height);

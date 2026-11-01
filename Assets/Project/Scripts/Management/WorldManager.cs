@@ -54,6 +54,7 @@ namespace MinecraftClone.Management
         [SerializeField] private List<BlockDataSO> blockTypes;
 
         [SerializeField] private Texture2D waterAnimationStrip;
+        [SerializeField] private Texture2D lavaAnimationStrip;
 
         private Dictionary<BlockType, BlockDataSO> blockDatabase;
         private Dictionary<Vector2Int, ChunkData> loadedChunks = new Dictionary<Vector2Int, ChunkData>();
