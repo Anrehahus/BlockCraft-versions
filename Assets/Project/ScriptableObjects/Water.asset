@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1daad743fbcd18c46ba88340258fffed, type: 3}
+  m_Name: Water
+  m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.ScriptableObjects.BlockDataSO
+  Type: 8
+  BlockName: Water
+  IsSolid: 0
+  IsOpaque: 0
+  IsLiquid: 1
+  IsBreakable: 0
+  Hardness: 1
+  TopTexture: {fileID: 2800000, guid: 0b39100e6aa8cce499139147bbef250d, type: 3}
+  BottomTexture: {fileID: 2800000, guid: 0b39100e6aa8cce499139147bbef250d, type: 3}
+  SideTexture: {fileID: 2800000, guid: 0b39100e6aa8cce499139147bbef250d, type: 3}
+  BlockIcon: {fileID: 0}

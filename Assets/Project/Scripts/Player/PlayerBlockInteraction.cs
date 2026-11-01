@@ -1,0 +1,275 @@
+using System.Collections.Generic;
+using UnityEngine;
+using MinecraftClone.Core;
+using MinecraftClone.Management;
+using MinecraftClone.ScriptableObjects;
+using MinecraftClone.Effects;
+using MinecraftClone.Physics;
+using MinecraftClone.UI;
+using MinecraftClone.Networking;
+
+namespace MinecraftClone.Player
+{
+    public class PlayerBlockInteraction : MonoBehaviour
+    {
+        [Header("Settings")]
+        [SerializeField] private float reachDistance = 5f;
+        [SerializeField] private float actionInterval = 0.25f; // Интервал между действиями (0.25 сек)
+        [SerializeField] private Transform cameraTransform;
+        [SerializeField] private BlockOutlineRenderer outlineRenderer;
+
+        [Header("Layer Masks")]
+        [SerializeField] private LayerMask blockLayerMask; // Слой блоков
+        [SerializeField] private LayerMask waterLayerMask; // Слой воды/жидкостей
+
+        [Header("Building Settings")]
+        [SerializeField]
+        private List<BlockType> buildableBlocks = new List<BlockType>
+        {
+            BlockType.Grass,
+            BlockType.Cobblestone,
+            BlockType.OakPlanks,
+            BlockType.Stone,
+            BlockType.Dirt,
+            BlockType.OakSapling
+        };
+
+        private int _selectedBlockIndex = 0;
+        private WorldManager _worldManager;
+        private Vector3Int _selectedBlockPos;
+        private bool _hasTargetBlock;
+        private Collider _playerCollider;
+        private PauseMenuUI _pauseMenu;
+        private NetworkPlayer _netPlayer;
+
+        private float _actionTimer = 0f; // Таймер для зажатия клавиш
+
+        public BlockType CurrentSelectedBlock
+        {
+            get
+            {
+                if (buildableBlocks == null || buildableBlocks.Count == 0) return BlockType.Stone;
+                return buildableBlocks[_selectedBlockIndex];
+            }
+        }
+
+        private void Start()
+        {
+            if (cameraTransform == null)
+            {
+                Camera cam = GetComponentInChildren<Camera>();
+                if (cam != null) cameraTransform = cam.transform;
+                else if (Camera.main != null) cameraTransform = Camera.main.transform;
+            }
+
+            _worldManager = FindFirstObjectByType<WorldManager>();
+            _playerCollider = GetComponent<Collider>();
+            _pauseMenu = PauseMenuUI.Instance != null ? PauseMenuUI.Instance : FindFirstObjectByType<PauseMenuUI>();
+            _netPlayer = GetComponent<NetworkPlayer>();
+
+            if (outlineRenderer == null)
+            {
+                GameObject outlineGO = new GameObject("BlockOutline");
+                outlineRenderer = outlineGO.AddComponent<BlockOutlineRenderer>();
+            }
+        }
+
+        private void Update()
+        {
+            if (_pauseMenu == null)
+            {
+                _pauseMenu = PauseMenuUI.Instance != null ? PauseMenuUI.Instance : FindFirstObjectByType<PauseMenuUI>();
+            }
+
+            // Если игра на паузе, открыт чат или меню — полностью отключаем выделение блоков и взаимодействие
+            if (Time.timeScale == 0f || ChatUI.IsOpen || (_pauseMenu != null && _pauseMenu.IsPaused))
+            {
+                if (outlineRenderer != null) outlineRenderer.Hide();
+                _hasTargetBlock = false;
+                return;
+            }
+
+            // Уменьшаем таймер задержки каждый кадр
+            if (_actionTimer > 0f)
+            {
+                _actionTimer -= Time.deltaTime;
+            }
+
+            HandleScrollWheel();
+            UpdateTargetBlock();
+            HandleInput();
+        }
+
+        private void HandleScrollWheel()
+        {
+            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            if (scroll != 0f && buildableBlocks.Count > 0)
+            {
+                if (scroll > 0f)
+                {
+                    _selectedBlockIndex--;
+                    if (_selectedBlockIndex < 0) _selectedBlockIndex = buildableBlocks.Count - 1;
+                }
+                else
+                {
+                    _selectedBlockIndex++;
+                    if (_selectedBlockIndex >= buildableBlocks.Count) _selectedBlockIndex = 0;
+                }
+            }
+        }
+
+        private void UpdateTargetBlock()
+        {
+            if (cameraTransform == null || _worldManager == null) return;
+
+            LayerMask currentMask = blockLayerMask | waterLayerMask;
+            Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
+
+            RaycastHit[] hits = UnityEngine.Physics.RaycastAll(ray, reachDistance, currentMask, QueryTriggerInteraction.Collide);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (var h in hits)
+            {
+                if (_playerCollider != null && h.collider == _playerCollider) continue;
+
+                Vector3 targetPoint = h.point + (h.normal * -0.01f);
+                Vector3Int blockPos = new Vector3Int(
+                    Mathf.FloorToInt(targetPoint.x),
+                    Mathf.FloorToInt(targetPoint.y),
+                    Mathf.FloorToInt(targetPoint.z)
+                );
+
+                BlockType blockType = _worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z);
+
+                // Воздух, воду и лаву пропускаем — подсвечивать можно только твердый блок
+                if (blockType == BlockType.Air || blockType == BlockType.Water || blockType == BlockType.Lava) continue;
+
+                _selectedBlockPos = blockPos;
+                _hasTargetBlock = true;
+                if (outlineRenderer != null) outlineRenderer.Show(_selectedBlockPos);
+                return;
+            }
+
+            _hasTargetBlock = false;
+            if (outlineRenderer != null) outlineRenderer.Hide();
+        }
+
+        private void HandleInput()
+        {
+            // Мгновенно сбрасываем таймер при отпускании кнопок, чтобы одиночные клики не задерживались
+            if (Input.GetMouseButtonUp(0) || Input.GetMouseButtonUp(1))
+            {
+                _actionTimer = 0f;
+            }
+
+            // ЛКМ — Разрушение (работает при зажатии GetMouseButton)
+            if (Input.GetMouseButton(0))
+            {
+                if (_actionTimer <= 0f)
+                {
+                    if (_netPlayer != null) _netPlayer.NotifySwing();
+
+                    if (_hasTargetBlock)
+                    {
+                        BreakBlock(_selectedBlockPos);
+                    }
+                    _actionTimer = actionInterval; // Сброс таймера на 0.25 сек
+                }
+            }
+
+            // ПКМ — Установка (работает при зажатии GetMouseButton)
+            if (Input.GetMouseButton(1))
+            {
+                if (_actionTimer <= 0f)
+                {
+                    if (_netPlayer != null) _netPlayer.NotifySwing();
+
+                    TryPlaceBlock();
+                    _actionTimer = actionInterval; // Сброс таймера на 0.25 сек
+                }
+            }
+        }
+
+        private void TryPlaceBlock()
+        {
+            if (cameraTransform == null || _worldManager == null) return;
+
+            LayerMask currentMask = blockLayerMask | waterLayerMask;
+            Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
+
+            RaycastHit[] hits = UnityEngine.Physics.RaycastAll(ray, reachDistance, currentMask, QueryTriggerInteraction.Collide);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (var h in hits)
+            {
+                if (_playerCollider != null && h.collider == _playerCollider) continue;
+
+                // Находим блок, по которому пришелся клик
+                Vector3 insidePoint = h.point - (h.normal * 0.01f);
+                Vector3Int hitBlockPos = new Vector3Int(
+                    Mathf.FloorToInt(insidePoint.x),
+                    Mathf.FloorToInt(insidePoint.y),
+                    Mathf.FloorToInt(insidePoint.z)
+                );
+
+                BlockType hitBlockType = _worldManager.GetBlockAtWorldPosition(hitBlockPos.x, hitBlockPos.y, hitBlockPos.z);
+
+                // Игнорируем воздух, воду и лаву при поиске опорной поверхности
+                if (hitBlockType == BlockType.Air || hitBlockType == BlockType.Water || hitBlockType == BlockType.Lava) continue;
+
+                // Проверяем, твердый ли блок, на который мы опираемся
+                if (_worldManager.BlockDatabase.TryGetValue(hitBlockType, out BlockDataSO hitData) && hitData.IsSolid)
+                {
+                    // Вычисляем позицию установки (на шаг наружу по нормали)
+                    Vector3 outsidePoint = h.point + (h.normal * 0.01f);
+                    Vector3Int placePos = new Vector3Int(
+                        Mathf.FloorToInt(outsidePoint.x),
+                        Mathf.FloorToInt(outsidePoint.y),
+                        Mathf.FloorToInt(outsidePoint.z)
+                    );
+
+                    // Проверяем, что за блок сейчас на позиции установки
+                    BlockType targetPosBlock = _worldManager.GetBlockAtWorldPosition(placePos.x, placePos.y, placePos.z);
+
+                    // Ставить можно только в Воздух, Воду или Лаву (замещая их)
+                    if (targetPosBlock == BlockType.Air || targetPosBlock == BlockType.Water || targetPosBlock == BlockType.Lava)
+                    {
+                        PlaceBlock(placePos);
+                    }
+
+                    break; // Опирание произошло об первый твердый блок
+                }
+            }
+        }
+
+        private void BreakBlock(Vector3Int blockPos)
+        {
+            BlockType brokenBlockType = _worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z);
+            if (brokenBlockType == BlockType.Air) return;
+
+            if (_worldManager.BlockDatabase != null && _worldManager.BlockDatabase.TryGetValue(brokenBlockType, out BlockDataSO blockData))
+            {
+                if (!blockData.IsBreakable) return;
+            }
+
+            _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, BlockType.Air);
+        }
+
+        private void PlaceBlock(Vector3Int blockPos)
+        {
+            BlockType selectedType = CurrentSelectedBlock;
+
+            if (_playerCollider != null && _worldManager.BlockDatabase.TryGetValue(selectedType, out BlockDataSO data))
+            {
+                if (data.IsSolid)
+                {
+                    Bounds blockBounds = new Bounds(blockPos + new Vector3(0.5f, 0.5f, 0.5f), Vector3.one * 0.9f);
+                    if (_playerCollider.bounds.Intersects(blockBounds)) return;
+                    if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return;
+                }
+            }
+
+            _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
+        }
+    }
+}
