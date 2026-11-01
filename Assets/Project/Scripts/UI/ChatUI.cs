@@ -239,7 +239,7 @@ namespace MinecraftClone.UI
             int maxLines = IsOpen ? 20 : 10;
             float lineH = fontSize + 6f;
             float width = Mathf.Min(Screen.width - 12f, 960f);
-            float baseY = Screen.height - 34f;
+            float baseY = Screen.height - 34f - 70f;
             int drawn = 0;
 
             for (int i = _lines.Count - 1; i >= 0 && drawn < maxLines; i--)

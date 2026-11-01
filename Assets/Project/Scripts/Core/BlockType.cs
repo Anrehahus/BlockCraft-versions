@@ -19,5 +19,7 @@ namespace MinecraftClone.Core
         GoldOre,
         OakLeaves,
         CoalOre,
+        Glass,
+        Sponge,
     }
 }

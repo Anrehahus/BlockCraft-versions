@@ -22,16 +22,11 @@ namespace MinecraftClone.Player
         [SerializeField] private LayerMask blockLayerMask; // Слой блоков
         [SerializeField] private LayerMask waterLayerMask; // Слой воды/жидкостей
 
-        [Header("Building Settings")]
-        [SerializeField]
-        private List<BlockType> buildableBlocks = new List<BlockType>
+        public static readonly BlockType[] HotbarBlocks =
         {
-            BlockType.Grass,
-            BlockType.Cobblestone,
-            BlockType.OakPlanks,
-            BlockType.Stone,
-            BlockType.Dirt,
-            BlockType.OakSapling
+            BlockType.Stone, BlockType.Dirt, BlockType.Sponge,
+            BlockType.OakPlanks, BlockType.OakSapling, BlockType.OakLog,
+            BlockType.OakLeaves, BlockType.Glass, BlockType.Gravel
         };
 
         private int _selectedBlockIndex = 0;
@@ -44,14 +39,8 @@ namespace MinecraftClone.Player
 
         private float _actionTimer = 0f; // Таймер для зажатия клавиш
 
-        public BlockType CurrentSelectedBlock
-        {
-            get
-            {
-                if (buildableBlocks == null || buildableBlocks.Count == 0) return BlockType.Stone;
-                return buildableBlocks[_selectedBlockIndex];
-            }
-        }
+        public BlockType CurrentSelectedBlock => HotbarBlocks[_selectedBlockIndex];
+        public int SelectedSlot => _selectedBlockIndex;
 
         private void Start()
         {
@@ -103,19 +92,11 @@ namespace MinecraftClone.Player
         private void HandleScrollWheel()
         {
             float scroll = Input.GetAxis("Mouse ScrollWheel");
-            if (scroll != 0f && buildableBlocks.Count > 0)
-            {
-                if (scroll > 0f)
-                {
-                    _selectedBlockIndex--;
-                    if (_selectedBlockIndex < 0) _selectedBlockIndex = buildableBlocks.Count - 1;
-                }
-                else
-                {
-                    _selectedBlockIndex++;
-                    if (_selectedBlockIndex >= buildableBlocks.Count) _selectedBlockIndex = 0;
-                }
-            }
+            if (scroll > 0f) _selectedBlockIndex = (_selectedBlockIndex + HotbarBlocks.Length - 1) % HotbarBlocks.Length;
+            else if (scroll < 0f) _selectedBlockIndex = (_selectedBlockIndex + 1) % HotbarBlocks.Length;
+
+            for (int i = 0; i < HotbarBlocks.Length; i++)
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i)) _selectedBlockIndex = i;
         }
 
         private void UpdateTargetBlock()

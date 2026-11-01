@@ -195,7 +195,7 @@ namespace MinecraftClone.Fluid
 
             // 1. ПОТОК ВНИЗ
             Vector3Int downPos = task.Pos + Vector3Int.down;
-            if (CanFlowInto(downPos))
+            if (CanFlowInto(downPos, task.FluidType))
             {
                 FlowTo(downPos, task.FluidType, 1, dirtyChunks);
                 return;
@@ -213,7 +213,7 @@ namespace MinecraftClone.Fluid
 
             foreach (var nPos in horizontalNeighbors)
             {
-                if (CanFlowInto(nPos))
+                if (CanFlowInto(nPos, task.FluidType))
                 {
                     int targetLevel = currentLevel + 1;
                     if (!fluidLevels.TryGetValue(nPos, out int existingLevel) || targetLevel < existingLevel)
@@ -271,7 +271,7 @@ namespace MinecraftClone.Fluid
             return fluidLevels.TryGetValue(pos, out int level) ? level : 0;
         }
 
-        private bool CanFlowInto(Vector3Int target)
+        private bool CanFlowInto(Vector3Int target, BlockType fluidType)
         {
             if (WorldManager.Instance == null || WorldManager.Instance.Config == null) return false;
 
@@ -280,6 +280,8 @@ namespace MinecraftClone.Fluid
 
             if (!WorldManager.Instance.IsChunkLoadedAtWorldPos(target.x, target.z))
                 return false;
+
+            if (fluidType == BlockType.Water && WorldManager.Instance.IsNearSponge(target)) return false;
 
             BlockType targetType = WorldManager.Instance.GetBlockAtWorldPosition(target.x, target.y, target.z);
 

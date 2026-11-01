@@ -183,6 +183,9 @@ namespace MinecraftClone.Rendering
                 return neighbor == BlockType.Air || neighbor == BlockType.Water || IsPlantBlock(neighbor);
             }
 
+            // стекло: грани между двумя стёклами скрываем, остальные соседи видны сквозь него
+            if (neighbor == BlockType.Glass) return current != BlockType.Glass;
+
             if (neighbor == BlockType.Air || neighbor == BlockType.Water || neighbor == BlockType.Lava || IsPlantBlock(neighbor))
             {
                 return true;

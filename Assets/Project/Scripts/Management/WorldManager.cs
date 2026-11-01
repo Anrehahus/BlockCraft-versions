@@ -77,6 +77,8 @@ namespace MinecraftClone.Management
 
         private Transform chunksParentContainer;
 
+        private readonly HashSet<Vector3Int> spongePositions = new HashSet<Vector3Int>();
+
         public WorldConfigSO Config => worldConfig;
         public Dictionary<BlockType, BlockDataSO> BlockDatabase => blockDatabase;
         public Dictionary<string, Rect> UVMap => stitcher != null ? stitcher.UVMap : null;
@@ -84,6 +86,30 @@ namespace MinecraftClone.Management
         public bool IsWorldReady => isWorldReady;
 
         public Dictionary<Vector2Int, ChunkData> ActiveChunks => loadedChunks;
+
+        // зона губки: 5x5 по горизонтали и 3 по высоте вокруг неё
+        public bool IsNearSponge(Vector3Int p)
+        {
+            if (spongePositions.Count == 0) return false;
+            foreach (var s in spongePositions)
+                if (Mathf.Abs(p.x - s.x) <= 2 && Mathf.Abs(p.z - s.z) <= 2 && Mathf.Abs(p.y - s.y) <= 1)
+                    return true;
+            return false;
+        }
+
+        private void AbsorbWaterAround(int sx, int sy, int sz)
+        {
+            var dirty = new HashSet<Vector2Int>();
+            for (int dx = -2; dx <= 2; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dz = -2; dz <= 2; dz++)
+                    {
+                        int x = sx + dx, y = sy + dy, z = sz + dz;
+                        if (GetBlockAtWorldPosition(x, y, z) == BlockType.Water)
+                            ApplyBlockChange(x, y, z, BlockType.Air, false, dirty);
+                    }
+            foreach (var c in dirty) RebuildChunkMesh(c);
+        }
 
         private void Awake()
         {
@@ -109,6 +135,11 @@ namespace MinecraftClone.Management
             if (FindFirstObjectByType<PlayerListUI>() == null)
             {
                 new GameObject("[PlayerList]").AddComponent<PlayerListUI>();
+            }
+
+            if (FindFirstObjectByType<PlayerHotbarUI>() == null)
+            {
+                new GameObject("[Hotbar]").AddComponent<PlayerHotbarUI>();
             }
 
             // SaveSystem должен существовать всегда, иначе загрузка и сохранение молча не работают
@@ -425,6 +456,8 @@ namespace MinecraftClone.Management
             pendingChunkData.Clear();
             modifiedChunks.Clear();
             lastPlayerChunkPos = new Vector2Int(int.MinValue, int.MinValue);
+
+            spongePositions.Clear();
         }
 
         public void GenerateNewWorld(int? newSeed = null)
@@ -443,6 +476,15 @@ namespace MinecraftClone.Management
             StartCoroutine(PrepareInitialSpawnArea(Vector3.zero));
         }
 
+        private void RegisterSponges(ChunkData chunk)
+        {
+            for (int x = 0; x < chunk.Width; x++)
+                for (int y = 0; y < chunk.Height; y++)
+                    for (int z = 0; z < chunk.Width; z++)
+                        if (chunk.Blocks[x, y, z] == BlockType.Sponge)
+                            spongePositions.Add(new Vector3Int(chunk.Position.x * chunk.Width + x, y, chunk.Position.y * chunk.Width + z));
+        }
+
         public void LoadWorldFromData(WorldBlocksData blocksData, PlayerSaveData playerData)
         {
             if (blocksData == null) return;
@@ -458,6 +500,7 @@ namespace MinecraftClone.Management
                     Vector2Int chunkPos = new Vector2Int(chunkSave.ChunkX, chunkSave.ChunkZ);
                     ChunkData chunkData = GetOrCreateChunkData(chunkPos, generateTerrain: false);
                     SaveSystem.Instance.DeserializeBlocks(chunkData, chunkSave);
+                    RegisterSponges(chunkData);
                 }
             }
 
@@ -1046,6 +1089,7 @@ namespace MinecraftClone.Management
             }
 
             ApplyBlockChange(worldX, worldY, worldZ, newType, rebuildMesh: true);
+            if (newType == BlockType.Sponge) AbsorbWaterAround(worldX, worldY, worldZ);
 
             if (newType == BlockType.Air && worldY + 1 < worldConfig.ChunkHeight)
             {
@@ -1084,6 +1128,9 @@ namespace MinecraftClone.Management
 
                 BlockType oldType = chunk.GetBlock(localX, worldY, localZ);
                 chunk.SetBlock(localX, worldY, localZ, type);
+                Vector3Int spongeKey = new Vector3Int(worldX, worldY, worldZ);
+                if (type == BlockType.Sponge) spongePositions.Add(spongeKey);
+                else if (oldType == BlockType.Sponge) spongePositions.Remove(spongeKey);
                 if (type == BlockType.Air && oldType != BlockType.Air && oldType != BlockType.Water && oldType != BlockType.Lava)
                 {
                     SpawnBreakEffect(new Vector3Int(worldX, worldY, worldZ), oldType);
