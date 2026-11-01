@@ -314,6 +314,23 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 11af7d80cadae814b8dd46b12db8eab5, type: 2}
   - {fileID: 11400000, guid: 43ebf8bdf28713e4084d2bdd820769ef, type: 2}
   - {fileID: 11400000, guid: 5b07feefab4caa343b8fd9ea27175e52, type: 2}
+  - {fileID: 11400000, guid: 6d3bba241f20d3d44aa15eb710563ba0, type: 2}
+  - {fileID: 11400000, guid: 19fea0279f5be95458f0c4e38b4dbc83, type: 2}
+  - {fileID: 11400000, guid: 0dc62027a72ccc7419e4c045f7fc3a52, type: 2}
+  - {fileID: 11400000, guid: fdf439a445d611146b972453c15f8c06, type: 2}
+  - {fileID: 11400000, guid: 19201ca8749fca14fa0362dd45876e9d, type: 2}
+  - {fileID: 11400000, guid: 1e6c03b1ee64f424693347d62447fc99, type: 2}
+  - {fileID: 11400000, guid: bacde0a1ddf317d42bfeb74ca59bbfbf, type: 2}
+  - {fileID: 11400000, guid: a87ce8b9ff2caa741bfdfb2e3581081b, type: 2}
+  - {fileID: 11400000, guid: d05b30a9b77ac1f47a7e595de81002f6, type: 2}
+  - {fileID: 11400000, guid: 7e832a4c2ed05f24face036002b3f6f8, type: 2}
+  - {fileID: 11400000, guid: cd8bb8cbd632d5c42afde3e98a28991d, type: 2}
+  - {fileID: 11400000, guid: bbc0e508c3582ae47938f2ba6e9c6c62, type: 2}
+  - {fileID: 11400000, guid: 6a62796ebd023804f94e69bbdb23bfdb, type: 2}
+  - {fileID: 11400000, guid: 22a49bc10bf701e43942a3d7f8433b72, type: 2}
+  - {fileID: 11400000, guid: 987fce583aa8d134792936008cbfc2bb, type: 2}
+  - {fileID: 11400000, guid: 3ff45a5fe4d8ba345b20044ba9ed3dcc, type: 2}
+  - {fileID: 11400000, guid: 15933592f24518a40babc8338f3febf1, type: 2}
   waterAnimationStrip: {fileID: 2800000, guid: e2dc62552126b94448c061a9529dbaa7, type: 3}
 --- !u!4 &577380496
 Transform:

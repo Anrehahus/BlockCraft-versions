@@ -25,6 +25,23 @@ namespace MinecraftClone.Core
         RedMushroom,
         Dandelion,
         Poppy,
+        GoldBlock,
+        WhiteWool,
+        OrangeWool,
+        MagentaWool,
+        LightBlueWool,
+        YellowWool,
+        LimeWool,
+        PinkWool,
+        GrayWool,
+        LightGrayWool,
+        CyanWool,
+        PurpleWool,
+        BlueWool,
+        BrownWool,
+        GreenWool,
+        RedWool,
+        BlackWool,
     }
 
     public static class BlockTypeUtil
