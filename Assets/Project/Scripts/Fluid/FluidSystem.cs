@@ -298,5 +298,21 @@ namespace MinecraftClone.Fluid
                 updateQueue.Enqueue(new FluidTask(targetPos, fluidType));
             }
         }
+
+        public void WakeWaterAround(Vector3Int c, int rx, int ry, int rz)
+        {
+            if (WorldManager.Instance == null) return;
+            for (int dx = -rx; dx <= rx; dx++)
+                for (int dy = -ry; dy <= ry; dy++)
+                    for (int dz = -rz; dz <= rz; dz++)
+                    {
+                        Vector3Int p = new Vector3Int(c.x + dx, c.y + dy, c.z + dz);
+                        if (WorldManager.Instance.GetBlockAtWorldPosition(p.x, p.y, p.z) == BlockType.Water
+                            && inQueue.Add(p))
+                        {
+                            updateQueue.Enqueue(new FluidTask(p, BlockType.Water));
+                        }
+                    }
+        }
     }
 }

@@ -1131,6 +1131,13 @@ namespace MinecraftClone.Management
                 Vector3Int spongeKey = new Vector3Int(worldX, worldY, worldZ);
                 if (type == BlockType.Sponge) spongePositions.Add(spongeKey);
                 else if (oldType == BlockType.Sponge) spongePositions.Remove(spongeKey);
+
+                if (oldType == BlockType.Sponge && type != BlockType.Sponge
+                    && FluidSystem.Instance != null && !(NetworkClient.active && !NetworkServer.active))
+                {
+                    FluidSystem.Instance.WakeWaterAround(new Vector3Int(worldX, worldY, worldZ), 3, 2, 3);
+                }
+
                 if (type == BlockType.Air && oldType != BlockType.Air && oldType != BlockType.Water && oldType != BlockType.Lava)
                 {
                     SpawnBreakEffect(new Vector3Int(worldX, worldY, worldZ), oldType);
