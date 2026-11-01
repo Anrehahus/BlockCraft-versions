@@ -59,7 +59,7 @@ namespace MinecraftClone.UI
             var db = WorldManager.Instance.BlockDatabase;
             foreach (BlockType t in System.Enum.GetValues(typeof(BlockType)))
             {
-                if (t == BlockType.Air) continue;
+                if (t == BlockType.Air || t == BlockType.Bedrock || t == BlockType.Water || t == BlockType.Lava) continue;
                 if (db != null && db.ContainsKey(t)) _blocks.Add(t);
             }
 

@@ -827,8 +827,8 @@ namespace MinecraftClone.Management
             {
                 BlockType type = chunk.GetBlock(localX, y, localZ);
 
-                // Воздух и саженец сверху пропускаем
-                if (type == BlockType.Air || type == BlockType.OakSapling) continue;
+                // Воздух и саженец/растения сверху пропускаем
+                if (type == BlockType.Air || type.IsPlant()) continue;
 
                 // Лаву пропускаем, на ней спавниться нельзя
                 if (type == BlockType.Lava) continue;
@@ -1105,11 +1105,11 @@ namespace MinecraftClone.Management
                     return false;
             }
 
-            if (newType == BlockType.OakSapling)
+            if (newType.IsPlant())
             {
+                if (currentBlock != BlockType.Air) return false;
                 BlockType blockBelow = GetBlockAtWorldPosition(worldX, worldY - 1, worldZ);
-                if (blockBelow != BlockType.Dirt && blockBelow != BlockType.Grass)
-                    return false;
+                if (!CanPlantOn(newType, blockBelow)) return false;
             }
 
             // чистый клиент: локальная проверка пройдена, отправляем запрос серверу.
@@ -1125,13 +1125,22 @@ namespace MinecraftClone.Management
 
             if (newType == BlockType.Air && worldY + 1 < worldConfig.ChunkHeight)
             {
-                if (GetBlockAtWorldPosition(worldX, worldY + 1, worldZ) == BlockType.OakSapling)
+                if (GetBlockAtWorldPosition(worldX, worldY + 1, worldZ).IsPlant())
                 {
                     ApplyBlockChange(worldX, worldY + 1, worldZ, BlockType.Air, rebuildMesh: true);
                 }
             }
 
             return true;
+        }
+
+        private static bool CanPlantOn(BlockType plant, BlockType below)
+        {
+            if (plant == BlockType.BrownMushroom || plant == BlockType.RedMushroom)
+                return below != BlockType.Air && below != BlockType.Water && below != BlockType.Lava
+                       && below != BlockType.OakLeaves && !below.IsPlant();
+
+            return below == BlockType.Dirt || below == BlockType.Grass; // саженец, одуванчик, мак
         }
 
         private void SpawnBreakEffect(Vector3Int pos, BlockType oldType)

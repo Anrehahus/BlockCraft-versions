@@ -175,7 +175,7 @@ namespace MinecraftClone.Rendering
 
         private bool IsPlantBlock(BlockType type)
         {
-            return type == BlockType.OakSapling;
+            return type.IsPlant();
         }
 
         private bool ShouldRenderFace(BlockType current, BlockType neighbor)

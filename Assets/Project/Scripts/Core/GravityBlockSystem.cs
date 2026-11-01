@@ -76,7 +76,7 @@ namespace MinecraftClone.Physics
             return targetType == BlockType.Air ||
                    targetType == BlockType.Water ||
                    targetType == BlockType.Lava ||
-                   targetType == BlockType.OakSapling;
+                   targetType.IsPlant();
         }
 
         private IEnumerator FallRoutine(Vector3Int startPos, BlockType blockType)

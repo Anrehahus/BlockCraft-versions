@@ -270,7 +270,6 @@ namespace MinecraftClone.Fluid
         {
             return fluidLevels.TryGetValue(pos, out int level) ? level : 0;
         }
-
         private bool CanFlowInto(Vector3Int target, BlockType fluidType)
         {
             if (WorldManager.Instance == null || WorldManager.Instance.Config == null) return false;
@@ -285,7 +284,7 @@ namespace MinecraftClone.Fluid
 
             BlockType targetType = WorldManager.Instance.GetBlockAtWorldPosition(target.x, target.y, target.z);
 
-            return targetType == BlockType.Air || targetType == BlockType.OakSapling;
+            return targetType == BlockType.Air || targetType.IsPlant();
         }
 
         private void FlowTo(Vector3Int targetPos, BlockType fluidType, int level, HashSet<Vector2Int> dirtyChunks)

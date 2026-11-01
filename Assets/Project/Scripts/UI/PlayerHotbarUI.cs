@@ -125,7 +125,7 @@ namespace MinecraftClone.UI
         {
             Color32[] px = new Color32[IconSize * IconSize];
 
-            if (type == BlockType.OakSapling) DrawFlat(px, top);
+            if (type.IsPlant()) DrawFlat(px, top);
             else DrawCube(px, top, side);
 
             Texture2D tex = new Texture2D(IconSize, IconSize, TextureFormat.RGBA32, false);
