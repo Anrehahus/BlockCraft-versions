@@ -53,6 +53,8 @@ namespace MinecraftClone.Management
         [Header("База данных блоков")]
         [SerializeField] private List<BlockDataSO> blockTypes;
 
+        [SerializeField] private Texture2D waterAnimationStrip;
+
         private Dictionary<BlockType, BlockDataSO> blockDatabase;
         private Dictionary<Vector2Int, ChunkData> loadedChunks = new Dictionary<Vector2Int, ChunkData>();
         private Dictionary<Vector2Int, ChunkRenderer> chunkRenderers = new Dictionary<Vector2Int, ChunkRenderer>();
@@ -915,7 +917,32 @@ namespace MinecraftClone.Management
             {
                 stitcher = new TextureStitcher(4);
                 stitcher.StitchTextures(new List<Texture2D>(allTextures).ToArray(), blocksMaterial);
+
+                ApplyAtlas(waterMaterial);
+                SetupBlockAnimation(BlockType.Water, waterAnimationStrip);
             }
+        }
+
+        private void ApplyAtlas(Material m)
+        {
+            if (m == null || stitcher == null) return;
+            m.mainTexture = stitcher.AtlasTexture;
+            if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", stitcher.AtlasTexture); // URP
+            if (m.HasProperty("_MainTex")) m.SetTexture("_MainTex", stitcher.AtlasTexture); // Built-in
+        }
+
+        private void SetupBlockAnimation(BlockType type, Texture2D strip)
+        {
+            if (strip == null) { Debug.LogWarning($"[Anim] Лента для {type} не назначена в инспекторе WorldManager."); return; }
+            if (blockDatabase == null || !blockDatabase.TryGetValue(type, out BlockDataSO d) || d == null)
+            { Debug.LogWarning($"[Anim] BlockDataSO для {type} не найден."); return; }
+
+            Texture2D baseTex = d.TopTexture != null ? d.TopTexture : d.SideTexture;
+            if (baseTex == null || !stitcher.UVMap.TryGetValue(baseTex.name, out Rect uv))
+            { Debug.LogWarning($"[Anim] Текстура блока {type} не найдена в атласе."); return; }
+
+            gameObject.AddComponent<TextureAnimator>().Init(stitcher.AtlasTexture, uv, strip);
+            Debug.Log($"[Anim] Анимация {type} запущена, текстура '{baseTex.name}'.");
         }
 
         public Vector2Int GetChunkCoordFromPosition(Vector3 position)

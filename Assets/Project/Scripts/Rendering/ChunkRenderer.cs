@@ -131,6 +131,13 @@ namespace MinecraftClone.Rendering
                 return;
             }
 
+            float waterTop = 1f;
+            if (type == BlockType.Water)
+            {
+                BlockType above = y + 1 < chunkData.Height ? chunkData.GetBlock(x, y + 1, z) : BlockType.Air;
+                if (above == BlockType.Air || IsPlantBlock(above)) waterTop = 0.8f;
+            }
+
             Vector3Int[] directions = Directions;
 
             int width = chunkData.Width;
@@ -161,7 +168,7 @@ namespace MinecraftClone.Rendering
 
                 if (ShouldRenderFace(type, neighborType))
                 {
-                    AddFaceData(x, y, z, i, type, blockDatabase, uvMap);
+                    AddFaceData(x, y, z, i, type, blockDatabase, uvMap, waterTop);
                 }
             }
         }
@@ -199,7 +206,8 @@ namespace MinecraftClone.Rendering
             int faceIndex,
             BlockType type,
             Dictionary<BlockType, BlockDataSO> blockDatabase,
-            Dictionary<string, Rect> uvMap)
+            Dictionary<string, Rect> uvMap,
+            float topY = 1f)
         {
             int vCount = vertices.Count;
             Vector3 blockPos = new Vector3(x, y, z);
@@ -207,7 +215,9 @@ namespace MinecraftClone.Rendering
             Vector3[] faceVerts = GetFaceVertices(faceIndex);
             for (int i = 0; i < 4; i++)
             {
-                vertices.Add(blockPos + faceVerts[i]);
+                Vector3 fv = faceVerts[i];
+                if (type == BlockType.Water && fv.y > 0.5f) fv.y = topY;
+                vertices.Add(blockPos + fv);
             }
 
             if (type == BlockType.Water)
