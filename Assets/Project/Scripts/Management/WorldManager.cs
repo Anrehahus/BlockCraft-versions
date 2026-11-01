@@ -925,7 +925,9 @@ namespace MinecraftClone.Management
                 stitcher.StitchTextures(new List<Texture2D>(allTextures).ToArray(), blocksMaterial);
 
                 ApplyAtlas(waterMaterial);
-                SetupBlockAnimation(BlockType.Water, waterAnimationStrip);
+                ApplyAtlas(lavaMaterial);
+                SetupBlockAnimation(BlockType.Water, waterAnimationStrip, 0.1f);
+                SetupBlockAnimation(BlockType.Lava, lavaAnimationStrip, 0.15f);
             }
         }
 
@@ -937,7 +939,7 @@ namespace MinecraftClone.Management
             if (m.HasProperty("_MainTex")) m.SetTexture("_MainTex", stitcher.AtlasTexture); // Built-in
         }
 
-        private void SetupBlockAnimation(BlockType type, Texture2D strip)
+        private void SetupBlockAnimation(BlockType type, Texture2D strip, float frameTime)
         {
             if (strip == null) { Debug.LogWarning($"[Anim] Лента для {type} не назначена в инспекторе WorldManager."); return; }
             if (blockDatabase == null || !blockDatabase.TryGetValue(type, out BlockDataSO d) || d == null)
@@ -947,7 +949,7 @@ namespace MinecraftClone.Management
             if (baseTex == null || !stitcher.UVMap.TryGetValue(baseTex.name, out Rect uv))
             { Debug.LogWarning($"[Anim] Текстура блока {type} не найдена в атласе."); return; }
 
-            gameObject.AddComponent<TextureAnimator>().Init(stitcher.AtlasTexture, uv, strip);
+            gameObject.AddComponent<TextureAnimator>().Init(stitcher.AtlasTexture, uv, strip, frameTime);
             Debug.Log($"[Anim] Анимация {type} запущена, текстура '{baseTex.name}'.");
         }
 

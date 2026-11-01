@@ -13,13 +13,13 @@ namespace MinecraftClone.Rendering
         private int _index;
         private float _timer;
 
-        public void Init(Texture2D atlas, Rect uv, Texture2D strip)
+        public void Init(Texture2D atlas, Rect uvRect, Texture2D strip, float frameTime)
         {
             this.frameTime = frameTime;
             _atlas = atlas;
-            _x = Mathf.RoundToInt(uv.x * atlas.width);
-            _y = Mathf.RoundToInt(uv.y * atlas.height);
-            _size = Mathf.RoundToInt(uv.width * atlas.width);
+            _x = Mathf.RoundToInt(uvRect.x * atlas.width);
+            _y = Mathf.RoundToInt(uvRect.y * atlas.height);
+            _size = Mathf.RoundToInt(uvRect.width * atlas.width);
 
             int count = strip.height / strip.width;
             if (count < 2 || strip.width != _size)
