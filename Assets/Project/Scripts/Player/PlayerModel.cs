@@ -2,6 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
 using MinecraftClone.Networking;
+using MinecraftClone.Management;
+using MinecraftClone.Audio;
+using MinecraftClone.Core;
 
 namespace MinecraftClone.Player
 {
@@ -20,6 +23,7 @@ namespace MinecraftClone.Player
         private NetworkPlayer _netPlayer;
         private Camera _playerCamera;
 
+        private float _stepDist;
         private Vector3 _lastPos;
         private float _phase, _amount, _pitch;
         private bool _visible = true;
@@ -28,6 +32,21 @@ namespace MinecraftClone.Player
         private const float SwingDuration = 0.3f;
 
         public void Swing() { _swingTimer = 0f; }
+
+        public void SetSkin(Texture2D tex)
+        {
+            if (tex == null) return;
+            skin = tex;
+            if (_head == null) return;          // модель ещё не построена, Start возьмёт skin сам
+
+            if (_material != null) Destroy(_material);
+            Transform old = transform.Find("Model");
+            if (old != null) { old.name = "Model_old"; old.gameObject.SetActive(false); Destroy(old.gameObject); }
+
+            BuildMaterial();
+            BuildModel();
+            _visible = true;                    // чтобы UpdateVisibility заново применил видимость
+        }
 
         private void Start()
         {
@@ -193,6 +212,7 @@ namespace MinecraftClone.Player
 
             _amount = Mathf.Lerp(_amount, Mathf.Clamp01(speed / 4.3f), 10f * dt);
             _phase += dist * 4f;
+            UpdateFootsteps(dist);
 
             float swing = Mathf.Cos(_phase * 0.6662f);
             float leg = swing * 1.4f * _amount * Mathf.Rad2Deg;
@@ -239,6 +259,25 @@ namespace MinecraftClone.Player
             _visible = show;
             foreach (var r in _renderers)
                 if (r != null) r.enabled = show;
+        }
+
+        private void UpdateFootsteps(float dist)
+        {
+            if (dist <= 0f || WorldManager.Instance == null) return;
+
+            Vector3 p = transform.position;
+            float fy = p.y - Mathf.Floor(p.y);
+            bool grounded = fy < 0.2f || fy > 0.97f;   // ноги на уровне верха блока
+            if (!grounded) return;
+
+            _stepDist += dist;
+            if (_stepDist < 1.8f) return;
+            _stepDist = 0f;
+
+            BlockType below = WorldManager.Instance.GetBlockAtWorldPosition(
+                Mathf.FloorToInt(p.x), Mathf.FloorToInt(p.y - 0.25f), Mathf.FloorToInt(p.z));
+
+            BlockSounds.Play(below, p, 0.3f, 1.0f);
         }
     }
 }

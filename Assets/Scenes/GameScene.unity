@@ -360,7 +360,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f40f8f3a7fe68ce4f9665fdec47abe24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.UI.DebugInfoUI
-  gameVersion: 0.0.21a
+  gameVersion: 0.0.22a
   customFont: {fileID: 12800000, guid: 137924745e2665348887e144f9cefb97, type: 3}
   fontSize: 24
   textColor: {r: 1, g: 1, b: 1, a: 1}

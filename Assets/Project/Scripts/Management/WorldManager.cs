@@ -13,6 +13,7 @@ using MinecraftClone.Player;
 using MinecraftClone.UI;
 using MinecraftClone.Networking;
 using MinecraftClone.Effects;
+using MinecraftClone.Audio;
 
 namespace MinecraftClone.Management
 {
@@ -148,6 +149,11 @@ namespace MinecraftClone.Management
             if (FindFirstObjectByType<InventoryUI>() == null)
             {
                 new GameObject("[Inventory]").AddComponent<InventoryUI>();
+            }
+
+            if (FindFirstObjectByType<MusicPlayer>() == null)
+            {
+                new GameObject("[Music]").AddComponent<MusicPlayer>();
             }
 
             // SaveSystem должен существовать всегда, иначе загрузка и сохранение молча не работают
@@ -1186,6 +1192,10 @@ namespace MinecraftClone.Management
                 {
                     SpawnBreakEffect(new Vector3Int(worldX, worldY, worldZ), oldType);
                 }
+
+                Vector3 soundPos = new Vector3(worldX + 0.5f, worldY + 0.5f, worldZ + 0.5f);
+                if (type == BlockType.Air) BlockSounds.Play(oldType, soundPos, 0.8f, 0.8f);   // ломание
+                else if (type != oldType) BlockSounds.Play(type, soundPos, 0.8f, 1.0f);       // установка
 
                 BroadcastBlock(new Vector3Int(worldX, worldY, worldZ), type);
 
