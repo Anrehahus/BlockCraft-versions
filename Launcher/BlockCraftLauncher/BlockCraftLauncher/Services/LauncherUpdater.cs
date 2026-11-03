@@ -87,7 +87,10 @@ public static class LauncherUpdater
             src = Directory.GetDirectories(src)[0];
 
         string exe = Environment.ProcessPath!;
-        string dst = AppContext.BaseDirectory.TrimEnd('\\');
+        string dst = Path.GetDirectoryName(exe)!;
+
+        if (!File.Exists(Path.Combine(src, Path.GetFileName(exe))))
+            throw new InvalidOperationException("В архиве обновления нет " + Path.GetFileName(exe));
         int pid = Environment.ProcessId;
 
         string script = $"""

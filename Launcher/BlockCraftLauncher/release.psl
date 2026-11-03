@@ -1,0 +1,40 @@
+param([string]$Notes = "")
+
+$repo = "Anrehahus/BlockCraft-versions"
+$tag  = "Launcher"
+Set-Location $PSScriptRoot
+$proj = "BlockCraftLauncher\BlockCraftLauncher.csproj"
+
+# версия берётся из .csproj, поэтому разойтись с релизом она не может
+$version = ([xml](Get-Content $proj -Raw)).Project.PropertyGroup.Version |
+           Where-Object { $_ } | Select-Object -First 1
+if (-not $version) { Write-Error "В .csproj не найден <Version>"; exit 1 }
+
+Remove-Item publish, BlockCraftLauncher.zip, launcher.json -Recurse -Force -ErrorAction SilentlyContinue
+dotnet publish $proj -c Release -r win-x64 --self-contained true -o publish
+if ($LASTEXITCODE -ne 0) { Write-Error "dotnet publish не удался"; exit 1 }
+
+Compress-Archive -Path "publish\*" -DestinationPath BlockCraftLauncher.zip -Force
+
+$size = (Get-Item BlockCraftLauncher.zip).Length
+$json = @{ version = "$version"; notes = $Notes; size = $size } | ConvertTo-Json
+[System.IO.File]::WriteAllText("$PSScriptRoot\launcher.json", $json, (New-Object System.Text.UTF8Encoding($false)))
+
+gh release view $tag -R $repo *> $null
+if ($LASTEXITCODE -ne 0) {
+    gh release create $tag -R $repo --title "$version" --notes "$Notes" --latest=false
+    if ($LASTEXITCODE -ne 0) { Write-Error "Не удалось создать релиз"; exit 1 }
+}
+
+# сначала архив, и только потом launcher.json, чтобы никто не увидел версию без файла
+$files = @("BlockCraftLauncher.zip")
+if (Test-Path "BlockCraftLauncherSetup.exe") { $files += "BlockCraftLauncherSetup.exe" }
+gh release upload $tag @files --clobber -R $repo
+if ($LASTEXITCODE -ne 0) { Write-Error "Не удалось загрузить архив"; exit 1 }
+gh release upload $tag launcher.json --clobber -R $repo
+if ($LASTEXITCODE -ne 0) { Write-Error "Не удалось загрузить launcher.json"; exit 1 }
+
+if ($Notes) { gh release edit $tag -R $repo --title "$version" --notes "$Notes" --latest=false }
+else        { gh release edit $tag -R $repo --title "$version" --latest=false }
+
+Write-Host "Готово: лаунчер $version опубликован"

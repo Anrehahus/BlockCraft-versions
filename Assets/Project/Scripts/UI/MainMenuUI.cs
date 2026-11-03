@@ -52,6 +52,8 @@ namespace MinecraftClone.UI
         [SerializeField] private TMP_FontAsset customTmpFont;
         [SerializeField] private Font customLegacyFont;
 
+        [SerializeField] private Button optionsBtn;
+
         private bool isDeleteMode = false;
         private int slotPendingDelete = -1;
 
@@ -108,6 +110,8 @@ namespace MinecraftClone.UI
             if (backFromWorldSelectBtn != null) backFromWorldSelectBtn.onClick.AddListener(ShowMainMenu);
             if (backFromMultiplayerBtn != null) backFromMultiplayerBtn.onClick.AddListener(ShowMainMenu);
             if (connectButton != null) connectButton.onClick.AddListener(StartMultiplayerClient);
+            if (optionsBtn == null) optionsBtn = FindButtonByNameContains("options", "настройки");
+            if (optionsBtn != null) { optionsBtn.interactable = true; optionsBtn.onClick.AddListener(OpenSettings); }
 
             for (int i = 0; i < worldSlotButtons.Length; i++)
             {
@@ -124,6 +128,12 @@ namespace MinecraftClone.UI
             }
 
             BuildInPlaceDeleteUI();
+        }
+
+        private void OpenSettings()
+        {
+            if (mainMenuPanel != null) mainMenuPanel.SetActive(false); // чтобы кнопки под настройками не нажимались
+            MinecraftClone.UI.SettingsMenuUI.Open(ShowMainMenu);
         }
 
         public void ResetCursor()
@@ -214,9 +224,19 @@ namespace MinecraftClone.UI
             btnObj.transform.SetParent(parent, false);
 
             Image img = btnObj.AddComponent<Image>();
-            img.color = new Color(0.2f, 0.2f, 0.2f, 0.95f);
+            img.sprite = Resources.Load<Sprite>("UI/button");
+            img.type = Image.Type.Sliced;
+            img.color = Color.white;
 
             Button btn = btnObj.AddComponent<Button>();
+            btn.transition = Selectable.Transition.SpriteSwap;
+            btn.spriteState = new SpriteState
+            {
+                highlightedSprite = Resources.Load<Sprite>("UI/button_hover"),
+                pressedSprite = Resources.Load<Sprite>("UI/button_hover"),
+                selectedSprite = Resources.Load<Sprite>("UI/button"),
+                disabledSprite = Resources.Load<Sprite>("UI/button_disabled")
+            };
             btn.onClick.AddListener(() => onClick?.Invoke());
 
             RectTransform rect = btnObj.GetComponent<RectTransform>();

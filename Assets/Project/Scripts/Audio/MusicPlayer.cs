@@ -36,6 +36,8 @@ namespace MinecraftClone.Audio
 
         private void Update()
         {
+            if (_src != null) _src.volume = Volume * GameSettings.Music;
+
             if (_tracks == null || _tracks.Length == 0) return;
 
             if (_src.isPlaying)

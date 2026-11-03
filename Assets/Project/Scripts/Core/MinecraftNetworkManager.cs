@@ -27,6 +27,8 @@ namespace MinecraftClone.Networking
         public int Seed;
     }
 
+    public struct ViewDistanceMessage : NetworkMessage { public int Chunks; }
+
     public struct BlockChangeRequestMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct BlockChangeMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct ChunkRequestMessage : NetworkMessage { public int X; public int Z; }
@@ -165,7 +167,13 @@ namespace MinecraftClone.Networking
             base.OnServerConnect(conn);
             if (conn == NetworkServer.localConnection) return;
             if (_bans.Ips.Contains(NormalizeIp(conn.address)))
+            {
                 KickConnection(conn, "Ваш IP-адрес забанен на этом сервере");
+            }
+            else
+            {
+                conn.Send(new ViewDistanceMessage { Chunks = GameSettings.ViewDistance });
+            }
         }
 
         public override void OnServerAddPlayer(NetworkConnectionToClient conn)
@@ -707,6 +715,7 @@ namespace MinecraftClone.Networking
             NetworkClient.RegisterHandler<BlockChangeMessage>(OnClientBlockChange);
             NetworkClient.RegisterHandler<ChunkDataMessage>(OnClientChunkData);
             NetworkClient.RegisterHandler<ChatMessage>(OnClientChat);
+            NetworkClient.RegisterHandler<ViewDistanceMessage>(OnClientViewDistance);
         }
 
         public override void OnClientConnect()
@@ -791,6 +800,12 @@ namespace MinecraftClone.Networking
             ChatUI.AddMessage(msg.Text, msg.Kind); // хост тоже получает своё сообщение через SendToAll
         }
 
+        private void OnClientViewDistance(ViewDistanceMessage msg)
+        {
+            if (NetworkServer.active) return; // хост себя не ограничивает
+            WorldManager.ApplyHostLimit(msg.Chunks);
+        }
+
         public override void OnStopHost() { base.OnStopHost(); ResetWorldAndCursor(); }
         public override void OnStopClient() { base.OnStopClient(); ResetWorldAndCursor(); }
         public override void OnStopServer()
@@ -803,6 +818,7 @@ namespace MinecraftClone.Networking
         private void ResetWorldAndCursor()
         {
             if (WorldManager.Instance != null) WorldManager.Instance.OnHostOrClientStopped();
+            WorldManager.HostViewLimit = int.MaxValue;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }

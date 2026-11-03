@@ -37,11 +37,11 @@ namespace MinecraftClone.UI
         {
             if (!IsOpen)
             {
-                if (Input.GetKeyDown(KeyCode.B) && Allowed()) Open();
+                if (GameSettings.Pressed(GameSettings.Bind.Inventory) && Allowed()) Open();
                 return;
             }
 
-            if (Input.GetKeyDown(KeyCode.B) || Input.GetKeyDown(KeyCode.Escape) || !Allowed())
+            if (GameSettings.Pressed(GameSettings.Bind.Inventory) || Input.GetKeyDown(KeyCode.Escape) || !Allowed())
             {
                 Close();
                 return;

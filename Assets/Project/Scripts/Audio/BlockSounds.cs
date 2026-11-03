@@ -116,7 +116,7 @@ namespace MinecraftClone.Audio
 
             src.transform.position = position;
             src.pitch = pitch * Random.Range(0.92f, 1.08f);
-            src.volume = volume;
+            src.volume = volume * MinecraftClone.Management.GameSettings.Blocks;
             src.clip = arr[Random.Range(0, arr.Length)];
             src.Play();
         }

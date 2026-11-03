@@ -326,8 +326,19 @@ namespace MinecraftClone.Management
             GameObject btnObj = new GameObject(name);
             btnObj.transform.SetParent(parent, false);
             Image img = btnObj.AddComponent<Image>();
-            img.color = new Color(0.35f, 0.35f, 0.35f, 1f);
+            img.sprite = Resources.Load<Sprite>("UI/button");
+            img.type = Image.Type.Sliced;
+            img.color = Color.white;
+
             Button btn = btnObj.AddComponent<Button>();
+            btn.transition = Selectable.Transition.SpriteSwap;
+            btn.spriteState = new SpriteState
+            {
+                highlightedSprite = Resources.Load<Sprite>("UI/button_hover"),
+                pressedSprite = Resources.Load<Sprite>("UI/button_hover"),
+                selectedSprite = Resources.Load<Sprite>("UI/button"),
+                disabledSprite = Resources.Load<Sprite>("UI/button_disabled")
+            };
             btn.onClick.AddListener(() => onClick?.Invoke());
 
             RectTransform rect = btnObj.GetComponent<RectTransform>();

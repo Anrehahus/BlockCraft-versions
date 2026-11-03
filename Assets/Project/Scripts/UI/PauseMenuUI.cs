@@ -114,9 +114,13 @@ namespace MinecraftClone.UI
             _backgroundTexture = CreateColorTexture(new Color(0f, 0f, 0f, 0.65f));
             _dirtTileTexture = CreateDirtTexture();
 
-            _buttonNormalTex = CreateButtonTexture(new Color(0.42f, 0.42f, 0.42f, 1f));
-            _buttonHoverTex = CreateButtonTexture(new Color(0.52f, 0.52f, 0.65f, 1f));
-            _buttonDisabledTex = CreateButtonTexture(new Color(0.2f, 0.2f, 0.2f, 0.6f));
+            _buttonNormalTex = Resources.Load<Texture2D>("UI/button") ?? CreateButtonTexture(new Color(0.42f, 0.42f, 0.42f, 1f));
+            _buttonHoverTex = Resources.Load<Texture2D>("UI/button_hover") ?? CreateButtonTexture(new Color(0.52f, 0.52f, 0.65f, 1f));
+            _buttonNormalTex.filterMode = FilterMode.Point;
+            _buttonHoverTex.filterMode = FilterMode.Point;
+            if (Resources.Load<Texture2D>("UI/button") == null) Debug.LogError("[Pause] UI/button НЕ найден, рисую кодом");
+            if (Resources.Load<Texture2D>("UI/button_hover") == null) Debug.LogError("[Pause] UI/button_hover НЕ найден");
+            _buttonDisabledTex = Resources.Load<Texture2D>("UI/button_disabled") ?? CreateButtonTexture(new Color(0.2f, 0.2f, 0.2f, 0.6f));
 
             _progressBarBgTex = CreateColorTexture(new Color(0.2f, 0.2f, 0.2f, 1f));
             _progressBarFillTex = CreateColorTexture(new Color(0.35f, 0.85f, 0.35f, 1f));
@@ -136,8 +140,6 @@ namespace MinecraftClone.UI
 
             if (_backgroundTexture != null) Destroy(_backgroundTexture);
             if (_dirtTileTexture != null) Destroy(_dirtTileTexture);
-            if (_buttonNormalTex != null) Destroy(_buttonNormalTex);
-            if (_buttonHoverTex != null) Destroy(_buttonHoverTex);
             if (_buttonDisabledTex != null) Destroy(_buttonDisabledTex);
             if (_progressBarBgTex != null) Destroy(_progressBarBgTex);
             if (_progressBarFillTex != null) Destroy(_progressBarFillTex);
@@ -236,10 +238,12 @@ namespace MinecraftClone.UI
             {
                 alignment = TextAnchor.MiddleCenter,
                 fontSize = buttonFontSize,
-                fontStyle = FontStyle.Normal
+                fontStyle = FontStyle.Normal,
+                border = new RectOffset(3, 3, 3, 3)
             };
             _buttonStyle.normal.background = _buttonNormalTex;
             _buttonStyle.hover.background = _buttonHoverTex;
+            _buttonStyle.active.background = _buttonHoverTex;
             _buttonStyle.normal.textColor = Color.white;
             _buttonStyle.hover.textColor = new Color(1f, 1f, 0.6f, 1f);
             if (customFont != null) _buttonStyle.font = customFont;
@@ -253,6 +257,7 @@ namespace MinecraftClone.UI
             _disabledButtonStyle = new GUIStyle(_buttonStyle);
             _disabledButtonStyle.normal.background = _buttonDisabledTex;
             _disabledButtonStyle.hover.background = _buttonDisabledTex;
+            _disabledButtonStyle.active.background = _buttonDisabledTex;
             _disabledButtonStyle.normal.textColor = new Color(0.5f, 0.5f, 0.5f, 1f);
             _disabledButtonStyle.hover.textColor = new Color(0.5f, 0.5f, 0.5f, 1f);
         }
@@ -261,7 +266,8 @@ namespace MinecraftClone.UI
         {
             if (SceneManager.GetActiveScene().name == mainMenuSceneName) return;
 
-            if (!_isGenerating && !ChatUI.IsOpen && !InventoryUI.IsOpen && InventoryUI.ClosedFrame != Time.frameCount
+            if (!_isGenerating && !ChatUI.IsOpen && !SettingsMenuUI.IsOpen
+                && SettingsMenuUI.ClosedFrame != Time.frameCount
                 && Input.GetKeyDown(KeyCode.Escape))
             {
                 if (_isPaused && _currentState != MenuState.Main)
@@ -321,6 +327,8 @@ namespace MinecraftClone.UI
         private void OnGUI()
         {
             if (SceneManager.GetActiveScene().name == mainMenuSceneName) return;
+
+            if (SettingsMenuUI.IsOpen) return; // меню настроек рисуется поверх
 
             if (!_isPaused && !_isGenerating) return;
 
@@ -400,7 +408,7 @@ namespace MinecraftClone.UI
 
         private void OnSettingsClicked()
         {
-            _networkStatusMessage = "Настройки (В разработке)";
+            SettingsMenuUI.Open(null);
         }
 
         private void DrawSlotsMenu(string title, bool isSaveMode)

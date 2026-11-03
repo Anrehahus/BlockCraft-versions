@@ -26,6 +26,11 @@ namespace MinecraftClone.UI
         private string _input = "";
         private int _openedFrame = -1;
 
+        private string _tabHead = "";
+        private string _tabLast = null;
+        private readonly List<string> _tabNames = new List<string>();
+        private int _tabIndex = -1;
+
         private GUIStyle _style;
         private Font _font;
 
@@ -83,6 +88,7 @@ namespace MinecraftClone.UI
             _input = prefix;
             _historyIndex = -1;
             _openedFrame = Time.frameCount;
+            _tabLast = null;
         }
 
         private void Close()
@@ -90,6 +96,7 @@ namespace MinecraftClone.UI
             IsOpen = false;
             _input = "";
             _historyIndex = -1;
+            _tabLast = null;
         }
 
         private void Update()
@@ -154,6 +161,41 @@ namespace MinecraftClone.UI
             }
 
             _input = _history[_historyIndex];
+            _tabLast = null;
+        }
+
+        private void CompleteNick()
+        {
+            // новый цикл, если текст изменили после прошлого Tab
+            if (_tabLast == null || _input != _tabLast)
+            {
+                int sp = _input.LastIndexOf(' ');
+                _tabHead = _input.Substring(0, sp + 1);
+                string partial = _input.Substring(sp + 1);
+
+                _tabNames.Clear();
+                if (NetworkClient.active && NetworkClient.isConnected)
+                {
+                    foreach (NetworkIdentity ni in NetworkClient.spawned.Values)
+                    {
+                        if (ni == null) continue;
+                        var p = ni.GetComponent<NetworkPlayer>();
+                        if (p != null && !string.IsNullOrEmpty(p.Nickname)
+                            && p.Nickname.StartsWith(partial, System.StringComparison.OrdinalIgnoreCase))
+                            _tabNames.Add(p.Nickname);
+                    }
+                    _tabNames.Sort(System.StringComparer.OrdinalIgnoreCase);
+                }
+                _tabIndex = -1;
+            }
+
+            if (_tabNames.Count == 0) return;
+
+            _tabIndex = (_tabIndex + 1) % _tabNames.Count;
+            string res = _tabHead + _tabNames[_tabIndex];
+            if (res.Length > MaxLength) return;
+            _input = res;
+            _tabLast = res;
         }
 
         private void HandleKeys(Event e)
@@ -173,6 +215,8 @@ namespace MinecraftClone.UI
                 case KeyCode.Backspace:
                     if (_input.Length > 0) _input = _input.Substring(0, _input.Length - 1);
                     e.Use(); return;
+                case KeyCode.Tab:
+                    CompleteNick(); e.Use(); return;
                 case KeyCode.UpArrow:
                     BrowseHistory(-1); e.Use(); return;
                 case KeyCode.DownArrow:
@@ -183,6 +227,7 @@ namespace MinecraftClone.UI
             if (c >= ' ' && c != (char)127 && _input.Length < MaxLength)
             {
                 _input += c;
+                _tabLast = null;
                 e.Use();
             }
         }

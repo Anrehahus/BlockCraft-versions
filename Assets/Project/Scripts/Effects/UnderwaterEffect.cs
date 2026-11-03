@@ -122,6 +122,7 @@ namespace MinecraftClone.Effects
 
                 case LiquidState.None:
                 default:
+                    if (worldManager != null) { _defaultFogStart = worldManager.FogStart; _defaultFogEnd = worldManager.FogEnd; }
                     RenderSettings.fogColor = _defaultFogColor;
                     RenderSettings.fogStartDistance = _defaultFogStart;
                     RenderSettings.fogEndDistance = _defaultFogEnd;

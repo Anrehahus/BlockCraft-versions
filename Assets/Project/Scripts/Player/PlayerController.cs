@@ -125,8 +125,8 @@ namespace MinecraftClone.Player
 
         private void HandleMouseLook()
         {
-            float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
-            float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+            float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * GameSettings.Sensitivity;
+            float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * GameSettings.Sensitivity;
 
             transform.Rotate(Vector3.up * mouseX);
 
@@ -173,8 +173,8 @@ namespace MinecraftClone.Player
 
             isGrounded = controller.isGrounded;
 
-            float inputX = isPaused ? 0f : Input.GetAxisRaw("Horizontal");
-            float inputZ = isPaused ? 0f : Input.GetAxisRaw("Vertical");
+            float inputX = isPaused ? 0f : (GameSettings.Held(GameSettings.Bind.Right) ? 1f : 0f) - (GameSettings.Held(GameSettings.Bind.Left) ? 1f : 0f);
+            float inputZ = isPaused ? 0f : (GameSettings.Held(GameSettings.Bind.Forward) ? 1f : 0f) - (GameSettings.Held(GameSettings.Bind.Back) ? 1f : 0f);
 
             Vector3 moveInput = (transform.right * inputX + transform.forward * inputZ).normalized;
 
@@ -204,7 +204,7 @@ namespace MinecraftClone.Player
 
                 Vector3 horizontalVelocity = moveInput * targetSpeed;
 
-                if (!isPaused && Input.GetButtonDown("Jump") && isGrounded && !isFeetInWater && !isFeetInLava)
+                if (!isPaused && GameSettings.Pressed(GameSettings.Bind.Jump) && isGrounded && !isFeetInWater && !isFeetInLava)
                 {
                     velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
                 }
@@ -227,12 +227,12 @@ namespace MinecraftClone.Player
         {
             Vector3 targetHorizontalVelocity = moveInput * (walkSpeed * speedMultiplier);
 
-            if (!isPaused && Input.GetButtonDown("Jump") && isGrounded)
+            if (!isPaused && GameSettings.Pressed(GameSettings.Bind.Jump) && isGrounded)
             {
                 velocity.y = maxUpSpeed;
             }
 
-            if (!isPaused && Input.GetButton("Jump"))
+            if (!isPaused && GameSettings.Held(GameSettings.Bind.Jump))
             {
                 velocity.y += upAcceleration * Time.deltaTime;
             }

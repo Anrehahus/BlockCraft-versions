@@ -22,9 +22,30 @@ namespace MinecraftClone.Management
         public static WorldManager Instance { get; private set; }
 
         public event Action OnWorldReady;
-
+        public int ActiveChunkCount => chunkRenderers.Count;
         public static float GenerationProgress { get; private set; } = 0f;
         public static string GenerationStatusText { get; private set; } = "Загрузка...";
+
+        public float FogStart => Mathf.Max(10f, (viewDistanceInChunks - 2) * worldConfig.ChunkWidth);
+        public float FogEnd => Mathf.Max(30f, viewDistanceInChunks * worldConfig.ChunkWidth);
+
+        public static int HostViewLimit = int.MaxValue;
+        private int userViewDistance = 5;
+        private int EffectiveView(int chosen) => Mathf.Clamp(Mathf.Min(chosen, HostViewLimit), 2, 10);
+
+        public static void ApplyHostLimit(int chunks)
+        {
+            HostViewLimit = chunks;
+            if (Instance != null) Instance.SetViewDistance(Instance.userViewDistance);
+        }
+
+        public void SetViewDistance(int chunks)
+        {
+            userViewDistance = chunks;
+            viewDistanceInChunks = EffectiveView(chunks);
+            SetupFog();
+            if (isWorldReady && playerTransform != null) UpdateChunksAroundPlayer();
+        }
 
         [Header("Конфигурация")]
         [SerializeField] private WorldConfigSO worldConfig;
@@ -117,6 +138,9 @@ namespace MinecraftClone.Management
 
         private void Awake()
         {
+            userViewDistance = GameSettings.ViewDistance;
+            viewDistanceInChunks = EffectiveView(userViewDistance);
+
             if (Instance != null && Instance != this)
             {
                 // Остаток прошлой сессии: убираем старый компонент, новый берёт управление
