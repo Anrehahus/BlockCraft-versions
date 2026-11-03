@@ -29,6 +29,7 @@ public class GitHubService
 
         foreach (var r in releases)
         {
+            if (r.TagName == Config.LauncherTag) continue;
             var asset = r.Assets.FirstOrDefault(a => a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
             if (asset == null) continue; // релиз без zip пропускаем
 

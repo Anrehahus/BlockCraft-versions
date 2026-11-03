@@ -30,18 +30,20 @@ public static class LauncherUpdater
 
     public static async Task<LauncherUpdateInfo?> CheckAsync(CancellationToken ct = default)
     {
-        string url = $"https://api.github.com/repos/{Config.GitHubOwner}/{Config.LauncherRepo}/releases/latest";
+        string url = $"https://api.github.com/repos/{Config.GitHubOwner}/{Config.GitHubRepo}/releases/tags/{Config.LauncherTag}";
         string json = await GitHubService.SharedClient.GetStringAsync(url, ct);
         var r = JsonSerializer.Deserialize<GitHubRelease>(json);
         if (r == null) return null;
 
+        // версию берём из названия релиза: "1.0.1" или "v1.0.1"
+        string verText = (r.Name ?? "").Trim().TrimStart('v', 'V');
         var asset = r.Assets.FirstOrDefault(a => a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
-        if (asset == null || !Version.TryParse(r.TagName.TrimStart('v', 'V'), out var ver)) return null;
+        if (asset == null || !Version.TryParse(verText, out var ver)) return null;
 
         return new LauncherUpdateInfo
         {
             Version = Normalize(ver),
-            Tag = r.TagName,
+            Tag = "v" + verText,
             Notes = r.Body?.Trim() ?? "",
             DownloadUrl = asset.DownloadUrl,
             Size = asset.Size

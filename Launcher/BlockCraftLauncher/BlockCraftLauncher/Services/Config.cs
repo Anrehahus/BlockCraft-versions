@@ -9,7 +9,7 @@ public static class Config
     public const string GitHubOwner = "Anrehahus";
     public const string GitHubRepo = "BlockCraft-versions";
     public const string GameExeName = "BlockCraft.exe";
-    public const string LauncherRepo = "BlockCraft-launcher";   // репозиторий релизов лаунчера
+    public const string LauncherTag = "Launcher";   // тег релиза с лаунчером (регистр важен)
 
     public static readonly string DefaultRootDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".BlockCraft");

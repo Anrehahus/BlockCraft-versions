@@ -29,6 +29,19 @@ namespace MinecraftClone.Player
                 }
             }
             catch (Exception e) { Debug.LogWarning("[Skin] " + e.Message); }
+
+            Debug.Log("[Skin] args=" + string.Join(" ", System.Environment.GetCommandLineArgs()) + " | bytes=" + (_cached?.Length ?? -1));
+#if UNITY_EDITOR
+if (_cached == null)
+{
+    string dir = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), ".BlockCraft", "skins");
+    if (Directory.Exists(dir))
+    {
+        var files = Directory.GetFiles(dir, "*.png");
+        if (files.Length > 0) _cached = File.ReadAllBytes(files[0]);
+    }
+}
+#endif
             return _cached;
         }
 

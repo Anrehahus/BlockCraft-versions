@@ -189,15 +189,12 @@ public partial class MainWindow : Window
         UpdateState.Text = "Проверяем обновления...";
         UpdateCurrent.Text = LauncherUpdater.CurrentText;
         try { _update = await LauncherUpdater.CheckAsync(); }
-        catch
+        catch (Exception ex)
         {
             _update = null;
-            UpdateState.Text = "Не удалось проверить обновления: нет связи с GitHub.";
+            UpdateState.Text = "Не удалось проверить обновления: " + ex.Message;
             UpdateCheckBtn.IsEnabled = true;
-            return false;
         }
-        UpdateCheckBtn.IsEnabled = true;
-
         bool newer = _update != null && LauncherUpdater.IsNewer(_update);
         UpdateLatest.Text = _update?.Tag ?? "—";
         UpdateNotes.Text = _update == null ? "" : (string.IsNullOrWhiteSpace(_update.Notes) ? "Описание не указано." : _update.Notes);
@@ -207,6 +204,8 @@ public partial class MainWindow : Window
             : newer ? $"Доступна версия {_update.Tag} · {_update.SizeText}"
             : "Установлена последняя версия.";
         return newer;
+
+
     }
 
     private async Task ApplyLauncherUpdateAsync()

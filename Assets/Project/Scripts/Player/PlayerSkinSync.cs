@@ -12,6 +12,11 @@ namespace MinecraftClone.Player
 
         private void Awake() { _model = GetComponent<PlayerModel>(); }
 
+        private void OnSkinChanged(byte[] oldData, byte[] newData)
+        {
+            Apply(newData);
+        }
+
         public override void OnStartClient()
         {
             // поздно зашедшие игроки получают уже готовый скин
@@ -21,21 +26,22 @@ namespace MinecraftClone.Player
         public override void OnStartLocalPlayer()
         {
             byte[] bytes = LauncherSkin.GetBytes();
+            Debug.Log("[Skin] LocalPlayer start, bytes=" + (bytes?.Length ?? -1));
             if (bytes != null) CmdSetSkin(bytes);
         }
 
         [Command]
         private void CmdSetSkin(byte[] data)
         {
+            Debug.Log("[Skin] Cmd received on server, bytes=" + (data?.Length ?? -1));
             if (data == null || data.Length == 0 || data.Length > LauncherSkin.MaxBytes) return;
             _skinData = data;
         }
 
-        private void OnSkinChanged(byte[] oldValue, byte[] newValue) => Apply(newValue);
-
         private void Apply(byte[] data)
         {
             Texture2D tex = LauncherSkin.Decode(data);
+            Debug.Log("[Skin] Apply, bytes=" + (data?.Length ?? -1) + ", decoded=" + (tex != null));
             if (tex != null) _model.SetSkin(tex);
         }
     }

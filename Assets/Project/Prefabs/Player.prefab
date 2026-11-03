@@ -176,6 +176,7 @@ GameObject:
   - component: {fileID: 6471155835826653437}
   - component: {fileID: 6734524887481230426}
   - component: {fileID: 5668305383703353920}
+  - component: {fileID: 9203687886260805065}
   m_Layer: 6
   m_Name: Player
   m_TagString: Player
@@ -308,7 +309,6 @@ MonoBehaviour:
   waterLayerMask:
     serializedVersion: 2
     m_Bits: 16
-  buildableBlocks: 010000000400000005000000030000000200000006000000
 --- !u!114 &1945095326361735295
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -394,3 +394,18 @@ MonoBehaviour:
   skin: {fileID: 0}
   baseMaterial: {fileID: 2100000, guid: 880d7835c92cd38458d04b9957b68155, type: 2}
   yOffset: 0
+--- !u!114 &9203687886260805065
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5645908775586368468}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f049698a2ebe33142952561dbad6884b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Player.PlayerSkinSync
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0

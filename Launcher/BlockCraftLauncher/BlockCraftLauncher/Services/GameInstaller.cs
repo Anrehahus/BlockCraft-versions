@@ -57,10 +57,14 @@ public class GameInstaller
         if (exePath == null)
             throw new FileNotFoundException("В папке версии не найден exe игры: " + dir);
 
+        string args = $"-username {nickname}";
+        string? skin = SkinService.GetActivePath();
+        if (skin != null) args += $" -skin \"{skin}\"";
+
         Process.Start(new ProcessStartInfo(exePath)
         {
             WorkingDirectory = Path.GetDirectoryName(exePath)!,
-            Arguments = $"-username {nickname}",
+            Arguments = args,
             UseShellExecute = true
         });
     }

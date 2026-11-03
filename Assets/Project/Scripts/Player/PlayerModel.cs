@@ -35,6 +35,8 @@ namespace MinecraftClone.Player
 
         public void SetSkin(Texture2D tex)
         {
+
+            Debug.Log("[Skin] SetSkin, tex=" + (tex != null) + ", modelBuilt=" + (_head != null));
             if (tex == null) return;
             skin = tex;
             if (_head == null) return;          // модель ещё не построена, Start возьмёт skin сам
