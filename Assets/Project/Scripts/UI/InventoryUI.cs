@@ -216,15 +216,6 @@ namespace MinecraftClone.UI
                     Fill(new Rect(cell.x + s, cell.y + s, cell.width - 2 * s, cell.height - 2 * s), new Color(1f, 1f, 1f, 0.35f));
             }
 
-            // рамка выбранного слота хотбара
-            Rect sel = HotRect(hb.Player.SelectedSlot);
-            float t = Mathf.Max(1f, s);
-            Color white = new Color(0.95f, 0.95f, 0.95f, 1f);
-            Fill(new Rect(sel.x - t, sel.y - t, sel.width + 2 * t, t), white);
-            Fill(new Rect(sel.x - t, sel.yMax, sel.width + 2 * t, t), white);
-            Fill(new Rect(sel.x - t, sel.y - t, t, sel.height + 2 * t), white);
-            Fill(new Rect(sel.xMax, sel.y - t, t, sel.height + 2 * t), white);
-
             // "призрак" блока у курсора
             if (_hasHeld)
             {

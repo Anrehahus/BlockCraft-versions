@@ -58,6 +58,7 @@ namespace MinecraftClone.UI
         private GUIStyle _statusShadowStyle;
         private GUIStyle _buttonStyle;
         private GUIStyle _buttonShadowStyle;
+        private GUIStyle _buttonTextStyle;
         private GUIStyle _disabledButtonStyle;
 
         private Texture2D _backgroundTexture;
@@ -244,8 +245,8 @@ namespace MinecraftClone.UI
             _buttonStyle.normal.background = _buttonNormalTex;
             _buttonStyle.hover.background = _buttonHoverTex;
             _buttonStyle.active.background = _buttonHoverTex;
-            _buttonStyle.normal.textColor = Color.white;
-            _buttonStyle.hover.textColor = new Color(1f, 1f, 0.6f, 1f);
+            _buttonStyle.normal.textColor = Color.clear; // Текст рисуем вручную через DrawButtonText
+            _buttonStyle.hover.textColor = Color.clear;
             if (customFont != null) _buttonStyle.font = customFont;
 
             _buttonShadowStyle = new GUIStyle(_buttonStyle);
@@ -254,12 +255,15 @@ namespace MinecraftClone.UI
             _buttonShadowStyle.normal.textColor = new Color(0.2f, 0.2f, 0.2f, 1f);
             _buttonShadowStyle.hover.textColor = new Color(0.2f, 0.2f, 0.2f, 1f);
 
+            _buttonTextStyle = new GUIStyle(_buttonShadowStyle);
+            _buttonTextStyle.normal.textColor = Color.white;
+
             _disabledButtonStyle = new GUIStyle(_buttonStyle);
             _disabledButtonStyle.normal.background = _buttonDisabledTex;
             _disabledButtonStyle.hover.background = _buttonDisabledTex;
             _disabledButtonStyle.active.background = _buttonDisabledTex;
-            _disabledButtonStyle.normal.textColor = new Color(0.5f, 0.5f, 0.5f, 1f);
-            _disabledButtonStyle.hover.textColor = new Color(0.5f, 0.5f, 0.5f, 1f);
+            _disabledButtonStyle.normal.textColor = Color.clear;
+            _disabledButtonStyle.hover.textColor = Color.clear;
         }
 
         private void Update()
@@ -383,7 +387,7 @@ namespace MinecraftClone.UI
             DrawMenuButton(new Rect(centerX - buttonWidth / 2f, startY, buttonWidth, buttonHeight), "Вернуться к игре", OnBackToGameClicked);
             startY += buttonHeight + buttonSpacing;
 
-            // Кнопка 2: Настройки (заглушка)
+            // Кнопка 2: Настройки
             DrawMenuButton(new Rect(centerX - buttonWidth / 2f, startY, buttonWidth, buttonHeight), "Настройки", OnSettingsClicked);
             startY += buttonHeight + buttonSpacing;
 
@@ -474,16 +478,16 @@ namespace MinecraftClone.UI
             float buttonWidth = 180f;
             float buttonHeight = 40f;
 
-            if (GUI.Button(new Rect(centerX - buttonWidth - 10, centerY + 30, buttonWidth, buttonHeight), "Да", _buttonStyle))
+            DrawMenuButton(new Rect(centerX - buttonWidth - 10, centerY + 30, buttonWidth, buttonHeight), "Да", () =>
             {
                 ExecuteSave(_pendingSlot);
                 SwitchMenuState(MenuState.Main);
-            }
+            });
 
-            if (GUI.Button(new Rect(centerX + 10, centerY + 30, buttonWidth, buttonHeight), "Нет", _buttonStyle))
+            DrawMenuButton(new Rect(centerX + 10, centerY + 30, buttonWidth, buttonHeight), "Нет", () =>
             {
                 SwitchMenuState(MenuState.SaveSlots);
-            }
+            });
         }
 
         private void DrawLoadingScreen()
@@ -517,16 +521,26 @@ namespace MinecraftClone.UI
 
         private void DrawMenuButton(Rect rect, string text, System.Action onClick)
         {
-            GUI.Label(new Rect(rect.x + 2, rect.y + 2, rect.width, rect.height), text, _buttonShadowStyle);
-            if (GUI.Button(rect, text, _buttonStyle))
-            {
-                onClick?.Invoke();
-            }
+            bool clicked = McGui.ButtonFrame(rect, _buttonNormalTex, _buttonHoverTex);
+            bool hover = rect.Contains(Event.current.mousePosition);
+            DrawButtonText(rect, text, hover ? new Color(1f, 1f, 0.6f) : Color.white);
+            if (clicked) onClick?.Invoke();
+        }
+
+        private void DrawButtonText(Rect rect, string text, Color color)
+        {
+            float o = Mathf.Max(2f, buttonFontSize / 10f);                      // сдвиг тени
+            GUI.contentColor = new Color(0.25f, 0.25f, 0.25f, color.a);
+            GUI.Label(new Rect(rect.x + o, rect.y + o, rect.width, rect.height), text, _buttonShadowStyle);
+            GUI.contentColor = color;
+            GUI.Label(rect, text, _buttonTextStyle);
+            GUI.contentColor = Color.white;
         }
 
         private void DrawDisabledButton(Rect rect, string text)
         {
-            GUI.Button(rect, text, _disabledButtonStyle);
+            McGui.DrawSliced(rect, _buttonDisabledTex);
+            DrawButtonText(rect, text, new Color(0.5f, 0.5f, 0.5f));
         }
 
         private void OnSaveLevelClicked() => SwitchMenuState(MenuState.SaveSlots);
@@ -559,7 +573,7 @@ namespace MinecraftClone.UI
                 ExecuteSave(GetActiveSlot());
             }
 
-            // Сбрасываем паузу БЕЗ захвата курсора (Unpause() тут вызывать нельзя)
+            // Сбрасываем паузу БЕЗ захвата курсора
             _isPaused = false;
             _networkStatusMessage = "";
             Time.timeScale = 1f;
@@ -605,18 +619,16 @@ namespace MinecraftClone.UI
 
             float cx = Screen.width / 2f;
             float cy = Screen.height / 2f;
-            int port = Transport.active is PortTransport pt ? pt.Port : 7777;
 
             GUI.Label(new Rect(cx - 298, cy - 130 + 2, 600, 40), "Открыть для сети", _menuTitleShadowStyle);
             GUI.Label(new Rect(cx - 300, cy - 130, 600, 40), "Открыть для сети", _menuTitleStyle);
 
-            GUI.Label(new Rect(cx - 300, cy - 60, 600, 30), $"Порт мира: {port}", _statusStyle);
-
             if (!string.IsNullOrEmpty(_lanError))
                 GUI.Label(new Rect(cx - 300, cy - 25, 600, 30), _lanError, _statusStyle);
 
-            if (GUI.Button(new Rect(cx - 190, cy + 20, 180, 40), "Открыть", _buttonStyle)) ConfirmOpenToLan();
-            if (GUI.Button(new Rect(cx + 10, cy + 20, 180, 40), "Отмена", _buttonStyle)) SwitchMenuState(MenuState.Main);
+            float bw = Mathf.Min(400f, Screen.width * 0.6f);
+            DrawMenuButton(new Rect(cx - bw / 2f, cy + 10f, bw, 42f), "Открыть", ConfirmOpenToLan);
+            DrawMenuButton(new Rect(cx - bw / 2f, cy + 10f + 42f + 15f, bw, 42f), "Отмена", () => SwitchMenuState(MenuState.Main));
         }
 
         private void ConfirmOpenToLan()
@@ -628,15 +640,21 @@ namespace MinecraftClone.UI
             PlayerPrefs.SetString("PlayerNickname", nick);
             PlayerPrefs.Save();
 
-            int port = Transport.active is PortTransport pt ? pt.Port : 7777;
+            int port = Transport.active is PortTransport cur ? cur.Port : 7777;
+            if (!NetworkServer.active)
+            {
+                port = FindFreePort(7777);
+                if (Transport.active is PortTransport pt) pt.Port = (ushort)port;
+            }
 
             _isMultiplayerActive = true;
             if (!NetworkServer.active) NetworkManager.singleton.StartHost();
 
             if (lanDiscovery != null) lanDiscovery.StartBroadcasting($"Мир {nick}", port);
 
-            _networkStatusMessage = $"Мир открыт для сети: {GetLocalIP()}:{port}";
+            _networkStatusMessage = "Мир открыт для сети";
             Unpause();
+            ChatUI.AddMessage($"Ваш мир открыт для сети, порт для подключения: {port}", 1);
         }
 
         private static string GetLocalIP()
@@ -648,6 +666,22 @@ namespace MinecraftClone.UI
             }
             catch { }
             return "localhost";
+        }
+
+        private static bool IsPortFree(int port)
+        {
+            try { var tcp = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Any, port); tcp.Start(); tcp.Stop(); }
+            catch { return false; }
+            try { using (var udp = new System.Net.Sockets.UdpClient(port)) { } }
+            catch { return false; }
+            return true;
+        }
+
+        private static int FindFreePort(int start)
+        {
+            for (int p = start; p < start + 100; p++)
+                if (IsPortFree(p)) return p;
+            return start;
         }
 
         private void OnLeaveMultiplayerClicked()
@@ -710,7 +744,6 @@ namespace MinecraftClone.UI
 
         private void ExecuteSave(int slotIndex)
         {
-            // Ссылки могли устареть после смены сцены — берём свежие
             _worldManager = WorldManager.Instance != null ? WorldManager.Instance : FindFirstObjectByType<WorldManager>();
 
             if (_playerTransform == null)

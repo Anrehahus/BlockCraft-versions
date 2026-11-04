@@ -59,7 +59,6 @@ namespace MinecraftClone.Management
             ShowMainMenu();
             UpdateWorldButtonsText();
 
-            if (optionsButton != null) optionsButton.interactable = false;
             if (modsButton != null) modsButton.interactable = false;
 
             // Auto-wire Singleplayer
@@ -150,7 +149,7 @@ namespace MinecraftClone.Management
             Button[] allButtons = Resources.FindObjectsOfTypeAll<Button>();
             foreach (var btn in allButtons)
             {
-                if (btn == null) continue;
+                if (btn == null || !btn.gameObject.scene.IsValid()) continue;   // пропускаем префабы и ассеты
                 string objName = btn.gameObject.name.ToLower();
                 TMP_Text tmp = btn.GetComponentInChildren<TMP_Text>();
                 Text txt = btn.GetComponentInChildren<Text>();

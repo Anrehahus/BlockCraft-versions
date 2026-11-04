@@ -111,6 +111,7 @@ namespace MinecraftClone.UI
             if (backFromMultiplayerBtn != null) backFromMultiplayerBtn.onClick.AddListener(ShowMainMenu);
             if (connectButton != null) connectButton.onClick.AddListener(StartMultiplayerClient);
             if (optionsBtn == null) optionsBtn = FindButtonByNameContains("options", "настройки");
+                    Debug.Log("[Menu] optionsBtn = " + (optionsBtn != null ? optionsBtn.name + " / interactable=" + optionsBtn.interactable : "NULL")); ;
             if (optionsBtn != null) { optionsBtn.interactable = true; optionsBtn.onClick.AddListener(OpenSettings); }
 
             for (int i = 0; i < worldSlotButtons.Length; i++)
@@ -147,7 +148,7 @@ namespace MinecraftClone.UI
             Button[] allButtons = Resources.FindObjectsOfTypeAll<Button>();
             foreach (var btn in allButtons)
             {
-                if (btn == null) continue;
+                if (btn == null || !btn.gameObject.scene.IsValid()) continue;   // пропускаем префабы и ассеты
                 string objName = btn.gameObject.name.ToLower();
                 TMP_Text tmp = btn.GetComponentInChildren<TMP_Text>();
                 Text txt = btn.GetComponentInChildren<Text>();

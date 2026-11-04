@@ -285,7 +285,10 @@ namespace MinecraftClone.UI
             int maxLines = IsOpen ? 20 : 10;
             float lineH = fontSize + 6f;
             float width = Mathf.Min(Screen.width - 12f, 960f);
-            float baseY = Screen.height - PlayerHotbarUI.BarHeight - 12f - (IsOpen ? fontSize + 14f : 0f);
+
+            float inputH = fontSize + 8f;
+            float baseY = IsOpen ? Screen.height - inputH - 8f
+                                 : Screen.height - PlayerHotbarUI.BarHeight - 12f;
             int drawn = 0;
 
             for (int i = _lines.Count - 1; i >= 0 && drawn < maxLines; i--)
@@ -323,7 +326,7 @@ namespace MinecraftClone.UI
         private void DrawInput()
         {
             float h = fontSize + 8f;
-            Rect r = new Rect(2f, Screen.height - PlayerHotbarUI.BarHeight - h - 8f, Screen.width - 4f, h);
+            Rect r = new Rect(2f, Screen.height - h - 4f, Screen.width - 4f, h);
 
             GUI.color = new Color(0f, 0f, 0f, 0.6f);
             GUI.DrawTexture(r, Texture2D.whiteTexture);

@@ -14,14 +14,8 @@ namespace MinecraftClone.UI
         public static PlayerHotbarUI Instance { get; private set; }
         public PlayerBlockInteraction Player => _player;
 
-        public static float BarHeight
-        {
-            get
-            {
-                int scale = Mathf.Clamp(Mathf.FloorToInt(Screen.height / 240f), 2, 8);
-                return 22f * scale;
-            }
-        }
+        public static int Scale => Mathf.Clamp(Mathf.FloorToInt(Screen.height / 200f), 2, 10);
+        public static float BarHeight => 22f * Scale;
 
         private readonly Dictionary<BlockType, Texture2D> _icons = new Dictionary<BlockType, Texture2D>();
         private PlayerBlockInteraction _player;
@@ -76,24 +70,28 @@ namespace MinecraftClone.UI
 
             if (_bar == null || _sel == null) return; // нет текстур в Resources/UI
 
-            int scale = Mathf.Clamp(Mathf.FloorToInt(Screen.height / 240f), 2, 8);
-            float u = scale * (_bar.width / 182f);      // 1 "пиксель оригинала" в экранных пикселях
-            float x0 = (Screen.width - 182f * u) / 2f;
-            float y0 = Screen.height - 22f * u;
+            float u = Scale;                                // один "пиксель" оригинала на экране
+            float barH = 22f * u;
+            float barW = barH * _bar.width / _bar.height;      // ширина берётся из пропорций вашей текстуры
+            float k = barW / 182f;                           // горизонтальный шаг
+            float x0 = (Screen.width - barW) / 2f;
+            float y0 = Screen.height - barH;
 
-            GUI.DrawTexture(new Rect(x0, y0, 182f * u, 22f * u), _bar, ScaleMode.StretchToFill, true);
+            GUI.DrawTexture(new Rect(x0, y0, barW, barH), _bar, ScaleMode.StretchToFill, true);
 
             for (int i = 0; i < PlayerBlockInteraction.HotbarBlocks.Length; i++)
             {
                 Texture2D icon = GetIcon(PlayerBlockInteraction.HotbarBlocks[i], wm);
-                if (icon != null)
-                    GUI.DrawTexture(new Rect(x0 + (3f + 20f * i) * u, y0 + 3f * u, 16f * u, 16f * u),
-                                    icon, ScaleMode.StretchToFill, true);
+                if (icon == null) continue;
+                float cx = x0 + (3f + 20f * i + 8f) * k;        // центр слота
+                float cy = y0 + 11f * u;
+                float s = 14f * u;                               // иконка чуть меньше слота
+                GUI.DrawTexture(new Rect(cx - s / 2f, cy - s / 2f, s, s), icon, ScaleMode.StretchToFill, true);
             }
 
-            int s = _player.SelectedSlot;
-            GUI.DrawTexture(new Rect(x0 + (20f * s - 1f) * u, y0 - u, 24f * u, 24f * u),
-                            _sel, ScaleMode.StretchToFill, true);
+            int sel = _player.SelectedSlot;
+            float selX = x0 + (3f + 20f * sel + 8f) * k;
+            GUI.DrawTexture(new Rect(selX - 12f * u, y0 - u, 24f * u, 24f * u), _sel, ScaleMode.StretchToFill, true);
         }
 
         // ---------- Иконки ----------
@@ -156,7 +154,7 @@ namespace MinecraftClone.UI
             Color32[] sp = side.GetPixels32();
 
             const float H = 1.059f;  // высота куба при ширине 1: вертикальное ребро равно ребру ромба
-            const float k = 0.82f;   // размер куба относительно ячейки
+            const float k = 0.82f;    // размер куба относительно ячейки
 
             for (int y = 0; y < IconSize; y++)
             {
@@ -170,9 +168,9 @@ namespace MinecraftClone.UI
                     if (Hit(cx, cy, 0f, H - 0.25f, 0.5f, 0.25f, 0.5f, -0.25f, out u, out v))
                         c = Sample(tp, top.width, top.height, u, v, 1.0f);       // верх
                     else if (Hit(cx, cy, 0f, H - 0.25f, 0.5f, -0.25f, 0f, -0.559f, out u, out v))
-                        c = Sample(sp, side.width, side.height, u, v, 0.8f);     // левая грань
+                        c = Sample(sp, side.width, side.height, u, v, 0.8f);      // левая грань
                     else if (Hit(cx, cy, 0.5f, H - 0.5f, 0.5f, 0.25f, 0f, -0.559f, out u, out v))
-                        c = Sample(sp, side.width, side.height, u, v, 0.6f);     // правая грань
+                        c = Sample(sp, side.width, side.height, u, v, 0.6f);      // правая грань
                     else continue;
 
                     if (c.a >= 128) px[y * IconSize + x] = c;
