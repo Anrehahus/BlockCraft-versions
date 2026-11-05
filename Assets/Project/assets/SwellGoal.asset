@@ -9,10 +9,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 31055697cb4637e44a49a61034acefde, type: 3}
   m_Name: SwellGoal
-  m_EditorClassIdentifier: Assembly-CSharp:MinecraftClone.Mobs:SwellGoalDef
-  priority: 1
+  m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Mobs.SwellGoalDef
+  priority: 5
   igniteDistance: 3
   cancelDistance: 7
   explosionRadius: 3

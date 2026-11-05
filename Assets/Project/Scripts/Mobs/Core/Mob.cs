@@ -14,7 +14,11 @@ namespace MinecraftClone.Mobs
         public static readonly List<Mob> All = new List<Mob>();
 
         [SyncVar] private string _mobId;
-        [SyncVar] private int _chargeDir;           // +1 заряжается, -1 (или 0) разряжается
+        [SyncVar] private int _chargeDirSync;       // что видят клиенты: +1 заряжается, -1 (или 0) разряжается
+        private int _chargeDirLocal;                // что знает тот, кто управляет мобом (сервер или одиночная игра)
+        private bool _offline;                      // одиночная игра без Mirror: моб сам себе сервер
+
+        private bool RunsLogic => isServer || _offline;
 
         public MobDataSO Data { get; private set; }
         public Transform Target { get; private set; }
@@ -53,19 +57,29 @@ namespace MinecraftClone.Mobs
         {
             _box = GetComponent<BoxCollider>();
             if (_box == null) _box = gameObject.AddComponent<BoxCollider>();
-
+            _box.isTrigger = true;   // игрок проходит сквозь моба, но по хитбоксу можно целиться и бить
             Rigidbody rb = GetComponent<Rigidbody>();
             if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
             rb.isKinematic = true;
             rb.useGravity = false;
         }
 
-        // Вызывает спавнер на сервере ДО NetworkServer.Spawn
-        [Server]
-        public void ServerInit(MobDataSO data)
+        // Вызывает спавнер. offline = true в одиночной игре (Mirror не запущен).
+        // На сервере вызывать ДО NetworkServer.Spawn.
+        public void Init(MobDataSO data, bool offline)
         {
-            _mobId = data.Id;
+            _offline = offline;
             ApplyData(data);
+
+            if (offline)
+            {
+                StartLogic();
+                EnsureModel();
+            }
+            else
+            {
+                _mobId = data.Id;
+            }
         }
 
         private void ApplyData(MobDataSO d)
@@ -85,15 +99,22 @@ namespace MinecraftClone.Mobs
         public override void OnStartServer()
         {
             base.OnStartServer();
+            StartLogic();
+        }
+
+        private void StartLogic()
+        {
             All.Add(this);
 
-            if (Data == null) { Debug.LogError("[Mob] ServerInit не вызван до Spawn"); return; }
+            if (Data == null) { Debug.LogError("[Mob] Init не вызван до Spawn"); return; }
 
             Motor = new MobMotor(Data);
             _goals = new GoalSelector();
             foreach (var def in Data.Goals)
                 if (def != null) _goals.Add(def.priority, def.Create(this));
         }
+
+        private void OnDestroy() { All.Remove(this); }
 
         public override void OnStopServer()
         {
@@ -105,6 +126,11 @@ namespace MinecraftClone.Mobs
         {
             base.OnStartClient();
             if (Data == null) ApplyData(MobRegistry.Get(_mobId));
+            EnsureModel();
+        }
+
+        private void EnsureModel()
+        {
             if (Data != null && GetComponent<MobModel>() == null)
                 gameObject.AddComponent<MobModel>().Build(this);
         }
@@ -114,10 +140,18 @@ namespace MinecraftClone.Mobs
             if (Data == null) return;
             float dt = Time.deltaTime;
 
-            if (Data.ChargeTime > 0f)
-                Charge = Mathf.Clamp(Charge + (_chargeDir > 0 ? dt : -dt), 0f, Data.ChargeTime);
+            if (_offline && (NetworkServer.active || NetworkClient.active))
+            {
+                // одиночную игру открыли для сети: этот моб не синхронизируется, убираем (спавнер создаст сетевых)
+                Destroy(gameObject);
+                return;
+            }
 
-            if (!isServer || _dead || Motor == null) return;
+            int dir = RunsLogic ? _chargeDirLocal : _chargeDirSync;
+            if (Data.ChargeTime > 0f)
+                Charge = Mathf.Clamp(Charge + (dir > 0 ? dt : -dt), 0f, Data.ChargeTime);
+
+            if (!RunsLogic || _dead || Motor == null) return;
             if (WorldManager.Instance == null) return;
 
             ServerTick(Mathf.Min(dt, 0.05f));
@@ -203,18 +237,20 @@ namespace MinecraftClone.Mobs
             _faceDir = dir.normalized;
         }
 
-        [Server]
         public void ServerSetTarget(Transform t) => Target = t;
 
-        [Server]
-        public void ServerSetChargeDir(int dir) { if (_chargeDir != dir) _chargeDir = dir; }
+        public void ServerSetChargeDir(int dir)
+        {
+            _chargeDirLocal = dir;
+            if (isServer) _chargeDirSync = dir;
+        }
 
-        [Server]
         public void ServerDespawn()
         {
             if (_dead) return;
             _dead = true;
-            NetworkServer.Destroy(gameObject);
+            if (_offline) Destroy(gameObject);
+            else NetworkServer.Destroy(gameObject);
         }
     }
 }

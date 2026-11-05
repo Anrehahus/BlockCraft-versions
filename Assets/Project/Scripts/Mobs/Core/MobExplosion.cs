@@ -12,7 +12,7 @@ namespace MinecraftClone.Mobs
     {
         public static void Explode(Vector3 center, float radius)
         {
-            if (!NetworkServer.active) return;
+            if (NetworkClient.active && !NetworkServer.active) return;   // чистый клиент блоки не ломает
             WorldManager wm = WorldManager.Instance;
             if (wm == null) return;
 

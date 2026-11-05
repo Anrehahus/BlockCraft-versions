@@ -28,10 +28,12 @@ namespace MinecraftClone.Mobs
         [SerializeField] private string testMobId = "creeper";
 
         private float _timer;
+        // true на сервере и в одиночной игре без Mirror, false у чистого клиента
+        private static bool CanRun => NetworkServer.active || !NetworkClient.active;
 
         private void Update()
         {
-            if (!NetworkServer.active || mobPrefab == null) return;
+            if (!CanRun || mobPrefab == null) return;
 
             WorldManager wm = WorldManager.Instance;
             if (wm == null || !wm.IsWorldReady) return;
@@ -64,7 +66,7 @@ namespace MinecraftClone.Mobs
                     if (p == null) continue;
                     if ((p.transform.position - m.transform.position).sqrMagnitude < maxSq) { near = true; break; }
                 }
-                if (!near) NetworkServer.Destroy(m.gameObject);
+                if (!near) m.ServerDespawn();
             }
         }
 
@@ -166,9 +168,10 @@ namespace MinecraftClone.Mobs
 
         private void SpawnAt(MobDataSO data, Vector3 pos)
         {
+            bool online = NetworkServer.active;
             GameObject go = Instantiate(mobPrefab, pos, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
-            go.GetComponent<Mob>().ServerInit(data);
-            NetworkServer.Spawn(go);
+            go.GetComponent<Mob>().Init(data, !online);
+            if (online) NetworkServer.Spawn(go);
         }
 
         // самый верхний блок колонны, кроме воздуха и растений
@@ -212,7 +215,7 @@ namespace MinecraftClone.Mobs
         {
             NetworkPlayer[] players = Mob.GetPlayers();
             Debug.Log($"[SpawnTest] server={NetworkServer.active}, prefab={(mobPrefab != null)}, players={players.Length}");
-            if (!NetworkServer.active || mobPrefab == null || players.Length == 0 || players[0] == null) return;
+            if (!CanRun || mobPrefab == null || players.Length == 0 || players[0] == null) return;
 
             MobDataSO data = MobRegistry.Get(testMobId);
             Debug.Log($"[SpawnTest] в реестре мобов: {MobRegistry.All.Count}, нашли '{testMobId}': {(data != null)}");
