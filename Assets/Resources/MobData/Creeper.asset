@@ -22,8 +22,8 @@ MonoBehaviour:
   Targeting: 1
   FollowRange: 16
   Goals:
-  - {fileID: 11400000, guid: a98931c4ba7b09549b20bb70a7201b36, type: 2}
   - {fileID: 11400000, guid: 7d7019b7261a3cd42ba6ec4ffa593db2, type: 2}
+  - {fileID: 11400000, guid: a98931c4ba7b09549b20bb70a7201b36, type: 2}
   - {fileID: 11400000, guid: 05c6da9ea45b8bb479d22a2f0a81a605, type: 2}
   ChargeTime: 1.5
   ChargeEffect: 1
@@ -37,6 +37,9 @@ MonoBehaviour:
     minPx: {x: -4, y: 0, z: -4}
     anim: 0
     swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
   - name: Body
     pivotPx: {x: 0, y: 6, z: 0}
     uv: {x: 16, y: 16}
@@ -44,6 +47,9 @@ MonoBehaviour:
     minPx: {x: -4, y: 0, z: -2}
     anim: 0
     swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
   - name: Leg0
     pivotPx: {x: -2, y: 6, z: 4}
     uv: {x: 0, y: 16}
@@ -51,6 +57,9 @@ MonoBehaviour:
     minPx: {x: -2, y: -6, z: -2}
     anim: 1
     swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
   - name: Leg1
     pivotPx: {x: 2, y: 6, z: 4}
     uv: {x: 0, y: 16}
@@ -58,6 +67,9 @@ MonoBehaviour:
     minPx: {x: -2, y: -6, z: -2}
     anim: 2
     swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
   - name: Leg2
     pivotPx: {x: -2, y: 6, z: -4}
     uv: {x: 0, y: 16}
@@ -65,6 +77,9 @@ MonoBehaviour:
     minPx: {x: -2, y: -6, z: -2}
     anim: 2
     swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
   - name: Leg3
     pivotPx: {x: 2, y: 6, z: -4}
     uv: {x: 0, y: 16}
@@ -72,8 +87,11 @@ MonoBehaviour:
     minPx: {x: -2, y: -6, z: -2}
     anim: 1
     swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
   Spawn:
-    onSurface: 1
+    onSurface: 0
     underground: 1
     weight: 100
     groupMin: 1

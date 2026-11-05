@@ -18,6 +18,16 @@ namespace MinecraftClone.Mobs
         private int _chargeDirLocal;                // что знает тот, кто управляет мобом (сервер или одиночная игра)
         private bool _offline;                      // одиночная игра без Mirror: моб сам себе сервер
 
+        [SyncVar] private bool _attackingSync;      // для клиентов: моб сейчас атакует (анимация рук)
+        private bool _attackingLocal;
+
+        [SyncVar] private int _hitCountSync;        // счётчик ударов: по его изменению клиенты запускают анимацию
+        private int _hitCountLocal;
+
+        public int HitCount => RunsLogic ? _hitCountLocal : _hitCountSync;
+
+        public bool IsAttacking => RunsLogic ? _attackingLocal : _attackingSync;
+
         private bool RunsLogic => isServer || _offline;
 
         public MobDataSO Data { get; private set; }
@@ -243,6 +253,18 @@ namespace MinecraftClone.Mobs
         {
             _chargeDirLocal = dir;
             if (isServer) _chargeDirSync = dir;
+        }
+
+        public void ServerSetAttacking(bool value)
+        {
+            _attackingLocal = value;
+            if (isServer) _attackingSync = value;
+        }
+
+        public void ServerRegisterHit()
+        {
+            _hitCountLocal++;
+            if (isServer) _hitCountSync = _hitCountLocal;
         }
 
         public void ServerDespawn()

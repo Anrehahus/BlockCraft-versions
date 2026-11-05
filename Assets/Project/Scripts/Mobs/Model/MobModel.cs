@@ -9,7 +9,7 @@ namespace MinecraftClone.Mobs
     {
         private const float FlashAmount = 0.7f;   // насколько белая вспышка (0..1)
 
-        private struct Swing { public Transform T; public float Amp; }
+        private struct Swing { public Transform T; public float Amp; public bool Wave; public float Rest; }
 
         private Mob _mob;
         private MobDataSO _data;
@@ -25,6 +25,12 @@ namespace MinecraftClone.Mobs
         private Vector3 _lastPos;
         private float _phase, _amount;
 
+        private const float HitSwingDuration = 0.4f;   // длительность одного взмаха, секунды
+        private float _swingTimer = -1f;
+        private int _lastHitCount;
+        private float _hitSwing;                       // добавка к углу рук во время удара, градусы
+        private bool _mirror;                // зеркалить текстуру текущей части
+
         public void Build(Mob mob)
         {
             _mob = mob;
@@ -38,12 +44,13 @@ namespace MinecraftClone.Mobs
             foreach (var p in _data.ModelParts)
             {
                 Transform t = MakePart(_root, p);
-                if (p.anim == PartAnim.SwingA) _swingA.Add(new Swing { T = t, Amp = p.swingAmplitude });
-                else if (p.anim == PartAnim.SwingB) _swingB.Add(new Swing { T = t, Amp = p.swingAmplitude });
+                if (p.anim == PartAnim.SwingA) _swingA.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch });
+                else if (p.anim == PartAnim.SwingB) _swingB.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch });
             }
 
             _renderers = _root.GetComponentsInChildren<Renderer>();
             _lastPos = transform.position;
+            _lastHitCount = mob.HitCount;
         }
 
         private void OnDestroy()
@@ -131,6 +138,8 @@ namespace MinecraftClone.Mobs
             Rect front = UV(u0 + d, v0 + d, w, h);
             Rect left = UV(u0 + d + w, v0 + d, d, h);
             Rect back = UV(u0 + d + w + d, v0 + d, w, h);
+            _mirror = p.mirror;
+            if (_mirror) { Rect tmp = right; right = left; left = tmp; }
 
             var v = new List<Vector3>(24);
             var t = new List<Vector2>(24);
@@ -159,16 +168,18 @@ namespace MinecraftClone.Mobs
             return go.transform;
         }
 
-        private static void Quad(List<Vector3> v, List<Vector2> t, List<int> tr,
+        private void Quad(List<Vector3> v, List<Vector2> t, List<int> tr,
                                  Vector3 bl, Vector3 br, Vector3 trg, Vector3 tl, Rect uv)
         {
             int i = v.Count;
             v.Add(bl); v.Add(tl); v.Add(trg); v.Add(br);
 
-            t.Add(new Vector2(uv.xMin, uv.yMin));
-            t.Add(new Vector2(uv.xMin, uv.yMax));
-            t.Add(new Vector2(uv.xMax, uv.yMax));
-            t.Add(new Vector2(uv.xMax, uv.yMin));
+            float l = _mirror ? uv.xMax : uv.xMin;
+            float r = _mirror ? uv.xMin : uv.xMax;
+            t.Add(new Vector2(l, uv.yMin));
+            t.Add(new Vector2(l, uv.yMax));
+            t.Add(new Vector2(r, uv.yMax));
+            t.Add(new Vector2(r, uv.yMin));
 
             tr.Add(i); tr.Add(i + 1); tr.Add(i + 2);
             tr.Add(i); tr.Add(i + 2); tr.Add(i + 3);
@@ -197,10 +208,32 @@ namespace MinecraftClone.Mobs
             }
 
             float s = Mathf.Cos(_phase * 0.6662f) * _amount * Mathf.Rad2Deg;
-            foreach (var sw in _swingA) sw.T.localRotation = Quaternion.Euler(s * sw.Amp, 0f, 0f);
-            foreach (var sw in _swingB) sw.T.localRotation = Quaternion.Euler(-s * sw.Amp, 0f, 0f);
+
+            foreach (var sw in _swingA) sw.T.localRotation = Quaternion.Euler(PartPitch(sw, s), 0f, 0f);
+
+            // на каждый новый удар моба запускаем один взмах рук
+            int hits = _mob.HitCount;
+            if (hits != _lastHitCount) { _lastHitCount = hits; _swingTimer = 0f; }
+
+            _hitSwing = 0f;
+            if (_swingTimer >= 0f)
+            {
+                _swingTimer += dt;
+                float p = _swingTimer / HitSwingDuration;
+                if (p >= 1f) _swingTimer = -1f;
+                else _hitSwing = -Mathf.Sin(p * Mathf.PI) * 50f;   // руки вверх и обратно
+            }
+
+            foreach (var sw in _swingB) sw.T.localRotation = Quaternion.Euler(PartPitch(sw, -s), 0f, 0f);
 
             if (_data.ChargeEffect == ChargeEffect.SwellAndFlash) UpdateSwell();
+        }
+
+        private float PartPitch(Swing sw, float swing)
+        {
+            float pitch = sw.Rest + swing * sw.Amp;   // поза покоя + покачивание при ходьбе
+            if (sw.Wave) pitch += _hitSwing;          // взмах при ударе
+            return pitch;
         }
 
         // надувание и вспышки, формулы из Minecraft

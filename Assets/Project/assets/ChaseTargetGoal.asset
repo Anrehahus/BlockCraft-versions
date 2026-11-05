@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4f4d3b58bd8e69a4b9e8fe263ab2435e, type: 3}
   m_Name: ChaseTargetGoal
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Mobs.ChaseTargetGoalDef
-  priority: 5
-  speed: 4
+  priority: 4
+  speed: 3
   stopDistance: 0

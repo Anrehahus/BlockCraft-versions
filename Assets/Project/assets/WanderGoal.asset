@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e6747cde8542a324b9eac76b92a80bfd, type: 3}
   m_Name: WanderGoal
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Mobs.WanderGoalDef
-  priority: 5
-  speed: 2
+  priority: 7
+  speed: 1.5
   meanIdleSeconds: 3
   walkSeconds: {x: 2, y: 5}

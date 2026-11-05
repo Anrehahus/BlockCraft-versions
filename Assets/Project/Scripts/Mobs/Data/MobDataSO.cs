@@ -19,6 +19,10 @@ namespace MinecraftClone.Mobs
         [Tooltip("Нижний угол коробки в пикселях относительно pivot")] public Vector3 minPx;
         public PartAnim anim = PartAnim.None;
         [Tooltip("Размах качания в радианах")] public float swingAmplitude = 1.4f;
+        [Tooltip("Зеркалить текстуру (левая рука и нога в старом скине 64x32)")] public bool mirror;
+        [Tooltip("При атаке поднимать и размахивать (руки зомби)")] public bool waveWhenAttacking;
+        [Tooltip("Угол поднятой руки при атаке, градусы (-90 = вперёд)")] public float attackPitch = -90f;
+        [Tooltip("Поза покоя: наклон по X в градусах (-90 = рука вытянута вперёд)")] public float restPitch;
     }
 
     [Serializable]
@@ -65,7 +69,7 @@ namespace MinecraftClone.Mobs
         public SpawnRule Spawn = new SpawnRule();
 
 #if UNITY_EDITOR
-        // Правый клик по заголовку ассета в Inspector -> "Preset: Creeper"
+        // Правый клик по заголовку ассета в Inspector -> "Preset: ..."
         [ContextMenu("Preset: Creeper")]
         private void PresetCreeper()
         {
@@ -89,15 +93,45 @@ namespace MinecraftClone.Mobs
             UnityEditor.EditorUtility.SetDirty(this);
         }
 
-        private static ModelPartDef Part(string n, float px, float py, float pz, int u, int v,
-                                         int w, int h, int d, float mx, float my, float mz, PartAnim a)
+        [ContextMenu("Preset: Zombie (скин 64x32)")]
+        private void PresetZombieOld() => FillZombie(true);
+
+        [ContextMenu("Preset: Zombie (скин 64x64)")]
+        private void PresetZombieNew() => FillZombie(false);
+
+        private void FillZombie(bool oldSkin)
         {
-            return new ModelPartDef
+            Id = "zombie"; DisplayName = "Zombie";
+            Temperament = Temperament.Hostile; MaxHealth = 20f;
+            Width = 0.6f; Height = 1.95f; JumpHeight = 1.25f;
+            Targeting = TargetMode.NearestPlayer; FollowRange = 35f;
+            ChargeTime = 0f; ChargeEffect = ChargeEffect.None;
+            PixelSize = 1.95f / 32f;
+            Spawn = new SpawnRule { onSurface = true, underground = true, weight = 100, groupMin = 1, groupMax = 3 };
+
+            ModelParts = new List<ModelPartDef>
             {
-                name = n, pivotPx = new Vector3(px, py, pz), uv = new Vector2Int(u, v),
-                size = new Vector3Int(w, h, d), minPx = new Vector3(mx, my, mz), anim = a
+                Part("Head",     0, 24, 0,  0, 0,    8, 8, 8,   -4, 0, -4, PartAnim.None),
+                Part("Body",     0, 24, 0,  16, 16,  8, 12, 4,  -4, -12, -2, PartAnim.None),
+                Part("RightArm", 6, 22, 0,  40, 16,  4, 12, 4,  -2, -10, -2, PartAnim.SwingB, 0f, false, true, -90f),
+                Part("LeftArm", -6, 22, 0,  oldSkin ? 40 : 32, oldSkin ? 16 : 48, 4, 12, 4, -2, -10, -2, PartAnim.SwingA, 0f, oldSkin, true, -90f),
+                Part("RightLeg", 2, 12, 0,  0, 16,   4, 12, 4,  -2, -12, -2, PartAnim.SwingA),
+                Part("LeftLeg", -2, 12, 0,  oldSkin ? 0 : 16, oldSkin ? 16 : 48, 4, 12, 4, -2, -12, -2, PartAnim.SwingB, 1.4f, oldSkin, false),
             };
+            UnityEditor.EditorUtility.SetDirty(this);
         }
+
+        private static ModelPartDef Part(string n, float px, float py, float pz, int u, int v,
+                                 int w, int h, int d, float mx, float my, float mz, PartAnim a,
+                                 float amp = 1.4f, bool mirror = false, bool wave = false, float rest = 0f)
+{
+    return new ModelPartDef
+    {
+        name = n, pivotPx = new Vector3(px, py, pz), uv = new Vector2Int(u, v),
+        size = new Vector3Int(w, h, d), minPx = new Vector3(mx, my, mz), anim = a,
+        swingAmplitude = amp, mirror = mirror, waveWhenAttacking = wave, restPitch = rest
+    };
+}
 #endif
     }
 }
