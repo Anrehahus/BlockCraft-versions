@@ -1,0 +1,80 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a015a31510bed844a50906d60842da8, type: 3}
+  m_Name: Creeper
+  m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Mobs.MobDataSO
+  Id: creeper
+  DisplayName: Creeper
+  Temperament: 2
+  MaxHealth: 20
+  Width: 0.6
+  Height: 1.7
+  JumpHeight: 1.25
+  Targeting: 1
+  FollowRange: 16
+  Goals:
+  - {fileID: 11400000, guid: 7d7019b7261a3cd42ba6ec4ffa593db2, type: 2}
+  - {fileID: 11400000, guid: a98931c4ba7b09549b20bb70a7201b36, type: 2}
+  - {fileID: 11400000, guid: 05c6da9ea45b8bb479d22a2f0a81a605, type: 2}
+  ChargeTime: 1.5
+  ChargeEffect: 1
+  Texture: {fileID: 2800000, guid: 35bdfdd351386c843a6389af11e480f2, type: 3}
+  PixelSize: 0.0625
+  ModelParts:
+  - name: Head
+    pivotPx: {x: 0, y: 18, z: 0}
+    uv: {x: 0, y: 0}
+    size: {x: 8, y: 8, z: 8}
+    minPx: {x: -4, y: 0, z: -4}
+    anim: 0
+    swingAmplitude: 1.4
+  - name: Body
+    pivotPx: {x: 0, y: 6, z: 0}
+    uv: {x: 16, y: 16}
+    size: {x: 8, y: 12, z: 4}
+    minPx: {x: -4, y: 0, z: -2}
+    anim: 0
+    swingAmplitude: 1.4
+  - name: Leg0
+    pivotPx: {x: -2, y: 6, z: 4}
+    uv: {x: 0, y: 16}
+    size: {x: 4, y: 6, z: 4}
+    minPx: {x: -2, y: -6, z: -2}
+    anim: 1
+    swingAmplitude: 1.4
+  - name: Leg1
+    pivotPx: {x: 2, y: 6, z: 4}
+    uv: {x: 0, y: 16}
+    size: {x: 4, y: 6, z: 4}
+    minPx: {x: -2, y: -6, z: -2}
+    anim: 2
+    swingAmplitude: 1.4
+  - name: Leg2
+    pivotPx: {x: -2, y: 6, z: -4}
+    uv: {x: 0, y: 16}
+    size: {x: 4, y: 6, z: 4}
+    minPx: {x: -2, y: -6, z: -2}
+    anim: 2
+    swingAmplitude: 1.4
+  - name: Leg3
+    pivotPx: {x: 2, y: 6, z: -4}
+    uv: {x: 0, y: 16}
+    size: {x: 4, y: 6, z: 4}
+    minPx: {x: -2, y: -6, z: -2}
+    anim: 1
+    swingAmplitude: 1.4
+  Spawn:
+    onSurface: 1
+    underground: 1
+    weight: 100
+    groupMin: 1
+    groupMax: 1

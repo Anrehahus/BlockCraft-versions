@@ -262,6 +262,7 @@ GameObject:
   - component: {fileID: 577380501}
   - component: {fileID: 577380502}
   - component: {fileID: 577380503}
+  - component: {fileID: 577380504}
   m_Layer: 0
   m_Name: WorldManager
   m_TagString: Untagged
@@ -360,7 +361,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f40f8f3a7fe68ce4f9665fdec47abe24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.UI.DebugInfoUI
-  gameVersion: 0.0.23a
+  gameVersion: 0.0.24a
   customFont: {fileID: 12800000, guid: 137924745e2665348887e144f9cefb97, type: 3}
   fontSize: 24
   textColor: {r: 1, g: 1, b: 1, a: 1}
@@ -440,6 +441,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 21daecbea2068df4290360cbe274dd6a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Generation.TerrainGenerator
+--- !u!114 &577380504
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 577380494}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73032cde9bc210f43a470326502af598, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Mobs.MobSpawnManager
+  mobPrefab: {fileID: 3903237962609314441, guid: 85428511dec71604bb6f80846c1fe7de, type: 3}
+  spawnInterval: 4
+  minSpawnDistance: 24
+  maxSpawnDistance: 48
+  despawnDistance: 72
+  undergroundChance: 0.5
+  maxHostilePerPlayer: 6
+  maxNeutralPerPlayer: 4
+  maxPassivePerPlayer: 8
+  testMobId: creeper
 --- !u!1 &694770112
 GameObject:
   m_ObjectHideFlags: 0

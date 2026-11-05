@@ -288,7 +288,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2172231776232665557, guid: 0f637906280a45a4992a320b5721f181, type: 3}
       propertyPath: m_Interactable
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2172231776232665557, guid: 0f637906280a45a4992a320b5721f181, type: 3}
       propertyPath: m_SpriteState.m_PressedSprite
@@ -1599,7 +1599,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Minecraft classic 0.0.23a
+  m_text: Minecraft classic 0.0.24a
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 7ee247caf3880de48bbbbd979184d295, type: 2}
   m_sharedMaterial: {fileID: -8673221938894199221, guid: 7ee247caf3880de48bbbbd979184d295, type: 2}
@@ -5644,7 +5644,8 @@ MonoBehaviour:
   playerPrefab: {fileID: 5645908775586368468, guid: 802ffffb0d26d3f44974c365a61d4dfe, type: 3}
   autoCreatePlayer: 0
   playerSpawnMethod: 0
-  spawnPrefabs: []
+  spawnPrefabs:
+  - {fileID: 3903237962609314441, guid: 85428511dec71604bb6f80846c1fe7de, type: 3}
   exceptionsDisconnect: 1
   snapshotSettings:
     bufferTimeMultiplier: 2
@@ -6113,5 +6114,5 @@ SceneRoots:
   - {fileID: 1206813372}
   - {fileID: 400170284}
   - {fileID: 1641112708}
-  - {fileID: 996481387}
   - {fileID: 2019462940}
+  - {fileID: 996481387}

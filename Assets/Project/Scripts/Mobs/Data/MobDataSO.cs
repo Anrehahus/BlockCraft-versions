@@ -1,0 +1,103 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace MinecraftClone.Mobs
+{
+    public enum Temperament { Passive, Neutral, Hostile }
+    public enum TargetMode { None, NearestPlayer, Retaliate }
+    public enum PartAnim { None, SwingA, SwingB }                 // A и B качаются в противофазе
+    public enum ChargeEffect { None, SwellAndFlash }
+
+    [Serializable]
+    public class ModelPartDef
+    {
+        public string name = "Part";
+        [Tooltip("Точка вращения в пикселях от ног моба")] public Vector3 pivotPx;
+        [Tooltip("Левый верхний угол части на текстуре (пиксели)")] public Vector2Int uv;
+        [Tooltip("Ширина, высота, глубина в пикселях")] public Vector3Int size = new Vector3Int(4, 4, 4);
+        [Tooltip("Нижний угол коробки в пикселях относительно pivot")] public Vector3 minPx;
+        public PartAnim anim = PartAnim.None;
+        [Tooltip("Размах качания в радианах")] public float swingAmplitude = 1.4f;
+    }
+
+    [Serializable]
+    public class SpawnRule
+    {
+        public bool onSurface = true;
+        public bool underground = false;
+        [Tooltip("Относительная частота появления (0 = не спавнить)")] public int weight = 10;
+        public int groupMin = 1;
+        public int groupMax = 1;
+    }
+
+    [CreateAssetMenu(fileName = "NewMob", menuName = "Minecraft/Mobs/Mob Data")]
+    public class MobDataSO : ScriptableObject
+    {
+        [Header("Основное")]
+        [Tooltip("Уникальный id, например creeper")] public string Id = "mob";
+        public string DisplayName = "Mob";
+        public Temperament Temperament = Temperament.Passive;
+        public float MaxHealth = 20f;
+
+        [Header("Тело и движение")]
+        public float Width = 0.6f;
+        public float Height = 1.7f;
+        public float JumpHeight = 1.25f;
+
+        [Header("Цель")]
+        public TargetMode Targeting = TargetMode.None;
+        public float FollowRange = 16f;
+
+        [Header("Поведения (Goals)")]
+        public List<GoalDef> Goals = new List<GoalDef>();
+
+        [Header("Заряд (крипер и подобные). 0 = не используется")]
+        public float ChargeTime = 0f;
+        public ChargeEffect ChargeEffect = ChargeEffect.None;
+
+        [Header("Модель")]
+        public Texture2D Texture;
+        public float PixelSize = 1f / 16f;
+        public List<ModelPartDef> ModelParts = new List<ModelPartDef>();
+
+        [Header("Спавн")]
+        public SpawnRule Spawn = new SpawnRule();
+
+#if UNITY_EDITOR
+        // Правый клик по заголовку ассета в Inspector -> "Preset: Creeper"
+        [ContextMenu("Preset: Creeper")]
+        private void PresetCreeper()
+        {
+            Id = "creeper"; DisplayName = "Creeper";
+            Temperament = Temperament.Hostile; MaxHealth = 20f;
+            Width = 0.6f; Height = 1.7f; JumpHeight = 1.25f;
+            Targeting = TargetMode.NearestPlayer; FollowRange = 16f;
+            ChargeTime = 1.5f; ChargeEffect = ChargeEffect.SwellAndFlash;
+            PixelSize = 1f / 16f;
+            Spawn = new SpawnRule { onSurface = true, underground = true, weight = 100, groupMin = 1, groupMax = 1 };
+
+            ModelParts = new List<ModelPartDef>
+            {
+                Part("Head", 0, 18, 0,   0, 0,   8, 8, 8,   -4, 0, -4, PartAnim.None),
+                Part("Body", 0, 6, 0,    16, 16, 8, 12, 4,  -4, 0, -2, PartAnim.None),
+                Part("Leg0", -2, 6, 4,   0, 16,  4, 6, 4,   -2, -6, -2, PartAnim.SwingA),
+                Part("Leg1", 2, 6, 4,    0, 16,  4, 6, 4,   -2, -6, -2, PartAnim.SwingB),
+                Part("Leg2", -2, 6, -4,  0, 16,  4, 6, 4,   -2, -6, -2, PartAnim.SwingB),
+                Part("Leg3", 2, 6, -4,   0, 16,  4, 6, 4,   -2, -6, -2, PartAnim.SwingA),
+            };
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+
+        private static ModelPartDef Part(string n, float px, float py, float pz, int u, int v,
+                                         int w, int h, int d, float mx, float my, float mz, PartAnim a)
+        {
+            return new ModelPartDef
+            {
+                name = n, pivotPx = new Vector3(px, py, pz), uv = new Vector2Int(u, v),
+                size = new Vector3Int(w, h, d), minPx = new Vector3(mx, my, mz), anim = a
+            };
+        }
+#endif
+    }
+}
