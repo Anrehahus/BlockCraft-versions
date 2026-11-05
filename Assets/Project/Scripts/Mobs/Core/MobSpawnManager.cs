@@ -105,7 +105,8 @@ namespace MinecraftClone.Mobs
             foreach (var q in players)
                 if (q != null && (q.transform.position - pos).sqrMagnitude < minSq) return false;
 
-            MobDataSO data = PickMob(underground, players.Length);
+            BlockType groundBlock = wm.GetBlockAtWorldPosition(x, y - 1, z);
+            MobDataSO data = PickMob(underground, players.Length, groundBlock);
             if (data == null) return false;
 
             SpawnAt(data, pos);
@@ -117,34 +118,36 @@ namespace MinecraftClone.Mobs
                 int gx = x + Random.Range(-3, 4), gz = z + Random.Range(-3, 4);
                 if (!wm.IsChunkLoadedAtWorldPos(gx, gz)) continue;
                 if (!IsSpotFree(wm, gx, y, gz)) continue;
+                if (data.Spawn.onlyOnGrass && wm.GetBlockAtWorldPosition(gx, y - 1, gz) != BlockType.Grass) continue;
                 SpawnAt(data, new Vector3(gx + 0.5f, y, gz + 0.5f));
             }
             return true;
         }
 
         // выбор моба по весам среди подходящих по месту и лимитам
-        private MobDataSO PickMob(bool underground, int playerCount)
+        private MobDataSO PickMob(bool underground, int playerCount, BlockType ground)
         {
             var all = MobRegistry.All;
             int total = 0;
             foreach (var d in all)
-                if (CanSpawn(d, underground, playerCount)) total += d.Spawn.weight;
+                if (CanSpawn(d, underground, playerCount, ground)) total += d.Spawn.weight;
             if (total <= 0) return null;
 
             int roll = Random.Range(0, total);
             foreach (var d in all)
             {
-                if (!CanSpawn(d, underground, playerCount)) continue;
+                if (!CanSpawn(d, underground, playerCount, ground)) continue;
                 roll -= d.Spawn.weight;
                 if (roll < 0) return d;
             }
             return null;
         }
 
-        private bool CanSpawn(MobDataSO d, bool underground, int playerCount)
+        private bool CanSpawn(MobDataSO d, bool underground, int playerCount, BlockType ground)
         {
             if (d.Spawn.weight <= 0) return false;
             if (!(underground ? d.Spawn.underground : d.Spawn.onSurface)) return false;
+            if (d.Spawn.onlyOnGrass && ground != BlockType.Grass) return false;
             return CountOf(d.Temperament) < LimitOf(d.Temperament) * playerCount;
         }
 

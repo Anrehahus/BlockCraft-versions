@@ -31,6 +31,7 @@ namespace MinecraftClone.Mobs
         public bool onSurface = true;
         public bool underground = false;
         [Tooltip("Относительная частота появления (0 = не спавнить)")] public int weight = 10;
+        [Tooltip("Появляться только на траве")] public bool onlyOnGrass = false;
         public int groupMin = 1;
         public int groupMax = 1;
     }
@@ -120,6 +121,31 @@ namespace MinecraftClone.Mobs
             };
             UnityEditor.EditorUtility.SetDirty(this);
         }
+
+                [ContextMenu("Preset: Pig")]
+        private void PresetPig()
+        {
+            Id = "pig"; DisplayName = "Pig";
+            Temperament = Temperament.Passive; MaxHealth = 10f;
+            Width = 0.9f; Height = 0.9f; JumpHeight = 1.25f;
+            Targeting = TargetMode.None; FollowRange = 16f;
+            ChargeTime = 0f; ChargeEffect = ChargeEffect.None;
+            PixelSize = 1f / 16f;
+            Spawn = new SpawnRule { onSurface = true, underground = false, weight = 100, groupMin = 2, groupMax = 4, onlyOnGrass = true };
+
+            ModelParts = new List<ModelPartDef>
+            {
+                Part("Head",  0, 12, 6,   0, 0,   8, 8, 8,    -4, -4, 0, PartAnim.None),
+                Part("Snout", 0, 12, 6,   16, 16, 4, 3, 1,    -2, -3, 8, PartAnim.None),
+                // в оригинале коробка тела повёрнута на 90°, поэтому у неё поза покоя 90 градусов
+                Part("Body",  0, 13, -2,  28, 8,  10, 16, 8,  -5, -6, -1, PartAnim.SwingA, 0f, false, false, 90f),
+                Part("LegRearLeft",   -3, 6, -7,  0, 16, 4, 6, 4,  -2, -6, -2, PartAnim.SwingA),
+                Part("LegRearRight",   3, 6, -7,  0, 16, 4, 6, 4,  -2, -6, -2, PartAnim.SwingB),
+                Part("LegFrontLeft",  -3, 6,  5,  0, 16, 4, 6, 4,  -2, -6, -2, PartAnim.SwingB),
+                Part("LegFrontRight",  3, 6,  5,  0, 16, 4, 6, 4,  -2, -6, -2, PartAnim.SwingA),
+            };
+            UnityEditor.EditorUtility.SetDirty(this);
+        }   
 
         private static ModelPartDef Part(string n, float px, float py, float pz, int u, int v,
                                  int w, int h, int d, float mx, float my, float mz, PartAnim a,
