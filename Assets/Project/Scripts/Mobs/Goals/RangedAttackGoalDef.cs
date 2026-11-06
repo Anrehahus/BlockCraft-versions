@@ -18,5 +18,17 @@ namespace MinecraftClone.Mobs
         public float shootInterval = 2f;
 
         public override Goal Create(Mob mob) => new RangedAttackGoal(mob, this);
+
+        [Header("Стрела")]
+        public ProjectileDataSO projectile;
+
+        [Tooltip("Скорость стрелы, блоков в секунду")]
+        public float projectileSpeed = 30f;
+
+        [Tooltip("Разброс: угол конуса вокруг линии прицеливания, градусы")]
+        public float spreadDegrees = 3f;
+
+        [Tooltip("Урон от попадания. Пока не используется: заработает вместе с системой здоровья")]
+        public float damage = 2f;
     }
 }

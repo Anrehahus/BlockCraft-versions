@@ -267,6 +267,21 @@ namespace MinecraftClone.Mobs
             if (isServer) _hitCountSync = _hitCountLocal;
         }
 
+        // Выстрел: сервер (или одиночная игра) создаёт настоящий снаряд, а клиентам рассылает визуальную копию
+        public void ServerFireProjectile(ProjectileDataSO data, Vector3 pos, Vector3 velocity, float damage)
+        {
+            Projectile.Spawn(data, pos, velocity, damage, true);
+            if (isServer) RpcFireProjectile(data.Id, pos, velocity);
+        }
+
+        [ClientRpc]
+        private void RpcFireProjectile(string projectileId, Vector3 pos, Vector3 velocity)
+        {
+            if (isServer) return;   // на хосте снаряд уже создан сервером
+            ProjectileDataSO data = ProjectileRegistry.Get(projectileId);
+            if (data != null) Projectile.Spawn(data, pos, velocity, 0f, false);
+        }
+
         public void ServerDespawn()
         {
             if (_dead) return;

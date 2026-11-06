@@ -69,8 +69,22 @@ namespace MinecraftClone.Mobs
 
         private void Shoot(Vector3 from, Vector3 to)
         {
-            // TODO (следующий шаг): создать стрелу в точке from и запустить её в сторону to.
-            Debug.Log($"[RangedAttack] {mob.Data.Id}: выстрел (стрелы пока нет)");
+            if (_def.projectile == null)
+            {
+                Debug.LogWarning("[RangedAttack] В ассете RangedAttackGoal не задан Projectile");
+                return;
+            }
+
+            // целимся выше цели на величину падения стрелы за время полёта
+            float dist = Vector3.Distance(from, to);
+            float flightTime = dist / _def.projectileSpeed;
+            Vector3 aim = to + Vector3.up * (0.5f * -_def.projectile.Gravity * flightTime * flightTime);
+            Vector3 dir = (aim - from).normalized;
+
+            // разброс: случайное отклонение внутри конуса
+            dir = Quaternion.AngleAxis(Random.Range(0f, _def.spreadDegrees), Vector3.Cross(dir, Random.onUnitSphere)) * dir;
+
+            mob.ServerFireProjectile(_def.projectile, from + dir * 0.4f, dir * _def.projectileSpeed, _def.damage);
         }
     }
 }
