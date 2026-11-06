@@ -12,24 +12,110 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a015a31510bed844a50906d60842da8, type: 3}
   m_Name: Pig
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Mobs.MobDataSO
-  Id: mob
-  DisplayName: Mob
+  Id: pig
+  DisplayName: Pig
   Temperament: 0
-  MaxHealth: 20
-  Width: 0.6
-  Height: 1.7
+  MaxHealth: 10
+  Width: 0.9
+  Height: 0.9
   JumpHeight: 1.25
   Targeting: 0
   FollowRange: 16
-  Goals: []
+  Goals:
+  - {fileID: 11400000, guid: 05c6da9ea45b8bb479d22a2f0a81a605, type: 2}
   ChargeTime: 0
   ChargeEffect: 0
-  Texture: {fileID: 0}
+  Texture: {fileID: 2800000, guid: 724425045e0d30a4c93b488e753f2e21, type: 3}
   PixelSize: 0.0625
-  ModelParts: []
+  ModelParts:
+  - name: Head
+    pivotPx: {x: 0, y: 12, z: 6}
+    uv: {x: 0, y: 0}
+    size: {x: 8, y: 8, z: 8}
+    minPx: {x: -4, y: -4, z: 0}
+    anim: 0
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+  - name: Snout
+    pivotPx: {x: 0, y: 12, z: 6}
+    uv: {x: 16, y: 16}
+    size: {x: 4, y: 3, z: 1}
+    minPx: {x: -2, y: -3, z: 8}
+    anim: 0
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+  - name: Body
+    pivotPx: {x: 0, y: 13, z: -2}
+    uv: {x: 28, y: 8}
+    size: {x: 10, y: 16, z: 8}
+    minPx: {x: -5, y: -6, z: -1}
+    anim: 1
+    swingAmplitude: 0
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 90
+  - name: LegRearLeft
+    pivotPx: {x: -3, y: 6, z: -7}
+    uv: {x: 0, y: 16}
+    size: {x: 4, y: 6, z: 4}
+    minPx: {x: -2, y: -6, z: -2}
+    anim: 1
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+  - name: LegRearRight
+    pivotPx: {x: 3, y: 6, z: -7}
+    uv: {x: 0, y: 16}
+    size: {x: 4, y: 6, z: 4}
+    minPx: {x: -2, y: -6, z: -2}
+    anim: 2
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+  - name: LegFrontLeft
+    pivotPx: {x: -3, y: 6, z: 5}
+    uv: {x: 0, y: 16}
+    size: {x: 4, y: 6, z: 4}
+    minPx: {x: -2, y: -6, z: -2}
+    anim: 2
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+  - name: LegFrontRight
+    pivotPx: {x: 3, y: 6, z: 5}
+    uv: {x: 0, y: 16}
+    size: {x: 4, y: 6, z: 4}
+    minPx: {x: -2, y: -6, z: -2}
+    anim: 1
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
   Spawn:
     onSurface: 1
     underground: 0
-    weight: 10
-    groupMin: 1
-    groupMax: 1
+    weight: 100
+    onlyOnGrass: 1
+    groupMin: 2
+    groupMax: 4

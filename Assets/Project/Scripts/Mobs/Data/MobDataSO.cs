@@ -22,6 +22,7 @@ namespace MinecraftClone.Mobs
         [Tooltip("Зеркалить текстуру (левая рука и нога в старом скине 64x32)")] public bool mirror;
         [Tooltip("При атаке поднимать и размахивать (руки зомби)")] public bool waveWhenAttacking;
         [Tooltip("Угол поднятой руки при атаке, градусы (-90 = вперёд)")] public float attackPitch = -90f;
+        [Tooltip("При прицеливании (IsAttacking) принимать позу attackPitch. Руки скелета")] public bool poseWhenAttacking;
         [Tooltip("Поза покоя: наклон по X в градусах (-90 = рука вытянута вперёд)")] public float restPitch;
     }
 
@@ -147,17 +148,42 @@ namespace MinecraftClone.Mobs
             UnityEditor.EditorUtility.SetDirty(this);
         }   
 
-        private static ModelPartDef Part(string n, float px, float py, float pz, int u, int v,
-                                 int w, int h, int d, float mx, float my, float mz, PartAnim a,
-                                 float amp = 1.4f, bool mirror = false, bool wave = false, float rest = 0f)
-{
-    return new ModelPartDef
-    {
-        name = n, pivotPx = new Vector3(px, py, pz), uv = new Vector2Int(u, v),
-        size = new Vector3Int(w, h, d), minPx = new Vector3(mx, my, mz), anim = a,
-        swingAmplitude = amp, mirror = mirror, waveWhenAttacking = wave, restPitch = rest
-    };
-}
+                [ContextMenu("Preset: Skeleton")]
+        private void PresetSkeleton()
+        {
+            Id = "skeleton"; DisplayName = "Skeleton";
+            Temperament = Temperament.Hostile; MaxHealth = 20f;
+            Width = 0.6f; Height = 1.99f; JumpHeight = 1.25f;
+            Targeting = TargetMode.NearestPlayer; FollowRange = 20f;
+            ChargeTime = 0f; ChargeEffect = ChargeEffect.None;
+            PixelSize = 1.99f / 32f;
+            Spawn = new SpawnRule { onSurface = false, underground = true, weight = 100, groupMin = 1, groupMax = 2 };
+
+            ModelParts = new List<ModelPartDef>
+            {
+                Part("Head",     0, 24, 0,  0, 0,    8, 8, 8,    -4, 0, -4, PartAnim.None),
+                Part("Body",     0, 24, 0,  16, 16,  8, 12, 4,   -4, -12, -2, PartAnim.None),
+                Part("RightArm", 5, 22, 0,  40, 16,  2, 12, 2,   -1, -10, -1, PartAnim.SwingB, 1f, false, false, 0f, true),
+                Part("LeftArm", -5, 22, 0,  40, 16,  2, 12, 2,   -1, -10, -1, PartAnim.SwingA, 1f, true, false, 0f, true),
+                Part("RightLeg", 2, 12, 0,  0, 16,   2, 12, 2,   -1, -12, -1, PartAnim.SwingA),
+                Part("LeftLeg", -2, 12, 0,  0, 16,   2, 12, 2,   -1, -12, -1, PartAnim.SwingB, 1.4f, true, false),
+            };
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+
+                private static ModelPartDef Part(string n, float px, float py, float pz, int u, int v,
+                                         int w, int h, int d, float mx, float my, float mz, PartAnim a,
+                                         float amp = 1.4f, bool mirror = false, bool wave = false, float rest = 0f,
+                                         bool pose = false)
+        {
+            return new ModelPartDef
+            {
+                name = n, pivotPx = new Vector3(px, py, pz), uv = new Vector2Int(u, v),
+                size = new Vector3Int(w, h, d), minPx = new Vector3(mx, my, mz), anim = a,
+                swingAmplitude = amp, mirror = mirror, waveWhenAttacking = wave, restPitch = rest,
+                poseWhenAttacking = pose
+            };
+        }
 #endif
     }
 }

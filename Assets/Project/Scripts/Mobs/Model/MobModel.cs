@@ -9,7 +9,7 @@ namespace MinecraftClone.Mobs
     {
         private const float FlashAmount = 0.7f;   // насколько белая вспышка (0..1)
 
-        private struct Swing { public Transform T; public float Amp; public bool Wave; public float Rest; }
+        private struct Swing { public Transform T; public float Amp; public bool Wave; public float Rest; public bool Pose; public float AttackPitch; }
 
         private Mob _mob;
         private MobDataSO _data;
@@ -29,6 +29,7 @@ namespace MinecraftClone.Mobs
         private float _swingTimer = -1f;
         private int _lastHitCount;
         private float _hitSwing;                       // добавка к углу рук во время удара, градусы
+        private float _attackBlend;   // плавный переход в боевую позу (0..1)
         private bool _mirror;                // зеркалить текстуру текущей части
 
         public void Build(Mob mob)
@@ -44,8 +45,8 @@ namespace MinecraftClone.Mobs
             foreach (var p in _data.ModelParts)
             {
                 Transform t = MakePart(_root, p);
-                if (p.anim == PartAnim.SwingA) _swingA.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch });
-                else if (p.anim == PartAnim.SwingB) _swingB.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch });
+                if (p.anim == PartAnim.SwingA) _swingA.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch, Pose = p.poseWhenAttacking, AttackPitch = p.attackPitch });
+                else if (p.anim == PartAnim.SwingB) _swingB.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch, Pose = p.poseWhenAttacking, AttackPitch = p.attackPitch });
             }
 
             _renderers = _root.GetComponentsInChildren<Renderer>();
@@ -68,6 +69,12 @@ namespace MinecraftClone.Mobs
             if (sh == null) sh = Shader.Find("Unlit/Texture");
             if (sh == null) sh = Shader.Find("Sprites/Default");
             _normalMat = new Material(sh);
+            // прозрачные пиксели текстуры (рёбра скелета) вырезаем, а не рисуем чёрными
+            _normalMat.SetFloat("_AlphaClip", 1f);
+            _normalMat.SetFloat("_Cutoff", 0.5f);
+            _normalMat.EnableKeyword("_ALPHATEST_ON");
+            _normalMat.renderQueue = 2450;   // AlphaTest
+            _normalMat.SetFloat("_Cull", 0f);   // рисовать обе стороны граней: сквозь рёбра видно спину и наоборот
 
             Texture2D skin = _data.Texture;
             if (skin != null)
@@ -211,6 +218,7 @@ namespace MinecraftClone.Mobs
 
             foreach (var sw in _swingA) sw.T.localRotation = Quaternion.Euler(PartPitch(sw, s), 0f, 0f);
 
+            _attackBlend = Mathf.MoveTowards(_attackBlend, _mob.IsAttacking ? 1f : 0f, 6f * dt);
             // на каждый новый удар моба запускаем один взмах рук
             int hits = _mob.HitCount;
             if (hits != _lastHitCount) { _lastHitCount = hits; _swingTimer = 0f; }
@@ -231,8 +239,9 @@ namespace MinecraftClone.Mobs
 
         private float PartPitch(Swing sw, float swing)
         {
-            float pitch = sw.Rest + swing * sw.Amp;   // поза покоя + покачивание при ходьбе
-            if (sw.Wave) pitch += _hitSwing;          // взмах при ударе
+            float pitch = sw.Rest + swing * sw.Amp;                                      // поза покоя + ходьба
+            if (sw.Pose) pitch = Mathf.Lerp(pitch, sw.AttackPitch, _attackBlend);        // стойка прицеливания
+            if (sw.Wave) pitch += _hitSwing;                                             // взмах при ударе
             return pitch;
         }
 
