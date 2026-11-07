@@ -1,4 +1,5 @@
 using UnityEngine;
+using MinecraftClone.Player;
 
 namespace MinecraftClone.Mobs
 {
@@ -54,8 +55,13 @@ namespace MinecraftClone.Mobs
         private void Hit()
         {
             mob.ServerRegisterHit();
-            // TODO (когда появится система здоровья): нанести _def.damage игроку mob.Target
-            // и отбросить его. Пока удар только визуальный.
+
+            PlayerHealth health = mob.Target != null ? mob.Target.GetComponentInParent<PlayerHealth>() : null;
+            if (health == null) return;
+
+            // Random.Range для int: верхняя граница не входит, поэтому +1 (получится 1..7)
+            float damage = Random.Range(_def.damageMin, _def.damageMax + 1);
+            health.TakeDamage(damage, mob.transform.position);
         }
     }
 }

@@ -35,7 +35,9 @@ namespace MinecraftClone.Mobs
 
             if (mob.Charge >= mob.Data.ChargeTime)
             {
-                MobExplosion.Explode(mob.CenterPos, _def.explosionRadius);
+                Vector3 center = mob.CenterPos;
+                MobExplosion.Explode(center, _def.explosionRadius);
+                MobExplosion.DamagePlayers(center, _def.damageRadius, _def.minDamage, _def.maxDamage);
                 mob.ServerDespawn();
             }
         }

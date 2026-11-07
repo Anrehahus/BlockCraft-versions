@@ -84,7 +84,8 @@ namespace MinecraftClone.Mobs
             // разброс: случайное отклонение внутри конуса
             dir = Quaternion.AngleAxis(Random.Range(0f, _def.spreadDegrees), Vector3.Cross(dir, Random.onUnitSphere)) * dir;
 
-            mob.ServerFireProjectile(_def.projectile, from + dir * 0.4f, dir * _def.projectileSpeed, _def.damage);
+            float damage = Random.Range(_def.damageMin, _def.damageMax + 1);   // 1..6
+            mob.ServerFireProjectile(_def.projectile, from + dir * 0.4f, dir * _def.projectileSpeed, damage);
         }
     }
 }

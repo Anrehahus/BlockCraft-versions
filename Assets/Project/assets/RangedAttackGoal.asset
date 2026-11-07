@@ -17,3 +17,7 @@ MonoBehaviour:
   approachSpeed: 3
   drawTime: 1
   shootInterval: 2
+  projectile: {fileID: 11400000, guid: 757e2a62e9dbb794e8b498b4e462813a, type: 2}
+  projectileSpeed: 30
+  spreadDegrees: 3
+  damage: 2

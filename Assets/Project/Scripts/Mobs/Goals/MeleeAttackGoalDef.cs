@@ -11,8 +11,11 @@ namespace MinecraftClone.Mobs
         [Tooltip("Секунд между ударами")]
         public float cooldown = 1f;
 
-        [Tooltip("Урон. Пока не используется: заработает вместе с системой здоровья")]
-        public float damage = 3f;
+        [Tooltip("Минимальный урон за удар (1 = полсердца)")]
+        public int damageMin = 1;
+
+        [Tooltip("Максимальный урон за удар")]
+        public int damageMax = 7;
 
         public override Goal Create(Mob mob) => new MeleeAttackGoal(mob, this);
     }

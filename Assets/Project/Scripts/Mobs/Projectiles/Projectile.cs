@@ -3,6 +3,8 @@ using UnityEngine;
 using MinecraftClone.Core;
 using MinecraftClone.Management;
 using MinecraftClone.ScriptableObjects;
+using MinecraftClone.Networking;
+using MinecraftClone.Player;
 
 namespace MinecraftClone.Mobs
 {
@@ -83,12 +85,12 @@ namespace MinecraftClone.Mobs
                     return;
                 }
 
-                if (HitsPlayer(next))
+                if (HitsPlayer(next, out NetworkPlayer hitPlayer))
                 {
                     if (_authoritative)
                     {
-                        // TODO (когда появится здоровье): нанести _damage игроку
-                        Debug.Log($"[Projectile] {_data.Id}: попадание в игрока, урон {_damage} (здоровья пока нет)");
+                        PlayerHealth health = hitPlayer.GetComponentInParent<PlayerHealth>();
+                        if (health != null) health.TakeDamage(_damage, transform.position);
                     }
                     Destroy(gameObject);
                     return;
@@ -117,14 +119,19 @@ namespace MinecraftClone.Mobs
         }
 
         // коробка игрока: ширина 0.8 (с запасом), высота 1.8, точка у ног
-        private static bool HitsPlayer(Vector3 pos)
+        private static bool HitsPlayer(Vector3 pos, out NetworkPlayer hit)
         {
+            hit = null;
             foreach (var pl in Mob.GetPlayers())
             {
                 if (pl == null) continue;
                 Vector3 c = pl.transform.position;
                 if (Mathf.Abs(pos.x - c.x) < 0.4f && Mathf.Abs(pos.z - c.z) < 0.4f
-                    && pos.y > c.y && pos.y < c.y + 1.8f) return true;
+                    && pos.y > c.y && pos.y < c.y + 1.8f)
+                {
+                    hit = pl;
+                    return true;
+                }
             }
             return false;
         }

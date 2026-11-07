@@ -26,6 +26,7 @@ namespace MinecraftClone.UI
         private void Awake()
         {
             Instance = this;
+            gameObject.AddComponent<MinecraftClone.UI.PlayerHealthUI>();   // сердечки над хотбаром   // сердечки над хотбаром
 
             _bar = Resources.Load<Texture2D>("UI/hotbar");
             _sel = Resources.Load<Texture2D>("UI/hotbar_selection");
@@ -85,7 +86,7 @@ namespace MinecraftClone.UI
                 if (icon == null) continue;
                 float cx = x0 + (3f + 20f * i + 8f) * k;        // центр слота
                 float cy = y0 + 11f * u;
-                float s = 14f * u;                               // иконка чуть меньше слота
+                float s = 16f * u;                               // иконка чуть меньше слота
                 GUI.DrawTexture(new Rect(cx - s / 2f, cy - s / 2f, s, s), icon, ScaleMode.StretchToFill, true);
             }
 

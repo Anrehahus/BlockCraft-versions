@@ -4,6 +4,7 @@ using Mirror;
 using MinecraftClone.Core;
 using MinecraftClone.Management;
 using MinecraftClone.ScriptableObjects;
+using MinecraftClone.Player;
 
 namespace MinecraftClone.Mobs
 {
@@ -46,6 +47,27 @@ namespace MinecraftClone.Mobs
                     }
 
             foreach (var chunk in dirty) wm.RebuildChunkMesh(chunk);
+        }
+
+        // Урон игрокам от взрыва. Только сервер / одиночная игра.
+        public static void DamagePlayers(Vector3 center, float radius, float minDamage, float maxDamage)
+        {
+            if (NetworkClient.active && !NetworkServer.active) return;
+
+            foreach (var pl in Mob.GetPlayers())
+            {
+                if (pl == null) continue;
+
+                Vector3 playerCenter = pl.transform.position + Vector3.up * 0.9f;
+                float dist = Vector3.Distance(center, playerCenter);
+                if (dist > radius) continue;
+
+                PlayerHealth health = pl.GetComponentInParent<PlayerHealth>();
+                if (health == null) continue;
+
+                float damage = Mathf.Round(Mathf.Lerp(maxDamage, minDamage, dist / radius));
+                health.TakeDamage(damage, center);
+            }
         }
     }
 }

@@ -13,5 +13,11 @@ namespace MinecraftClone.Mobs
         public float explosionRadius = 3f;
 
         public override Goal Create(Mob mob) => new SwellGoal(mob, this);
+
+        [Header("Урон игроку")]
+        [Tooltip("Дальше этого расстояния от центра взрыва урона нет")]
+        public float damageRadius = 4f;
+        public float minDamage = 2f;   // на краю зоны
+        public float maxDamage = 6f;   // в центре
     }
 }

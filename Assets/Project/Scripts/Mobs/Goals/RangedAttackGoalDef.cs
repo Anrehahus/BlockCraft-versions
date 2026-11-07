@@ -28,7 +28,10 @@ namespace MinecraftClone.Mobs
         [Tooltip("Разброс: угол конуса вокруг линии прицеливания, градусы")]
         public float spreadDegrees = 3f;
 
-        [Tooltip("Урон от попадания. Пока не используется: заработает вместе с системой здоровья")]
-        public float damage = 2f;
+        [Tooltip("Минимальный урон от стрелы (1 = полсердца)")]
+        public int damageMin = 1;
+
+        [Tooltip("Максимальный урон от стрелы")]
+        public int damageMax = 6;
     }
 }
