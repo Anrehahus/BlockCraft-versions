@@ -2,6 +2,7 @@ using UnityEngine;
 using MinecraftClone.Core;
 using MinecraftClone.Management;
 using MinecraftClone.UI;
+using MinecraftClone.ScriptableObjects;
 
 namespace MinecraftClone.Player
 {
@@ -55,6 +56,19 @@ namespace MinecraftClone.Player
         private Vector3 _knock;
         private const float KnockDecay = 20f;
 
+        [Header("Stuck In Blocks")]
+        public float stuckSpeedMultiplier = 0.5f;
+        private const float EmbedFeetSample = 0.3f;   // точка проверки «ног»; запас, чтобы стоя на земле не было ложных срабатываний
+        private bool _headInBlock;
+        private BlockType _headBlockType;
+
+        private const float McGravity = 32f;        // 0.08 бл/тик² * 20²
+        private const float McDrag = 0.98f;         // сопротивление за тик (20 тиков/с)
+        private const float McJumpVelocity = 8.4f;  // 0.42 бл/тик * 20
+        private const float McTerminal = -78.4f;    // предельная скорость падения
+        private float _pendingVelY;
+        public float VerticalVelocity => velocity.y;
+
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
@@ -69,16 +83,21 @@ namespace MinecraftClone.Player
 
         public void SetFrozen(bool freeze)
         {
+            _headInBlock = false;   // эта строка только если вы добавляли правку про застревание
             isFrozen = freeze;
-            velocity = Vector3.zero;
             _knock = Vector3.zero;
 
-            if (controller != null)
-            {
-                controller.enabled = !freeze;
-            }
+            if (freeze) velocity = Vector3.zero;
+            else if (_pendingVelY != 0f) { velocity.y = _pendingVelY; _pendingVelY = 0f; }
 
+            if (controller != null) controller.enabled = !freeze;
             UpdateCursorState(freeze);
+        }
+
+        public void RestoreVelocityY(float v)
+        {
+            v = Mathf.Clamp(v, McTerminal, 50f);
+            if (isFrozen) _pendingVelY = v; else velocity.y = v;
         }
 
         public void AddKnockback(Vector3 horizontal, float hop)
@@ -116,7 +135,128 @@ namespace MinecraftClone.Player
             }
 
             CheckFluidStates();
+            if (HandleEmbedded(isPaused)) return;
             HandleMovement(isPaused);
+
+        }
+
+        private static readonly Vector3Int[] PushDirs =
+{
+    Vector3Int.up, Vector3Int.right, Vector3Int.left,
+    new Vector3Int(0, 0, 1), new Vector3Int(0, 0, -1), Vector3Int.down
+};
+
+        private bool IsSolidBlockType(BlockType t)
+        {
+            if (t == BlockType.Air || t == BlockType.Water || t == BlockType.Lava || t.IsPlant() || t.IsSign()) return false;
+            var db = WorldManager.Instance.BlockDatabase;
+            if (db != null && db.TryGetValue(t, out BlockDataSO data) && data != null) return data.IsSolid;
+            return true;
+        }
+
+        private bool IsSolidAt(Vector3 p) => IsSolidBlockType(GetBlockTypeAt(p));
+
+        // есть ли место для игрока (2 блока высотой) с ногами в точке feet
+        private bool HasClearance(Vector3 feet)
+        {
+            return !IsSolidAt(feet + Vector3.up * EmbedFeetSample)
+                && !IsSolidAt(feet + Vector3.up * waistOffset)
+                && !IsSolidAt(feet + Vector3.up * eyesOffset)
+                && !IsSolidAt(feet + Vector3.up * 1.8f);
+        }
+
+        // true = мы сами обработали движение в этом кадре (вытолкнули или игрок застрял)
+        private bool HandleEmbedded(bool isPaused)
+        {
+            _headInBlock = false;
+            if (WorldManager.Instance == null) return false;
+
+            Vector3 pos = transform.position;
+            if (!WorldManager.Instance.IsChunkLoadedAtWorldPos(Mathf.FloorToInt(pos.x), Mathf.FloorToInt(pos.z)))
+                return false;
+
+            bool feetSolid = IsSolidAt(pos + Vector3.up * EmbedFeetSample) || IsSolidAt(pos + Vector3.up * waistOffset);
+            bool headSolid = IsSolidAt(pos + Vector3.up * eyesOffset);
+            if (!feetSolid && !headSolid) return false;
+
+            if (TryPushOut(pos)) return true;
+
+            // ---- выхода нет, игрок застрял ----
+            if (headSolid)
+            {
+                // голова в блоке: полностью замираем, пока блок не сломают
+                velocity = Vector3.zero;
+                _knock = Vector3.zero;
+                _headBlockType = GetBlockTypeAt(pos + Vector3.up * eyesOffset);
+                _headInBlock = true;
+                return true;
+            }
+
+            // только ноги: можно идти и прыгать, гравитация не затягивает глубже
+            float inputX = isPaused ? 0f : (GameSettings.Held(GameSettings.Bind.Right) ? 1f : 0f) - (GameSettings.Held(GameSettings.Bind.Left) ? 1f : 0f);
+            float inputZ = isPaused ? 0f : (GameSettings.Held(GameSettings.Bind.Forward) ? 1f : 0f) - (GameSettings.Held(GameSettings.Bind.Back) ? 1f : 0f);
+            Vector3 move = (transform.right * inputX + transform.forward * inputZ).normalized * (walkSpeed * stuckSpeedMultiplier);
+
+            if (!isPaused && GameSettings.Pressed(GameSettings.Bind.Jump)) velocity.y = McJumpVelocity;
+            else if (velocity.y > 0f) velocity.y -= McGravity * Time.deltaTime;
+            else velocity.y = 0f;
+
+            MoveSubstepped((move + Vector3.up * velocity.y) * Time.deltaTime);
+            return true;
+        }
+
+        private bool TryPushOut(Vector3 pos)
+        {
+            int fx = Mathf.FloorToInt(pos.x);
+            int fz = Mathf.FloorToInt(pos.z);
+            int fy = Mathf.FloorToInt(pos.y + EmbedFeetSample);
+
+            bool found = false;
+            Vector3 best = pos;
+            float bestDist = float.MaxValue;
+
+            foreach (Vector3Int d in PushDirs)
+            {
+                int cy = fy + d.y;
+                Vector3 target = (d.x == 0 && d.z == 0)
+                    ? new Vector3(pos.x, cy + 0.02f, pos.z)                       // вверх/вниз: X и Z не меняем
+                    : new Vector3(fx + d.x + 0.5f, cy + 0.02f, fz + d.z + 0.5f);  // в сторону: центр соседней клетки
+
+                if (!HasClearance(target)) continue;
+
+                float dist = (target - pos).sqrMagnitude;
+                if (dist < bestDist) { bestDist = dist; best = target; found = true; }
+            }
+
+            if (!found) return false;
+
+            controller.enabled = false;
+            transform.position = best;
+            controller.enabled = true;
+            UnityEngine.Physics.SyncTransforms();   // именно с UnityEngine., иначе C# найдёт пространство имён MinecraftClone.Physics
+            velocity = Vector3.zero;
+            _knock = Vector3.zero;
+            return true;
+        }
+
+        private void OnGUI()
+        {
+            if (!_headInBlock || Event.current.type != EventType.Repaint) return;
+            if (RuntimeLoadingScreen.IsShown || WorldManager.Instance == null) return;
+
+            Texture2D tex = null;
+            var db = WorldManager.Instance.BlockDatabase;
+            if (db != null && db.TryGetValue(_headBlockType, out BlockDataSO data) && data != null)
+            {
+                tex = data.SideTexture;
+                if (tex == null) tex = data.TopTexture;
+            }
+            if (tex == null) tex = Texture2D.blackTexture;
+
+            GUI.depth = 100;                                   // позади интерфейса
+            GUI.color = new Color(0.08f, 0.08f, 0.08f, 1f);    // «очень-очень тёмная» текстура
+            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), tex, ScaleMode.StretchToFill);
+            GUI.color = Color.white;
         }
 
         private void UpdateCursorState(bool forceUnlock = false)
@@ -216,16 +356,31 @@ namespace MinecraftClone.Player
 
                 if (!isPaused && GameSettings.Pressed(GameSettings.Bind.Jump) && isGrounded && !isFeetInWater && !isFeetInLava)
                 {
-                    velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+                    velocity.y = McJumpVelocity;
                 }
 
-                velocity.y += gravity * Time.deltaTime;
+                velocity.y -= McGravity * Time.deltaTime;
+                velocity.y *= Mathf.Pow(McDrag, Time.deltaTime * 20f);
+                velocity.y = Mathf.Max(velocity.y, McTerminal);
                 finalMoveDirection = horizontalVelocity + Vector3.up * velocity.y;
             }
 
             finalMoveDirection += _knock;
             _knock = Vector3.MoveTowards(_knock, Vector3.zero, KnockDecay * Time.deltaTime);
-            controller.Move(finalMoveDirection * Time.deltaTime);
+            MoveSubstepped(finalMoveDirection * Time.deltaTime);
+        }
+
+        private void MoveSubstepped(Vector3 delta)
+        {
+            int steps = Mathf.Clamp(Mathf.CeilToInt(Mathf.Abs(delta.y) / 0.5f), 1, 8);
+            Vector3 part = delta / steps;
+            for (int i = 0; i < steps; i++)
+            {
+                controller.Move(part);
+                CollisionFlags f = controller.collisionFlags;
+                if ((f & CollisionFlags.Above) != 0 && velocity.y > 0f) velocity.y = 0f;
+                if ((f & (CollisionFlags.Above | CollisionFlags.Below)) != 0) break;
+            }
         }
 
         private Vector3 CalculateFluidPhysics(

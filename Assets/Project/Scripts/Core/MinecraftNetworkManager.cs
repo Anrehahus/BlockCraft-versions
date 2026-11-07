@@ -288,18 +288,25 @@ namespace MinecraftClone.Networking
             if (_spawn.IsSet) spawnPosition = new Vector3(_spawn.X, _spawn.Y, _spawn.Z);
 
             bool isHostPlayer = conn == NetworkServer.localConnection;
+            GameObject adoptedHost = null;   // уже существующий игрок хоста (из одиночной игры)
             if (isHostPlayer)
             {
-                // хост остаётся там, где стоял в одиночной игре
                 foreach (var p in GameObject.FindGameObjectsWithTag("Player"))
                 {
                     var pid = p.GetComponent<NetworkIdentity>();
-                    if (pid == null || pid.netId == 0) { spawnPosition = p.transform.position; break; }
+                    if (pid == null || pid.netId == 0)
+                    {
+                        spawnPosition = p.transform.position;
+                        if (pid != null) adoptedHost = p;
+                        break;
+                    }
                 }
             }
 
             string playerDataDir = GetPlayerDataDir();
             string playerFilePath = Path.Combine(playerDataDir, $"{cleanNick}.json");
+
+            float savedVelY = 0f;
 
             if (!isHostPlayer && File.Exists(playerFilePath))
             {
@@ -311,6 +318,7 @@ namespace MinecraftClone.Networking
                     {
                         spawnPosition = new Vector3(data.posX, data.posY, data.posZ);
                         spawnRotation = new Vector2(data.rotX, data.rotY);
+                        savedVelY = data.velY;
                     }
                 }
                 catch (System.Exception ex)
@@ -327,13 +335,18 @@ namespace MinecraftClone.Networking
                 return;
             }
 
-            GameObject playerObj = Instantiate(prefabToSpawn, spawnPosition, Quaternion.Euler(spawnRotation.x, spawnRotation.y, 0));
+            GameObject playerObj = adoptedHost != null
+                ? adoptedHost   // не создаём нового: берём того, которым хост уже играет
+                : Instantiate(prefabToSpawn, spawnPosition, Quaternion.Euler(spawnRotation.x, spawnRotation.y, 0));
 
             var playerNetwork = playerObj.GetComponent<NetworkPlayer>();
             if (playerNetwork != null)
             {
+                if (adoptedHost != null) playerNetwork.AdoptedFromOffline = true;
                 playerNetwork.ServerSetNickname(cleanNick);
             }
+
+            if (adoptedHost == null) playerNetwork?.ServerSetFallSpeed(savedVelY);
 
             NetworkServer.AddPlayerForConnection(conn, playerObj);
         }
@@ -344,7 +357,7 @@ namespace MinecraftClone.Networking
             {
                 if (conn.identity != null)
                 {
-                    SavePlayerData(nickname, conn.identity.transform.position, conn.identity.transform.eulerAngles);
+                    SavePlayerData(nickname, conn.identity.transform.position, conn.identity.transform.eulerAngles, conn.identity.GetComponent<NetworkPlayer>()?.FallSpeed ?? 0f);
                 }
                 _connectedNicknames.Remove(conn.connectionId);
                 if (conn != NetworkServer.localConnection)
@@ -362,7 +375,7 @@ namespace MinecraftClone.Networking
             return Path.Combine(slotDir, "playerdata");
         }
 
-        public void SavePlayerData(string nickname, Vector3 pos, Vector3 rot)
+        public void SavePlayerData(string nickname, Vector3 pos, Vector3 rot, float velY = 0f)
         {
             string playerDataDir = GetPlayerDataDir();
             if (!Directory.Exists(playerDataDir)) Directory.CreateDirectory(playerDataDir);
@@ -373,7 +386,8 @@ namespace MinecraftClone.Networking
                 posY = pos.y,
                 posZ = pos.z,
                 rotX = rot.x,
-                rotY = rot.y
+                rotY = rot.y,
+                velY = velY
             };
 
             string json = JsonUtility.ToJson(data, true);
@@ -385,7 +399,7 @@ namespace MinecraftClone.Networking
             foreach (var kvp in NetworkServer.connections)
             {
                 if (kvp.Value.identity != null && _connectedNicknames.TryGetValue(kvp.Key, out string nick))
-                    SavePlayerData(nick, kvp.Value.identity.transform.position, kvp.Value.identity.transform.eulerAngles);
+                    SavePlayerData(nick, kvp.Value.identity.transform.position, kvp.Value.identity.transform.eulerAngles, kvp.Value.identity.GetComponent<NetworkPlayer>()?.FallSpeed ?? 0f);
             }
         }
 

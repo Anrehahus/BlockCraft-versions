@@ -154,6 +154,17 @@ namespace MinecraftClone.Player
         {
             if (cameraTransform == null || _worldManager == null) return;
 
+            Vector3Int camCell = Vector3Int.FloorToInt(cameraTransform.position);
+            BlockType camBlock = _worldManager.GetBlockAtWorldPosition(camCell.x, camCell.y, camCell.z);
+            if (camBlock != BlockType.Air && camBlock != BlockType.Water && camBlock != BlockType.Lava
+                && !camBlock.IsPlant() && !camBlock.IsSign())
+            {
+                _selectedBlockPos = camCell;     // камера внутри блока: целимся именно в него
+                _hasTargetBlock = true;
+                if (outlineRenderer != null) outlineRenderer.Hide();
+                return;
+            }
+
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
             if (VoxelRaycast(ray, reachDistance, false, out Vector3Int hit, out _))
             {

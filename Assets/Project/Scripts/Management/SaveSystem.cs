@@ -126,6 +126,13 @@ namespace MinecraftClone.Management
                     if (!Directory.Exists(subPath)) Directory.CreateDirectory(subPath);
                 }
 
+                float velY = 0f;
+                if (PlayerHealth.Local != null)
+                {
+                    var pcv = PlayerHealth.Local.GetComponent<PlayerController>();
+                    if (pcv != null) velY = pcv.VerticalVelocity;
+                }
+
                 WorldSaveData saveData = new WorldSaveData
                 {
                     WorldName = $"Мир {slotIndex}",
@@ -135,6 +142,7 @@ namespace MinecraftClone.Management
                     PlayerPositionZ = playerPosition.z,
                     PlayerRotX = playerRotation.x,
                     PlayerRotY = playerRotation.y,
+                    PlayerVelY = velY,
                     PlayerDead = PlayerHealth.Local != null && PlayerHealth.Local.IsDead,
                     PlayerScore = PlayerHealth.Local != null ? PlayerHealth.Local.Score : 0,
                     Chunks = new List<ChunkSaveData>()
@@ -260,6 +268,7 @@ namespace MinecraftClone.Management
 
             return new PlayerSaveData
             {
+                velY = saveData.PlayerVelY,
                 posX = saveData.PlayerPositionX,
                 posY = saveData.PlayerPositionY,
                 posZ = saveData.PlayerPositionZ,
@@ -290,6 +299,7 @@ namespace MinecraftClone.Management
 
                 return new PlayerSaveData
                 {
+                    velY = saveData.PlayerVelY,
                     posX = saveData.PlayerPositionX,
                     posY = saveData.PlayerPositionY,
                     posZ = saveData.PlayerPositionZ,
@@ -421,6 +431,7 @@ namespace MinecraftClone.Management
     [Serializable]
     public class WorldSaveData
     {
+        public float PlayerVelY;
         public string WorldName;
         public int Seed;
         public float PlayerPositionX;
@@ -443,6 +454,7 @@ namespace MinecraftClone.Management
     [Serializable]
     public class PlayerSaveData
     {
+        public float velY;
         public bool dead;
         public int score;
         public float posX;

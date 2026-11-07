@@ -11,6 +11,7 @@ namespace MinecraftClone.Networking
     public class NetworkPlayer : NetworkBehaviour
     {
         public const float AttackDamage = 2f;   // урон кулаком (2 = одно сердце)
+        public bool AdoptedFromOffline;   // игрок уже был в мире до открытия для сети: ничего не пересоздаём
 
         // Вызывает владелец игрока, когда ударил моба
         public void AttackMob(Mob mob)
@@ -48,6 +49,12 @@ namespace MinecraftClone.Networking
 
         [SyncVar] private float _headPitch;
         public float HeadPitch => _headPitch;
+        [SyncVar] private float _fallSpeed;
+        public float FallSpeed => _fallSpeed;
+        private float _fallTimer, _lastSentFall;
+
+        [Command] private void CmdSetFallSpeed(float v) => _fallSpeed = Mathf.Clamp(v, -100f, 50f);
+        [Server] public void ServerSetFallSpeed(float v) => _fallSpeed = Mathf.Clamp(v, -100f, 50f);
 
         private float _lastSentPitch;
         private float _pitchTimer;
@@ -83,6 +90,18 @@ namespace MinecraftClone.Networking
         private void Update()
         {
             if (!isLocalPlayer || playerCamera == null) return;
+
+            _fallTimer += Time.unscaledDeltaTime;
+            if (_fallTimer >= 0.2f)
+            {
+                _fallTimer = 0f;
+                var pcv = GetComponent<PlayerController>();
+                if (pcv != null && Mathf.Abs(pcv.VerticalVelocity - _lastSentFall) > 0.5f)
+                {
+                    _lastSentFall = pcv.VerticalVelocity;
+                    CmdSetFallSpeed(_lastSentFall);
+                }
+            }
 
             _pitchTimer += Time.unscaledDeltaTime;
             if (_pitchTimer < 0.1f) return;
@@ -221,6 +240,7 @@ namespace MinecraftClone.Networking
 
             if (audioListener != null) audioListener.enabled = true;
             if (playerUI != null) playerUI.SetActive(true);
+            if (AdoptedFromOffline) return;   // не уничтожаем «старого» игрока, не замораживаем, не перегенерируем область
 
             Vector3 spawnPos = transform.position;
             GameObject[] existingPlayers = GameObject.FindGameObjectsWithTag("Player");
@@ -254,6 +274,7 @@ namespace MinecraftClone.Networking
             {
                 playerCtrl.ResetVelocity();
                 playerCtrl.enabled = false;
+                playerCtrl.RestoreVelocityY(_fallSpeed);
             }
 
             if (controller != null) controller.enabled = false;

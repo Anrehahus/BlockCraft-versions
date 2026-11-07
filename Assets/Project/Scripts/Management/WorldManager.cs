@@ -37,6 +37,7 @@ namespace MinecraftClone.Management
         private bool _hasPendingState;
         private bool _pendingDead;
         private int _pendingScore;
+        private float _pendingVelY;
 
         public static void ApplyHostLimit(int chunks)
         {
@@ -563,6 +564,7 @@ namespace MinecraftClone.Management
             _hasPendingState = true;
             _pendingDead = playerData != null && playerData.dead;
             _pendingScore = playerData != null ? playerData.score : 0;
+            _pendingVelY = playerData != null ? playerData.velY : 0f;
             StartCoroutine(PrepareInitialSpawnArea(spawnPosition, spawnPosition, spawnRotation));
         }
 
@@ -763,6 +765,7 @@ namespace MinecraftClone.Management
                 {
                     PlayerHealth ph = playerTransform.GetComponent<PlayerHealth>();
                     if (ph != null) ph.ApplyLoadedState(_pendingDead, _pendingScore);
+                    pc.RestoreVelocityY(_pendingVelY); _pendingVelY = 0f;
                     _hasPendingState = false;
                 }
             }

@@ -102,7 +102,7 @@ MonoBehaviour:
     poseWhenAttacking: 0
     restPitch: 0
   Spawn:
-    onSurface: 0
+    onSurface: 1
     underground: 1
     weight: 100
     onlyOnGrass: 0
