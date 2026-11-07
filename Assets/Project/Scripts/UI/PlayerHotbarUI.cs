@@ -27,6 +27,7 @@ namespace MinecraftClone.UI
         {
             Instance = this;
             gameObject.AddComponent<MinecraftClone.UI.PlayerHealthUI>();   // сердечки над хотбаром   // сердечки над хотбаром
+            gameObject.AddComponent<MinecraftClone.UI.DeathScreenUI>();
 
             _bar = Resources.Load<Texture2D>("UI/hotbar");
             _sel = Resources.Load<Texture2D>("UI/hotbar_selection");

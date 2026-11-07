@@ -22,12 +22,20 @@ namespace MinecraftClone.Player
         private NetworkIdentity _identity;
         private NetworkPlayer _netPlayer;
         private Camera _playerCamera;
-
+        private PlayerHealth _health;
+        private Transform _modelRoot;
+        private bool _wasDead, _deathHidden;
+        private float _deathTimer;
+        private const float FallTime = 0.6f;     // за сколько секунд модель ложится на бок
+        private const float HideAfter = 1.2f;    // через сколько секунд исчезает
         private float _stepDist;
         private Vector3 _lastPos;
         private float _phase, _amount, _pitch;
         private bool _visible = true;
-
+        private int _lastHurt;
+        private float _hurtUntil;
+        private bool _tinted;
+        private const float HurtFlashTime = 0.25f;
         private float _swingTimer = -1f;
         private const float SwingDuration = 0.3f;
 
@@ -54,6 +62,7 @@ namespace MinecraftClone.Player
         {
             _identity = GetComponent<NetworkIdentity>();
             _netPlayer = GetComponent<NetworkPlayer>();
+            _health = GetComponent<PlayerHealth>();
             _playerCamera = GetComponentInChildren<Camera>(true);
 
             if (skin == null) skin = Resources.Load<Texture2D>("Skins/steve");
@@ -92,7 +101,7 @@ namespace MinecraftClone.Player
             }
             else
             {
-                _material.color = new Color(0.3f, 0.5f, 0.8f);
+                _tinted = false;
             }
         }
 
@@ -103,6 +112,7 @@ namespace MinecraftClone.Player
             Transform root = new GameObject("Model").transform;
             root.SetParent(transform, false);
             root.localPosition = new Vector3(0f, yOffset, 0f);
+            _modelRoot = root;
 
             bool oldFormat = skin != null && skin.height == 32;
 
@@ -193,11 +203,27 @@ namespace MinecraftClone.Player
             tr.Add(i); tr.Add(i + 2); tr.Add(i + 3);
         }
 
+        private void UpdateTint()
+        {
+            if (_health != null)
+            {
+                int h = _health.HurtCount;
+                if (h != _lastHurt) { _lastHurt = h; _hurtUntil = Time.time + HurtFlashTime; }
+            }
+
+            bool red = (_health != null && _health.IsDead) || Time.time < _hurtUntil;
+            if (red == _tinted) return;
+
+            _tinted = red;
+            if (_material != null) _material.color = red ? new Color(1f, 0.3f, 0.3f) : Color.white;
+        }
         // ---------- Анимация ----------
 
         private void LateUpdate()
         {
             if (_head == null) return;
+            UpdateTint();
+            if (UpdateDeath()) return;
 
             UpdateVisibility();
 
@@ -254,6 +280,7 @@ namespace MinecraftClone.Player
         // Свою модель от первого лица не показываем, чужие показываем
         private void UpdateVisibility()
         {
+            if (_deathHidden) return;
             bool own = _identity == null || _identity.netId == 0 || _identity.isLocalPlayer;
             bool show = !own;
             if (show == _visible) return;
@@ -281,5 +308,58 @@ namespace MinecraftClone.Player
 
             BlockSounds.Play(below, p, 0.3f, 1.0f);
         }
+
+        private bool IsOwn => _identity == null || _identity.netId == 0 || _identity.isLocalPlayer;
+
+        // true, пока игрок мёртв (обычную анимацию не играем)
+        private bool UpdateDeath()
+        {
+            bool dead = _health != null && _health.IsDead;
+
+            if (!dead)
+            {
+                if (_wasDead) EndDeath();
+                return false;
+            }
+
+            if (!_wasDead)
+            {
+                _wasDead = true;
+                _deathTimer = 0f;
+            }
+
+            _deathTimer += Time.deltaTime;
+            float f = Mathf.Min(1f, Mathf.Sqrt(_deathTimer / FallTime));              // быстро падает, под конец замедляется
+
+            if (_modelRoot != null) _modelRoot.localRotation = Quaternion.Euler(0f, 0f, -90f * f);
+
+            if (IsOwn && _playerCamera != null)                                        // свою модель мы не видим, заваливаем камеру
+            {
+                float px = Mathf.DeltaAngle(0f, _playerCamera.transform.localEulerAngles.x);
+                _playerCamera.transform.localRotation = Quaternion.Euler(px, 0f, -90f * f);
+            }
+
+            if (_deathTimer >= HideAfter && !_deathHidden)
+            {
+                _deathHidden = true;
+                foreach (var r in _renderers) if (r != null) r.enabled = false;
+            }
+            return true;
+        }
+
+        private void EndDeath()
+        {
+            _wasDead = false;
+            _deathHidden = false;
+            if (_modelRoot != null) _modelRoot.localRotation = Quaternion.identity;
+
+            if (IsOwn && _playerCamera != null)
+            {
+                float px = Mathf.DeltaAngle(0f, _playerCamera.transform.localEulerAngles.x);
+                _playerCamera.transform.localRotation = Quaternion.Euler(px, 0f, 0f);
+            }
+            _visible = !_visible;   // заставить UpdateVisibility заново применить видимость
+        }
+
     }
 }

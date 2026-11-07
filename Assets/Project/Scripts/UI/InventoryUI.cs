@@ -26,6 +26,7 @@ namespace MinecraftClone.UI
 
         private static bool Allowed()
         {
+            if (DeathScreenUI.IsShown) return false;
             if (ChatUI.IsOpen || RuntimeLoadingScreen.IsShown) return false;
             if (Time.timeScale == 0f) return false;
             if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPaused) return false;

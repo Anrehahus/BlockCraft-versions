@@ -463,6 +463,12 @@ namespace MinecraftClone.Networking
             Reply(conn, $"Точка возрождения установлена: {_spawn.X:F1}, {_spawn.Y:F1}, {_spawn.Z:F1}");
         }
 
+        public Vector3 GetRespawnPosition()
+        {
+            if (_spawn.IsSet) return new Vector3(_spawn.X, _spawn.Y, _spawn.Z);
+            return _worldManager != null ? _worldManager.GetValidSpawnPosition(Vector2Int.zero) : Vector3.up * 80f;
+        }
+
         private const string TeleportUsage =
             "Использование: /tp <цель>  |  /tp <ник> <цель>  |  /tp <x> <y> <z>  |  /tp <ник> <x> <y> <z>";
 

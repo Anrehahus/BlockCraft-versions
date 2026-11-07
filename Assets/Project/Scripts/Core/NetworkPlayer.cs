@@ -4,11 +4,45 @@ using Mirror;
 using MinecraftClone.Management;
 using MinecraftClone.Player;
 using MinecraftClone.UI;
+using MinecraftClone.Mobs;
 
 namespace MinecraftClone.Networking
 {
     public class NetworkPlayer : NetworkBehaviour
     {
+        public const float AttackDamage = 2f;   // урон кулаком (2 = одно сердце)
+
+        // Вызывает владелец игрока, когда ударил моба
+        public void AttackMob(Mob mob)
+        {
+            if (mob == null) return;
+
+            if (NetworkClient.active && !NetworkServer.active)   // чистый клиент: просим сервер
+            {
+                NetworkIdentity id = mob.GetComponent<NetworkIdentity>();
+                if (id != null) CmdAttackMob(id);
+                return;
+            }
+
+            mob.ServerTakeDamage(AttackDamage, transform.position, GetComponent<PlayerHealth>());
+        }
+
+        [Command]
+        private void CmdAttackMob(NetworkIdentity mobId)
+        {
+            if (mobId == null) return;
+            Mob mob = mobId.GetComponent<Mob>();
+            if (mob == null) return;
+
+            PlayerHealth ph = GetComponent<PlayerHealth>();
+            if (ph != null && ph.IsDead) return;
+
+            Vector3 eye = transform.position + Vector3.up * 1.6f;
+            if ((mob.CenterPos - eye).sqrMagnitude > 7f * 7f) return;   // дальше дальности удара
+
+            mob.ServerTakeDamage(AttackDamage, transform.position, ph);
+        }
+
         [SyncVar(hook = nameof(OnNicknameChanged))]
         private string _nickname;
 
@@ -90,6 +124,13 @@ namespace MinecraftClone.Networking
 
         [TargetRpc]
         private void TargetTeleport(NetworkConnection target, Vector3 pos)
+        {
+            if (_tpRoutine != null) StopCoroutine(_tpRoutine);
+            _tpRoutine = StartCoroutine(TeleportRoutine(pos));
+        }
+
+        // Телепорт без сети (одиночная игра)
+        public void TeleportLocal(Vector3 pos)
         {
             if (_tpRoutine != null) StopCoroutine(_tpRoutine);
             _tpRoutine = StartCoroutine(TeleportRoutine(pos));

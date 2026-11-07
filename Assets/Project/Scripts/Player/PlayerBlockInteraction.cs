@@ -7,6 +7,8 @@ using MinecraftClone.Effects;
 using MinecraftClone.Physics;
 using MinecraftClone.UI;
 using MinecraftClone.Networking;
+using MinecraftClone.Mobs;
+using MinecraftClone.Rendering;
 
 namespace MinecraftClone.Player
 {
@@ -36,6 +38,7 @@ namespace MinecraftClone.Player
         private Collider _playerCollider;
         private PauseMenuUI _pauseMenu;
         private NetworkPlayer _netPlayer;
+        private PlayerHealth _health;
 
         private float _actionTimer = 0f; // Таймер для зажатия клавиш
 
@@ -55,6 +58,7 @@ namespace MinecraftClone.Player
             _playerCollider = GetComponent<Collider>();
             _pauseMenu = PauseMenuUI.Instance != null ? PauseMenuUI.Instance : FindFirstObjectByType<PauseMenuUI>();
             _netPlayer = GetComponent<NetworkPlayer>();
+            _health = GetComponent<PlayerHealth>();
 
             if (outlineRenderer == null)
             {
@@ -71,7 +75,7 @@ namespace MinecraftClone.Player
             }
 
             // Если игра на паузе, открыт чат, инвентарь или меню — полностью отключаем выделение блоков и взаимодействие
-            if (Time.timeScale == 0f || ChatUI.IsOpen || InventoryUI.IsOpen || (_pauseMenu != null && _pauseMenu.IsPaused))
+            if (Time.timeScale == 0f || ChatUI.IsOpen || InventoryUI.IsOpen || (_pauseMenu != null && _pauseMenu.IsPaused || (_health != null && _health.IsDead)))
             {
                 if (outlineRenderer != null) outlineRenderer.Hide();
                 _hasTargetBlock = false;
@@ -178,7 +182,7 @@ namespace MinecraftClone.Player
                 {
                     if (_netPlayer != null) _netPlayer.NotifySwing();
 
-                    if (_hasTargetBlock)
+                    if (!TryAttackMob() && _hasTargetBlock)
                     {
                         BreakBlock(_selectedBlockPos);
                     }
@@ -262,5 +266,34 @@ namespace MinecraftClone.Player
 
                 _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
             }
+
+        // true, если перед игроком моб (тогда блок за ним не ломаем)
+        private bool TryAttackMob()
+        {
+            if (cameraTransform == null) return false;
+
+            Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
+            RaycastHit[] hits = UnityEngine.Physics.RaycastAll(ray, reachDistance, ~0, QueryTriggerInteraction.Collide);
+            if (hits.Length == 0) return false;
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (RaycastHit h in hits)
+            {
+                Collider c = h.collider;
+                if (c.transform.IsChildOf(transform)) continue;   // свои коллайдеры
+
+                Mob mob = c.GetComponentInParent<Mob>();
+                if (mob != null)
+                {
+                    if (_netPlayer != null) _netPlayer.AttackMob(mob);
+                    else mob.ServerTakeDamage(NetworkPlayer.AttackDamage, transform.position, GetComponent<PlayerHealth>());
+                    return true;
+                }
+
+                if (c.isTrigger && c.GetComponent<ChunkRenderer>() != null) continue;   // невидимый хитбокс цветов
+                return false;   // сначала упёрлись в стену
+            }
+            return false;
+        }
     }
 }

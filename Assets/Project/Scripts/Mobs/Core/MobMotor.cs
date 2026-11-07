@@ -16,7 +16,7 @@ namespace MinecraftClone.Mobs
         private const float WaterUpAcceleration = 25f;
         private const float MaxSwimUp = 3.2f;
         private const float MaxSwimDown = -2.5f;
-
+       
         private readonly float _halfWidth, _height, _jumpHeight;
         private float _vy;
 
@@ -67,6 +67,14 @@ namespace MinecraftClone.Mobs
 
             return pos;
         }
+
+        // Подпрыгнуть от удара
+        public void Hop(float speed)
+        {
+            _vy = speed;
+            Grounded = false;
+        }
+
 
         // ---------- Блоки ----------
 

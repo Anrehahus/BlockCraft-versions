@@ -18,6 +18,10 @@ namespace MinecraftClone.Mobs
         private Material _normalMat, _flashMat;
         private Texture2D _flashTex;
         private bool _flashing;
+        private Material _hurtMat, _shown;
+        private int _lastHurtCount;
+        private float _hurtUntil;
+        private const float HurtFlashTime = 0.25f;
 
         private readonly List<Swing> _swingA = new List<Swing>();
         private readonly List<Swing> _swingB = new List<Swing>();
@@ -52,10 +56,12 @@ namespace MinecraftClone.Mobs
             _renderers = _root.GetComponentsInChildren<Renderer>();
             _lastPos = transform.position;
             _lastHitCount = mob.HitCount;
+            _lastHurtCount = mob.HurtCount;
         }
 
         private void OnDestroy()
         {
+            if (_hurtMat != null) Destroy(_hurtMat);
             if (_normalMat != null) Destroy(_normalMat);
             if (_flashMat != null) Destroy(_flashMat);
             if (_flashTex != null) Destroy(_flashTex);
@@ -87,6 +93,9 @@ namespace MinecraftClone.Mobs
                 Debug.LogError($"[MobModel] У моба '{_data.Id}' не задана текстура");
                 _normalMat.color = new Color(0.7f, 0.3f, 0.7f);
             }
+
+            _hurtMat = new Material(_normalMat);
+            _hurtMat.color = new Color(1f, 0.3f, 0.3f);
 
             if (_data.ChargeEffect == ChargeEffect.None) return;
 
@@ -235,6 +244,19 @@ namespace MinecraftClone.Mobs
             foreach (var sw in _swingB) sw.T.localRotation = Quaternion.Euler(PartPitch(sw, -s), 0f, 0f);
 
             if (_data.ChargeEffect == ChargeEffect.SwellAndFlash) UpdateSwell();
+
+            // красная вспышка от урона важнее белой вспышки крипера
+            int hurts = _mob.HurtCount;
+            if (hurts != _lastHurtCount) { _lastHurtCount = hurts; _hurtUntil = Time.time + HurtFlashTime; }
+
+            Material want = Time.time < _hurtUntil ? _hurtMat
+                          : (_flashing && _flashMat != null ? _flashMat : _normalMat);
+            if (want != _shown)
+            {
+                _shown = want;
+                foreach (var r in _renderers)
+                    if (r != null) r.sharedMaterial = want;
+            }
         }
 
         private float PartPitch(Swing sw, float swing)
@@ -256,13 +278,7 @@ namespace MinecraftClone.Mobs
             float y = (1f + f * 0.1f) / wobble;
             _root.localScale = new Vector3(xz, y, xz);
 
-            bool flash = sw > 0f && ((int)(sw * 10f) % 2) == 1;
-            if (flash == _flashing) return;
-
-            _flashing = flash;
-            Material m = flash ? _flashMat : _normalMat;
-            foreach (var r in _renderers)
-                if (r != null) r.sharedMaterial = m;
+            _flashing = sw > 0f && ((int)(sw * 10f) % 2) == 1;
         }
     }
 }

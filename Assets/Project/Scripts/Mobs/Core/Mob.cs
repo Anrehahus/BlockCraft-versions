@@ -3,6 +3,7 @@ using UnityEngine;
 using Mirror;
 using MinecraftClone.Management;
 using MinecraftClone.Networking;
+using MinecraftClone.Player;
 
 namespace MinecraftClone.Mobs
 {
@@ -45,6 +46,19 @@ namespace MinecraftClone.Mobs
         private Vector3 _wishDir, _faceDir;
         private float _wishSpeed, _targetTimer;
         private bool _dead;
+
+        private const float KnockbackSpeed = 6f;
+        private const float KnockbackDecay = 20f;
+        private const float HopSpeed = 3.5f;
+        private const float HurtCooldown = 0.4f;
+
+        private float _health;
+        private float _hurtImmuneUntil;
+        private Vector3 _knock;
+        [SyncVar] private int _hurtCountSync;
+        private int _hurtCountLocal;
+
+        public int HurtCount => RunsLogic ? _hurtCountLocal : _hurtCountSync;
 
         // ---------- Кэш игроков ----------
 
@@ -101,6 +115,7 @@ namespace MinecraftClone.Mobs
             }
 
             Data = d;
+            _health = d.MaxHealth;
             name = d.Id;
             _box.size = new Vector3(d.Width, d.Height, d.Width);
             _box.center = new Vector3(0f, d.Height * 0.5f, 0f);
@@ -182,7 +197,9 @@ namespace MinecraftClone.Mobs
             _goals.Tick(dt);
             if (_dead) return;
 
-            transform.position = Motor.Move(transform.position, _wishDir * _wishSpeed, dt);
+            Vector3 move = _wishDir * _wishSpeed + _knock;
+            _knock = Vector3.MoveTowards(_knock, Vector3.zero, KnockbackDecay * dt);
+            transform.position = Motor.Move(transform.position, move, dt);
 
             Vector3 face = _faceDir.sqrMagnitude > 0.001f ? _faceDir : _wishDir;
             if (face.sqrMagnitude > 0.001f)
@@ -212,6 +229,8 @@ namespace MinecraftClone.Mobs
                         foreach (var p in GetPlayers())
                         {
                             if (p == null) continue;
+                            PlayerHealth ph = p.GetComponent<PlayerHealth>();
+                            if (ph != null && ph.IsDead) continue;
                             float sq = (p.transform.position + Vector3.up * 0.9f - c).sqrMagnitude;
                             if (sq < bestSq) { bestSq = sq; best = p.transform; }
                         }
@@ -288,6 +307,35 @@ namespace MinecraftClone.Mobs
             _dead = true;
             if (_offline) Destroy(gameObject);
             else NetworkServer.Destroy(gameObject);
+        }
+
+        // Урон мобу. Вызывается только на сервере (в одиночной игре это сам игрок).
+        public void ServerTakeDamage(float amount, Vector3 sourcePos, PlayerHealth attacker)
+        {
+            if (!RunsLogic || _dead || Data == null || Motor == null || amount <= 0f) return;
+            if (Time.time < _hurtImmuneUntil) return;
+            _hurtImmuneUntil = Time.time + HurtCooldown;
+
+            _health -= amount;
+            _hurtCountLocal++;
+            if (isServer) _hurtCountSync = _hurtCountLocal;
+
+            // толчок от атакующего и небольшой прыжок
+            Vector3 dir = transform.position - sourcePos;
+            dir.y = 0f;
+            dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : -transform.forward;
+            _knock = dir * KnockbackSpeed;
+            Motor.Hop(HopSpeed);
+
+            // «мстящие» мобы начинают преследовать обидчика
+            if (Data.Targeting == TargetMode.Retaliate && attacker != null)
+                Target = attacker.transform;
+
+            if (_health <= 0f)
+            {
+                if (attacker != null) attacker.AddKill(Data.Id);
+                ServerDespawn();
+            }
         }
     }
 }

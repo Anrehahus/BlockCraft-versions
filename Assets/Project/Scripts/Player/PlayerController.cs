@@ -52,6 +52,9 @@ namespace MinecraftClone.Player
 
         public bool IsFrozen => isFrozen;
 
+        private Vector3 _knock;
+        private const float KnockDecay = 20f;
+
         private void Awake()
         {
             controller = GetComponent<CharacterController>();
@@ -68,6 +71,7 @@ namespace MinecraftClone.Player
         {
             isFrozen = freeze;
             velocity = Vector3.zero;
+            _knock = Vector3.zero;
 
             if (controller != null)
             {
@@ -75,6 +79,12 @@ namespace MinecraftClone.Player
             }
 
             UpdateCursorState(freeze);
+        }
+
+        public void AddKnockback(Vector3 horizontal, float hop)
+        {
+            _knock = horizontal;
+            velocity.y = Mathf.Max(velocity.y, hop);
         }
 
         private void Update()
@@ -213,6 +223,8 @@ namespace MinecraftClone.Player
                 finalMoveDirection = horizontalVelocity + Vector3.up * velocity.y;
             }
 
+            finalMoveDirection += _knock;
+            _knock = Vector3.MoveTowards(_knock, Vector3.zero, KnockDecay * Time.deltaTime);
             controller.Move(finalMoveDirection * Time.deltaTime);
         }
 
@@ -246,6 +258,7 @@ namespace MinecraftClone.Player
         public void ResetVelocity()
         {
             velocity = Vector3.zero;
+            _knock = Vector3.zero;
             cameraPitch = 0f;
             if (playerCamera != null)
             {
