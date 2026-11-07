@@ -40,6 +40,8 @@ MonoBehaviour:
     mirror: 0
     waveWhenAttacking: 0
     attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
   - name: Body
     pivotPx: {x: 0, y: 6, z: 0}
     uv: {x: 16, y: 16}
@@ -50,6 +52,8 @@ MonoBehaviour:
     mirror: 0
     waveWhenAttacking: 0
     attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
   - name: Leg0
     pivotPx: {x: -2, y: 6, z: 4}
     uv: {x: 0, y: 16}
@@ -60,6 +64,8 @@ MonoBehaviour:
     mirror: 0
     waveWhenAttacking: 0
     attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
   - name: Leg1
     pivotPx: {x: 2, y: 6, z: 4}
     uv: {x: 0, y: 16}
@@ -70,6 +76,8 @@ MonoBehaviour:
     mirror: 0
     waveWhenAttacking: 0
     attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
   - name: Leg2
     pivotPx: {x: -2, y: 6, z: -4}
     uv: {x: 0, y: 16}
@@ -80,6 +88,8 @@ MonoBehaviour:
     mirror: 0
     waveWhenAttacking: 0
     attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
   - name: Leg3
     pivotPx: {x: 2, y: 6, z: -4}
     uv: {x: 0, y: 16}
@@ -90,9 +100,12 @@ MonoBehaviour:
     mirror: 0
     waveWhenAttacking: 0
     attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
   Spawn:
     onSurface: 0
     underground: 1
     weight: 100
+    onlyOnGrass: 0
     groupMin: 1
     groupMax: 1

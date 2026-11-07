@@ -124,7 +124,8 @@ namespace MinecraftClone.UI
         {
             Color32[] px = new Color32[IconSize * IconSize];
 
-            if (type.IsPlant()) DrawFlat(px, top);
+            if (type.IsSign()) DrawSign(px, side);
+            else if (type.IsPlant()) DrawFlat(px, top);
             else DrawCube(px, top, side);
 
             Texture2D tex = new Texture2D(IconSize, IconSize, TextureFormat.RGBA32, false);
@@ -133,6 +134,47 @@ namespace MinecraftClone.UI
             tex.SetPixels32(px);
             tex.Apply();
             return tex;
+        }
+
+        // Иконка таблички: доска сверху, палка снизу (части берутся из текстуры 32x32)
+        private static void DrawSign(Color32[] px, Texture2D src)
+        {
+            Color32[] p = src.GetPixels32();
+            int w = src.width, h = src.height;
+
+            for (int y = 0; y < IconSize; y++)
+            {
+                for (int x = 0; x < IconSize; x++)
+                {
+                    float u = (x + 0.5f) / IconSize;   // слева направо
+                    float v = (y + 0.5f) / IconSize;   // снизу вверх
+
+                    float tx, tyTop;   // точка в текстуре 32x32, отсчёт сверху
+
+                    if (v >= 0.5f && v <= 0.95f && u >= 0.05f && u <= 0.95f)
+                    {
+                        // доска: лицо 24x12 пикселей в точке (2,2)
+                        float bu = (u - 0.05f) / 0.9f;
+                        float bv = (v - 0.5f) / 0.45f;
+                        tx = 2f + 24f * bu;
+                        tyTop = 2f + 12f * (1f - bv);
+                    }
+                    else if (v >= 0.05f && v < 0.5f && u >= 0.45f && u <= 0.55f)
+                    {
+                        // палка 2x14 пикселей в точке (2,16)
+                        float su = (u - 0.45f) / 0.1f;
+                        float sv = (v - 0.05f) / 0.45f;
+                        tx = 2f + 2f * su;
+                        tyTop = 16f + 14f * (1f - sv);
+                    }
+                    else continue;
+
+                    int ix = Mathf.Clamp((int)(tx / 32f * w), 0, w - 1);
+                    int iy = Mathf.Clamp(h - 1 - (int)(tyTop / 32f * h), 0, h - 1);
+                    Color32 c = p[iy * w + ix];
+                    if (c.a >= 128) px[y * IconSize + x] = c;
+                }
+            }
         }
 
         private static void DrawFlat(Color32[] px, Texture2D src)

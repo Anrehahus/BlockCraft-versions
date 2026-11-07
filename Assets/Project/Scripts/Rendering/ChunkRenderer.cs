@@ -49,6 +49,9 @@ namespace MinecraftClone.Rendering
             new[]{ new Vector3(1,0,1), new Vector3(1,1,1), new Vector3(0,1,1), new Vector3(0,0,1) }, // 4 +Z
             new[]{ new Vector3(0,0,0), new Vector3(0,1,0), new Vector3(1,1,0), new Vector3(1,0,0) }, // 5 -Z
         };
+        private readonly Dictionary<Vector3Int, BlockType> _signsNow = new Dictionary<Vector3Int, BlockType>();
+        private readonly Dictionary<Vector3Int, SignLabel> _labels = new Dictionary<Vector3Int, SignLabel>();
+        private readonly List<Vector3Int> _labelsToRemove = new List<Vector3Int>();
 
         private void Awake()
         {
@@ -113,18 +116,24 @@ namespace MinecraftClone.Rendering
                     }
                 }
             }
-
+            SyncSignLabels();
             ApplyMesh(blocksMaterial, waterMaterial, lavaMaterial);
         }
 
         private void GenerateBlockMesh(
-            int x, int y, int z,
-            BlockType type,
-            ChunkData chunkData,
-            Dictionary<BlockType, BlockDataSO> blockDatabase,
-            Dictionary<string, Rect> uvMap,
-            WorldManager worldManager)
+        int x, int y, int z,
+        BlockType type,
+        ChunkData chunkData,
+        Dictionary<BlockType, BlockDataSO> blockDatabase,
+        Dictionary<string, Rect> uvMap,
+        WorldManager worldManager)
         {
+            if (type.IsSign())
+            {
+                AddSignData(x, y, z, type, blockDatabase, uvMap);
+                return;
+            }
+
             if (IsPlantBlock(type))
             {
                 AddPlantData(x, y, z, type, blockDatabase, uvMap);
@@ -180,34 +189,26 @@ namespace MinecraftClone.Rendering
 
         private bool ShouldRenderFace(BlockType current, BlockType neighbor)
         {
+            bool seeThrough = neighbor == BlockType.Air || IsPlantBlock(neighbor) || neighbor.IsSign();
+
             if (current == BlockType.Water)
-            {
-                return neighbor == BlockType.Air || neighbor == BlockType.Lava || IsPlantBlock(neighbor);
-            }
+                return seeThrough || neighbor == BlockType.Lava;
 
             if (current == BlockType.Lava)
-            {
-                return neighbor == BlockType.Air || neighbor == BlockType.Water || IsPlantBlock(neighbor);
-            }
+                return seeThrough || neighbor == BlockType.Water;
 
-            // стекло: грани между двумя стёклами скрываем, остальные соседи видны сквозь него
             if (neighbor == BlockType.Glass) return current != BlockType.Glass;
 
-            if (neighbor == BlockType.Air || neighbor == BlockType.Water || neighbor == BlockType.Lava || IsPlantBlock(neighbor))
-            {
-                return true;
-            }
-
-            return false;
+            return seeThrough || neighbor == BlockType.Water || neighbor == BlockType.Lava;
         }
 
         private void AddFaceData(
-            int x, int y, int z,
-            int faceIndex,
-            BlockType type,
-            Dictionary<BlockType, BlockDataSO> blockDatabase,
-            Dictionary<string, Rect> uvMap,
-            float topY = 1f)
+                int x, int y, int z,
+                int faceIndex,
+                BlockType type,
+                Dictionary<BlockType, BlockDataSO> blockDatabase,
+                Dictionary<string, Rect> uvMap,
+                float topY = 1f)
         {
             int vCount = vertices.Count;
             Vector3 blockPos = new Vector3(x, y, z);
@@ -450,6 +451,7 @@ namespace MinecraftClone.Rendering
             ClearMeshData();
             _solidApplied = false;
             _plantApplied = false;
+            DestroyAllLabels();
             if (chunkMesh != null) chunkMesh.Clear();
             if (solidCollisionMesh != null) solidCollisionMesh.Clear();
             if (triggerCollisionMesh != null) triggerCollisionMesh.Clear();
@@ -461,7 +463,7 @@ namespace MinecraftClone.Rendering
         {
             vertices.Clear();
             uvs.Clear();
-
+            _signsNow.Clear();
             solidTriangles.Clear();
             collisionTriangles.Clear();
             plantTriangles.Clear();
@@ -471,5 +473,98 @@ namespace MinecraftClone.Rendering
             _solidHash = 0;
             _plantHash = 0;
         }
+
+        // ---------- Таблички ----------
+
+        private void AddSignData(int x, int y, int z, BlockType type,
+            Dictionary<BlockType, BlockDataSO> db, Dictionary<string, Rect> uvMap)
+        {
+            _signsNow[new Vector3Int(x, y, z)] = type;
+
+            Rect tex = GetBlockUV(type, 4, db, uvMap);          // SideTexture блока-таблички
+            Rect front = SubRect(tex, 2, 2, 24, 12);            // лицо доски: 24x12 пикселей
+            Rect edge = SubRect(tex, 0, 2, 2, 12);              // торец
+            Rect topBottom = SubRect(tex, 2, 0, 24, 2);         // верх и низ
+            Rect stick = SubRect(tex, 2, 16, 2, 14);            // палка
+
+            Vector3 origin = new Vector3(x, y, z);
+            Vector3 f = type.SignFacing();
+
+            AddSignBox(origin + SignGeometry.BoardCenter(type), f,
+                       SignGeometry.HalfW, SignGeometry.HalfH, SignGeometry.HalfD, front, edge, topBottom);
+
+            if (type.IsStandingSign())
+                AddSignBox(origin + new Vector3(0.5f, 0.25f, 0.5f), f,
+                           SignGeometry.StickHalf, SignGeometry.StickHalfH, SignGeometry.StickHalf, stick, stick, stick);
+        }
+
+        // Часть текстуры по пикселям (отсчёт от левого верхнего угла, текстура 32x32)
+        private static Rect SubRect(Rect tex, int px, int py, int pw, int ph)
+        {
+            float u0 = px / 32f, u1 = (px + pw) / 32f;
+            float v1 = 1f - py / 32f, v0 = 1f - (py + ph) / 32f;
+            return new Rect(tex.x + u0 * tex.width, tex.y + v0 * tex.height, (u1 - u0) * tex.width, (v1 - v0) * tex.height);
+        }
+
+        private void AddSignBox(Vector3 c, Vector3 f, float hw, float hh, float hd, Rect front, Rect edge, Rect topBottom)
+        {
+            Vector3 up = Vector3.up;
+            Vector3 r = Vector3.Cross(up, -f);   // «вправо» для того, кто читает табличку
+
+            AddSignFace(c + f * hd, f, up, hw, hh, front);      // лицо
+            AddSignFace(c - f * hd, -f, up, hw, hh, front);     // обратная сторона
+            AddSignFace(c + r * hw, r, up, hd, hh, edge);       // торцы
+            AddSignFace(c - r * hw, -r, up, hd, hh, edge);
+            AddSignFace(c + up * hh, up, f, hw, hd, topBottom); // верх и низ
+            AddSignFace(c - up * hh, -up, f, hw, hd, topBottom);
+        }
+
+        private void AddSignFace(Vector3 center, Vector3 normal, Vector3 upAxis, float halfRight, float halfUp, Rect uv)
+        {
+            Vector3 right = Vector3.Cross(upAxis, -normal);
+            int v = vertices.Count;
+
+            vertices.Add(center - right * halfRight - upAxis * halfUp);   // левый нижний
+            vertices.Add(center - right * halfRight + upAxis * halfUp);   // левый верхний
+            vertices.Add(center + right * halfRight + upAxis * halfUp);   // правый верхний
+            vertices.Add(center + right * halfRight - upAxis * halfUp);   // правый нижний
+
+            uvs.Add(new Vector2(uv.xMin, uv.yMin));
+            uvs.Add(new Vector2(uv.xMin, uv.yMax));
+            uvs.Add(new Vector2(uv.xMax, uv.yMax));
+            uvs.Add(new Vector2(uv.xMax, uv.yMin));
+
+            solidTriangles.Add(v); solidTriangles.Add(v + 1); solidTriangles.Add(v + 2);
+            solidTriangles.Add(v); solidTriangles.Add(v + 2); solidTriangles.Add(v + 3);
+        }
+
+        // Надписи: создаём для новых табличек, убираем для исчезнувших или повёрнутых
+        private void SyncSignLabels()
+        {
+            if (Application.isBatchMode) return;   // на выделенном сервере текст не нужен
+
+            _labelsToRemove.Clear();
+            foreach (var kv in _labels)
+                if (kv.Value == null || !_signsNow.TryGetValue(kv.Key, out BlockType t) || t != kv.Value.Type)
+                    _labelsToRemove.Add(kv.Key);
+
+            foreach (var key in _labelsToRemove)
+            {
+                if (_labels[key] != null) Destroy(_labels[key].gameObject);
+                _labels.Remove(key);
+            }
+
+            foreach (var kv in _signsNow)
+                if (!_labels.ContainsKey(kv.Key))
+                    _labels[kv.Key] = SignLabel.Create(transform, kv.Key, kv.Value);
+        }
+
+        private void DestroyAllLabels()
+        {
+            foreach (var kv in _labels)
+                if (kv.Value != null) Destroy(kv.Value.gameObject);
+            _labels.Clear();
+        }
+
     }
 }

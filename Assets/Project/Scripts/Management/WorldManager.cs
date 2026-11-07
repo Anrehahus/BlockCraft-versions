@@ -934,6 +934,12 @@ namespace MinecraftClone.Management
                 if (blockData != null && !blockDatabase.ContainsKey(blockData.Type))
                     blockDatabase.Add(blockData.Type, blockData);
             }
+
+            if (blockDatabase.TryGetValue(BlockType.SignStanding0, out BlockDataSO signData) && signData != null)
+            {
+                for (int i = (int)BlockType.SignStanding1; i <= (int)BlockType.SignWallNegZ; i++)
+                    blockDatabase[(BlockType)i] = signData;
+            }
         }
 
         private void BuildTextureAtlas()
@@ -1145,6 +1151,12 @@ namespace MinecraftClone.Management
                 if (!CanPlantOn(newType, blockBelow)) return false;
             }
 
+            if (newType.IsSign())
+            {
+                if (currentBlock != BlockType.Air) return false;
+                if (!HasSignSupport(worldX, worldY, worldZ, newType)) return false;
+            }
+
             // чистый клиент: локальная проверка пройдена, отправляем запрос серверу.
             // Блок изменится у нас, когда сервер подтвердит и разошлёт изменение всем.
             if (NetworkClient.active && !NetworkServer.active)
@@ -1256,6 +1268,7 @@ namespace MinecraftClone.Management
 
             if (FluidSystem.Instance != null) FluidSystem.Instance.NotifyBlockChanged(pos);
             if (GravityBlockSystem.Instance != null) GravityBlockSystem.Instance.NotifyBlockChanged(pos);
+            CheckSignsAround(pos);
         }
 
         public void AddChunkToDirtyIfLoaded(Vector2Int chunkPos, HashSet<Vector2Int> dirtyChunks = null)
@@ -1274,5 +1287,30 @@ namespace MinecraftClone.Management
                 modifiedChunks[chunkPos] = Time.time;
             }
         }
+
+        public bool HasSignSupport(int x, int y, int z, BlockType sign)
+        {
+            Vector3Int s = new Vector3Int(x, y, z) + sign.SignSupportOffset();
+            BlockType b = GetBlockAtWorldPosition(s.x, s.y, s.z);
+
+            if (b == BlockType.Air || b == BlockType.Water || b == BlockType.Lava || b.IsPlant() || b.IsSign())
+                return false;
+
+            return blockDatabase != null && blockDatabase.TryGetValue(b, out BlockDataSO d) && d != null && d.IsSolid;
+        }
+
+        // Убрать таблички, которые остались без опоры
+        private void CheckSignsAround(Vector3Int pos)
+        {
+            Vector3Int[] dirs = { Vector3Int.up, Vector3Int.down, Vector3Int.left, Vector3Int.right, Vector3Int.forward, Vector3Int.back };
+            foreach (var d in dirs)
+            {
+                Vector3Int p = pos + d;
+                BlockType t = GetBlockAtWorldPosition(p.x, p.y, p.z);
+                if (t.IsSign() && !HasSignSupport(p.x, p.y, p.z, t))
+                    ApplyBlockChange(p.x, p.y, p.z, BlockType.Air, true);
+            }
+        }
+
     }
 }

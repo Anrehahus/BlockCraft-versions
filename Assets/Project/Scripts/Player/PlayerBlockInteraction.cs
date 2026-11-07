@@ -209,7 +209,7 @@ namespace MinecraftClone.Player
             Vector3Int placePos = hit + normal;
             BlockType target = _worldManager.GetBlockAtWorldPosition(placePos.x, placePos.y, placePos.z);
             if (target == BlockType.Air || target == BlockType.Water || target == BlockType.Lava)
-                PlaceBlock(placePos);
+                PlaceBlock(placePos, normal);
         }
 
         private void BreakBlock(Vector3Int blockPos)
@@ -225,21 +225,42 @@ namespace MinecraftClone.Player
             _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, BlockType.Air);
         }
 
-        private void PlaceBlock(Vector3Int blockPos)
-        {
-            BlockType selectedType = CurrentSelectedBlock;
-
-            if (_playerCollider != null && _worldManager.BlockDatabase.TryGetValue(selectedType, out BlockDataSO data))
+            private void PlaceBlock(Vector3Int blockPos, Vector3Int normal)
             {
-                if (data.IsSolid)
-                {
-                    Bounds blockBounds = new Bounds(blockPos + new Vector3(0.5f, 0.5f, 0.5f), Vector3.one * 0.9f);
-                    if (_playerCollider.bounds.Intersects(blockBounds)) return;
-                    if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return;
-                }
-            }
+                BlockType selectedType = CurrentSelectedBlock;
 
-            _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
-        }
+                if (selectedType.IsSign())
+                {
+                    if (normal.y < 0) return;   // на потолок нельзя
+                    if (_worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z) != BlockType.Air) return;
+
+                    if (normal.y > 0)
+                    {
+                        // на верхнюю грань: стоит на палке и смотрит на игрока, шаг 45°
+                        Vector3 toPlayer = cameraTransform.position - (blockPos + new Vector3(0.5f, 0.5f, 0.5f));
+                        float yaw = Mathf.Atan2(toPlayer.x, toPlayer.z) * Mathf.Rad2Deg;
+                        selectedType = BlockTypeUtil.StandingSignFromYaw(yaw);
+                    }
+                    else
+                    {
+                        selectedType = BlockTypeUtil.WallSignFromNormal(normal);   // на боковую грань
+                    }
+
+                    _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
+                    return;
+                }
+
+                if (_playerCollider != null && _worldManager.BlockDatabase.TryGetValue(selectedType, out BlockDataSO data))
+                {
+                    if (data.IsSolid)
+                    {
+                        Bounds blockBounds = new Bounds(blockPos + new Vector3(0.5f, 0.5f, 0.5f), Vector3.one * 0.9f);
+                        if (_playerCollider.bounds.Intersects(blockBounds)) return;
+                        if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return;
+                    }
+                }
+
+                _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
+            }
     }
 }
