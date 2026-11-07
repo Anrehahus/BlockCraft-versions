@@ -13,6 +13,7 @@ namespace MinecraftClone.UI
         private Font _font;
         private Texture2D _btnNormal, _btnHover;
         private GUIStyle _title, _text, _btn;
+        private bool _exiting, _respawning;
 
         private void Awake()
         {
@@ -34,15 +35,17 @@ namespace MinecraftClone.UI
             }
 
             bool dead = _health.IsDead;
-            if (dead && !IsShown)
+            if (dead)
             {
                 IsShown = true;
                 PlayerController pc = _health.GetComponent<PlayerController>();
-                if (pc != null) pc.SetFrozen(true);   // замораживает управление и показывает курсор
+                // держим игрока замороженным, пока он мёртв (в том числе сразу после загрузки мира)
+                if (pc != null && !pc.IsFrozen && !_respawning) pc.SetFrozen(true);
             }
-            else if (!dead && IsShown)
+            else
             {
                 IsShown = false;
+                _respawning = false;
             }
         }
 
@@ -76,6 +79,7 @@ namespace MinecraftClone.UI
         private void OnGUI()
         {
             if (!IsShown || _health == null) return;
+            if (RuntimeLoadingScreen.IsShown) return;   // пока идёт загрузка мира, экран смерти не рисуем
 
             GUI.depth = -10;   // поверх сердечек и хотбара
             EnsureStyles();
@@ -113,20 +117,37 @@ namespace MinecraftClone.UI
             y += 90f * k;
             float bw = Mathf.Min(400f * k, Screen.width * 0.6f);
             float bh = 40f * k;
-            Rect br = new Rect(cx - bw / 2f, y, bw, bh);
-            bool hover = br.Contains(Event.current.mousePosition);
+
+            Rect respawn = new Rect(cx - bw / 2f, y, bw, bh);
+            if (Button(respawn, "Возродиться"))
+            {
+                _respawning = true;
+                _health.RequestRespawn();
+            }
+
+            Rect exit = new Rect(respawn.x, respawn.y + bh + 14f * k, bw, bh);
+            if (Button(exit, "Выйти в главное меню") && !_exiting)
+            {
+                _exiting = true;
+                if (PauseMenuUI.Instance != null) PauseMenuUI.Instance.ExitToMainMenu();
+            }
+        }
+        private bool Button(Rect r, string label)
+        {
+            bool hover = r.Contains(Event.current.mousePosition);
 
             if (_btnNormal == null && Event.current.type == EventType.Repaint)
             {
+                Color old = GUI.color;
                 GUI.color = hover ? new Color(0.52f, 0.52f, 0.65f) : new Color(0.42f, 0.42f, 0.42f);
-                GUI.DrawTexture(br, Texture2D.whiteTexture);
+                GUI.DrawTexture(r, Texture2D.whiteTexture);
                 GUI.color = old;
             }
 
-            bool clicked = McGui.ButtonFrame(br, _btnNormal, _btnHover);
-            Shadowed(br, "Возродиться", _btn, hover ? new Color(1f, 1f, 0.6f) : Color.white);
-
-            if (clicked) _health.RequestRespawn();
+            bool clicked = McGui.ButtonFrame(r, _btnNormal, _btnHover);
+            Shadowed(r, label, _btn, hover ? new Color(1f, 1f, 0.6f) : Color.white);
+            return clicked;
         }
+
     }
 }

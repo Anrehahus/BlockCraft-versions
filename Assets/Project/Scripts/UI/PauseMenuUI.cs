@@ -270,7 +270,7 @@ namespace MinecraftClone.UI
         {
             if (SceneManager.GetActiveScene().name == mainMenuSceneName) return;
 
-            if (!_isGenerating && !ChatUI.IsOpen && !SettingsMenuUI.IsOpen
+            if (!_isGenerating && !ChatUI.IsOpen && !SettingsMenuUI.IsOpen && !DeathScreenUI.IsShown
                 && SettingsMenuUI.ClosedFrame != Time.frameCount
                 && Input.GetKeyDown(KeyCode.Escape))
             {
@@ -556,6 +556,8 @@ namespace MinecraftClone.UI
         {
             StartCoroutine(ExitToMainMenuRoutine());
         }
+
+        public void ExitToMainMenu() => OnExitToMainMenuClicked();
 
         private IEnumerator ExitToMainMenuRoutine()
         {

@@ -75,7 +75,12 @@ namespace MinecraftClone.UI
         {
             bool clicked = McGui.ButtonFrame(r, _tNormal, _tHover);            // только фон
             bool hover = r.Contains(Event.current.mousePosition);
-            _btnText.fontSize = _btnShadow.fontSize = _btn.fontSize;            // размер меняется динамически
+            int fs = _btn.fontSize;
+            _btnText.fontSize = fs;
+            float maxW = r.width - 16f;
+            float tw = _btnText.CalcSize(new GUIContent(text)).x;
+            if (tw > maxW) fs = Mathf.Max(8, Mathf.FloorToInt(fs * maxW / tw));   // сжимаем, пока не влезет
+            _btnText.fontSize = _btnShadow.fontSize = fs;
             float o = Mathf.Max(1f, _btn.fontSize / 9f);
             GUI.contentColor = new Color(0.25f, 0.25f, 0.25f);
             GUI.Label(new Rect(r.x + o, r.y + o, r.width, r.height), text, _btnShadow);
@@ -206,6 +211,9 @@ namespace MinecraftClone.UI
                     string vt = "Дальность прорисовки: " + GameSettings.ViewNames[GameSettings.ViewPreset];
                     if (Btn(Row(), vt))
                         GameSettings.SetViewPreset((GameSettings.ViewPreset + 1) % GameSettings.ViewNames.Length);
+
+                    if (Btn(Row(), "Покачивание камеры: " + (GameSettings.ViewBobbing ? "Вкл" : "Выкл")))
+                        GameSettings.SetViewBobbing(!GameSettings.ViewBobbing);
 
                     if (Btn(Row(), "Музыка и звуки")) _page = Page.Audio;
                     if (Btn(Row(), "Управление")) _page = Page.Controls;

@@ -23,12 +23,14 @@ namespace MinecraftClone.Management
         public static float Blocks { get; private set; } = 1f;
         public static float Music { get; private set; } = 1f;
         public static float Sensitivity { get; private set; } = 1f; // множитель: 0.25 .. 3
+        public static bool ViewBobbing { get; private set; } = true;
 
         private static KeyCode[] _keys = (KeyCode[])Defaults.Clone();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Load()
         {
+            ViewBobbing = PlayerPrefs.GetInt("ViewBobbing", 1) == 1;
             ViewPreset = Mathf.Clamp(PlayerPrefs.GetInt("ViewPreset", 1), 0, ViewDistances.Length - 1);
             Master = PlayerPrefs.GetFloat("VolMaster", 1f);
             Blocks = PlayerPrefs.GetFloat("VolBlocks", 1f);
@@ -40,6 +42,8 @@ namespace MinecraftClone.Management
 
             AudioListener.volume = Master;
         }
+
+        public static void SetViewBobbing(bool v) { ViewBobbing = v; PlayerPrefs.SetInt("ViewBobbing", v ? 1 : 0); }
 
         public static void SaveAll() => PlayerPrefs.Save();
 

@@ -178,6 +178,7 @@ GameObject:
   - component: {fileID: 5668305383703353920}
   - component: {fileID: 9203687886260805065}
   - component: {fileID: 5033486157250844128}
+  - component: {fileID: 9012786089147585200}
   m_Layer: 6
   m_Name: Player
   m_TagString: Player
@@ -427,3 +428,23 @@ MonoBehaviour:
   syncInterval: 0
   maxHealth: 20
   invulnerableSeconds: 0.5
+--- !u!114 &9012786089147585200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5645908775586368468}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0245b9d8f2d8f6249bc50d3c9e4e3c10, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Player.FirstPersonView
+  armPosition: {x: 0.5, y: -0.6, z: 0.36}
+  armRotation: {x: -130, y: -7, z: 0}
+  armScale: 1
+  cameraBobX: 0.02
+  cameraBobY: 0.025
+  cameraRoll: 0.5
+  armBobX: 0.02
+  armBobY: 0.025

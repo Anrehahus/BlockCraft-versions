@@ -76,6 +76,7 @@ namespace MinecraftClone.UI
         private bool CanOpen()
         {
             if (InventoryUI.IsOpen) return false;
+            if (DeathScreenUI.IsShown) return false;
             if (RuntimeLoadingScreen.IsShown) return false;
             if (Time.timeScale == 0f) return false;
             if (PauseMenuUI.Instance != null && PauseMenuUI.Instance.IsPaused) return false;

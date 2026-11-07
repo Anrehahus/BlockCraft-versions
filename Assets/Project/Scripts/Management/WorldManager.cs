@@ -14,6 +14,7 @@ using MinecraftClone.UI;
 using MinecraftClone.Networking;
 using MinecraftClone.Effects;
 using MinecraftClone.Audio;
+using MinecraftClone.Player;
 
 namespace MinecraftClone.Management
 {
@@ -32,6 +33,10 @@ namespace MinecraftClone.Management
         public static int HostViewLimit = int.MaxValue;
         private int userViewDistance = 5;
         private int EffectiveView(int chosen) => Mathf.Clamp(Mathf.Min(chosen, HostViewLimit), 2, 10);
+
+        private bool _hasPendingState;
+        private bool _pendingDead;
+        private int _pendingScore;
 
         public static void ApplyHostLimit(int chunks)
         {
@@ -555,6 +560,9 @@ namespace MinecraftClone.Management
                 spawnPosition = GetValidSpawnPosition(Vector2Int.zero);
             }
 
+            _hasPendingState = true;
+            _pendingDead = playerData != null && playerData.dead;
+            _pendingScore = playerData != null ? playerData.score : 0;
             StartCoroutine(PrepareInitialSpawnArea(spawnPosition, spawnPosition, spawnRotation));
         }
 
@@ -751,6 +759,12 @@ namespace MinecraftClone.Management
 
                 if (controller != null) controller.enabled = true;
                 if (rb != null) rb.isKinematic = false;
+                if (_hasPendingState)
+                {
+                    PlayerHealth ph = playerTransform.GetComponent<PlayerHealth>();
+                    if (ph != null) ph.ApplyLoadedState(_pendingDead, _pendingScore);
+                    _hasPendingState = false;
+                }
             }
 
             lastPlayerChunkPos = GetChunkCoordFromPosition(spawnPosition);

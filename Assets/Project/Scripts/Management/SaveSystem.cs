@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using MinecraftClone.Player;
 using MinecraftClone.Core;
 
 namespace MinecraftClone.Management
@@ -134,6 +135,8 @@ namespace MinecraftClone.Management
                     PlayerPositionZ = playerPosition.z,
                     PlayerRotX = playerRotation.x,
                     PlayerRotY = playerRotation.y,
+                    PlayerDead = PlayerHealth.Local != null && PlayerHealth.Local.IsDead,
+                    PlayerScore = PlayerHealth.Local != null ? PlayerHealth.Local.Score : 0,
                     Chunks = new List<ChunkSaveData>()
                 };
 
@@ -261,7 +264,9 @@ namespace MinecraftClone.Management
                 posY = saveData.PlayerPositionY,
                 posZ = saveData.PlayerPositionZ,
                 rotX = saveData.PlayerRotX,
-                rotY = saveData.PlayerRotY
+                rotY = saveData.PlayerRotY,
+                dead = saveData.PlayerDead,
+                score = saveData.PlayerScore
             };
         }
 
@@ -289,7 +294,9 @@ namespace MinecraftClone.Management
                     posY = saveData.PlayerPositionY,
                     posZ = saveData.PlayerPositionZ,
                     rotX = saveData.PlayerRotX,
-                    rotY = saveData.PlayerRotY
+                    rotY = saveData.PlayerRotY,
+                    dead = saveData.PlayerDead,
+                    score = saveData.PlayerScore
                 };
             }
             catch (Exception ex)
@@ -421,6 +428,8 @@ namespace MinecraftClone.Management
         public float PlayerPositionZ;
         public float PlayerRotX;
         public float PlayerRotY;
+        public bool PlayerDead;
+        public int PlayerScore;
         public List<ChunkSaveData> Chunks;
     }
 
@@ -434,6 +443,8 @@ namespace MinecraftClone.Management
     [Serializable]
     public class PlayerSaveData
     {
+        public bool dead;
+        public int score;
         public float posX;
         public float posY;
         public float posZ;

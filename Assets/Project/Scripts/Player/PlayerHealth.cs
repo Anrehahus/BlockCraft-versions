@@ -13,6 +13,30 @@ namespace MinecraftClone.Player
     // Компонент нужно добавить на префаб игрока.
     public class PlayerHealth : NetworkBehaviour, IDamageable
     {
+        // Локальный игрок (в одиночной игре, у хоста и у клиента); нужен сохранению мира
+        public static PlayerHealth Local { get; private set; }
+
+        private void Start()
+        {
+            if (isLocalPlayer || (!NetworkServer.active && !NetworkClient.active)) Local = this;
+        }
+
+        // Состояние из сохранения: мёртвый игрок начинает с экрана смерти, счёт сохраняется
+        public void ApplyLoadedState(bool dead, int score)
+        {
+            if (!RunsLogic) return;
+
+            _scoreLocal = Mathf.Max(0, score);
+            if (isServer) _scoreSync = _scoreLocal;
+
+            _deadLocal = dead;
+            if (isServer) _deadSync = dead;
+
+            _healthLocal = dead ? 0f : maxHealth;
+            if (isServer) _healthSync = _healthLocal;
+            _invulnerableUntil = Time.time + 1f;
+        }
+
         [SerializeField] private float maxHealth = 20f;
         [SyncVar] private int _hurtSync;
         private int _hurtLocal;

@@ -22,7 +22,8 @@ namespace MinecraftClone.Mobs
         private int _lastHurtCount;
         private float _hurtUntil;
         private const float HurtFlashTime = 0.25f;
-
+        private float _deathTimer;
+        private const float DeathFallTime = 0.6f;
         private readonly List<Swing> _swingA = new List<Swing>();
         private readonly List<Swing> _swingB = new List<Swing>();
 
@@ -207,6 +208,15 @@ namespace MinecraftClone.Mobs
         {
             if (_root == null) return;
 
+            if (_mob.IsDying)
+            {
+                _deathTimer += Time.deltaTime;
+                float f = Mathf.Min(1f, Mathf.Sqrt(_deathTimer / DeathFallTime));
+                _root.localRotation = Quaternion.Euler(0f, 0f, -90f * f);   // ложится на бок
+                UpdateMaterial();
+                return;                                                       // ходьбу больше не анимируем
+            }
+
             float dt = Time.deltaTime;
             if (dt > 0f)
             {
@@ -245,18 +255,21 @@ namespace MinecraftClone.Mobs
 
             if (_data.ChargeEffect == ChargeEffect.SwellAndFlash) UpdateSwell();
 
-            // красная вспышка от урона важнее белой вспышки крипера
+            UpdateMaterial();
+        }
+
+        private void UpdateMaterial()
+        {
             int hurts = _mob.HurtCount;
             if (hurts != _lastHurtCount) { _lastHurtCount = hurts; _hurtUntil = Time.time + HurtFlashTime; }
 
-            Material want = Time.time < _hurtUntil ? _hurtMat
+            Material want = (_mob.IsDying || Time.time < _hurtUntil) ? _hurtMat
                           : (_flashing && _flashMat != null ? _flashMat : _normalMat);
-            if (want != _shown)
-            {
-                _shown = want;
-                foreach (var r in _renderers)
-                    if (r != null) r.sharedMaterial = want;
-            }
+            if (want == _shown) return;
+
+            _shown = want;
+            foreach (var r in _renderers)
+                if (r != null) r.sharedMaterial = want;
         }
 
         private float PartPitch(Swing sw, float swing)

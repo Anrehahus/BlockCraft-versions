@@ -38,6 +38,8 @@ namespace MinecraftClone.Player
         private const float HurtFlashTime = 0.25f;
         private float _swingTimer = -1f;
         private const float SwingDuration = 0.3f;
+        public Transform RightArm => _rightArm;
+        public Texture2D Skin => skin;
 
         public void Swing() { _swingTimer = 0f; }
 
@@ -71,6 +73,7 @@ namespace MinecraftClone.Player
             Debug.Log("[PM] shader=" + _material.shader.name);
             BuildModel();
             _lastPos = transform.position;
+            if (GetComponent<FirstPersonView>() == null) gameObject.AddComponent<FirstPersonView>();
         }
 
         private void OnDestroy()

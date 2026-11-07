@@ -100,6 +100,9 @@ namespace MinecraftClone.Networking
 
         public void NotifySwing()
         {
+            FirstPersonView fpv = GetComponent<FirstPersonView>();
+            if (fpv != null) fpv.Swing();
+
             if (!isLocalPlayer || !NetworkClient.active) return;
             CmdSwing();
         }

@@ -60,6 +60,13 @@ namespace MinecraftClone.Mobs
 
         public int HurtCount => RunsLogic ? _hurtCountLocal : _hurtCountSync;
 
+        [SyncVar] private bool _dyingSync;
+        private bool _dyingLocal;
+        private float _dyingTimer;
+        private const float DeathDuration = 1f;      // сколько тело лежит до исчезновения
+
+        public bool IsDying => RunsLogic ? _dyingLocal : _dyingSync;
+
         // ---------- Кэш игроков ----------
 
         private static NetworkPlayer[] _players = new NetworkPlayer[0];
@@ -188,6 +195,16 @@ namespace MinecraftClone.Mobs
         {
             if (transform.position.y < -10f) { ServerDespawn(); return; }
 
+            if (_dyingLocal)
+            {
+                // мёртвый моб только скользит от удара и падает под действием гравитации
+                _knock = Vector3.MoveTowards(_knock, Vector3.zero, KnockbackDecay * dt);
+                transform.position = Motor.Move(transform.position, _knock, dt);
+                _dyingTimer -= dt;
+                if (_dyingTimer <= 0f) ServerDespawn();
+                return;
+            }
+
             UpdateTarget(dt);
 
             _wishDir = Vector3.zero;
@@ -312,6 +329,7 @@ namespace MinecraftClone.Mobs
         // Урон мобу. Вызывается только на сервере (в одиночной игре это сам игрок).
         public void ServerTakeDamage(float amount, Vector3 sourcePos, PlayerHealth attacker)
         {
+            if (_dyingLocal) return;
             if (!RunsLogic || _dead || Data == null || Motor == null || amount <= 0f) return;
             if (Time.time < _hurtImmuneUntil) return;
             _hurtImmuneUntil = Time.time + HurtCooldown;
@@ -334,7 +352,13 @@ namespace MinecraftClone.Mobs
             if (_health <= 0f)
             {
                 if (attacker != null) attacker.AddKill(Data.Id);
-                ServerDespawn();
+
+                _dyingLocal = true;
+                if (isServer) _dyingSync = true;
+                _dyingTimer = DeathDuration;
+                Target = null;
+                ServerSetAttacking(false);
+                ServerSetChargeDir(-1);
             }
         }
     }

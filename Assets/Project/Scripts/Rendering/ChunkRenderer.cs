@@ -140,12 +140,10 @@ namespace MinecraftClone.Rendering
                 return;
             }
 
-            float waterTop = 1f;
-            if (type == BlockType.Water)
-            {
-                BlockType above = y + 1 < chunkData.Height ? chunkData.GetBlock(x, y + 1, z) : BlockType.Air;
-                if (above == BlockType.Air || IsPlantBlock(above)) waterTop = 0.8f;
-            }
+            bool isFluid = type == BlockType.Water || type == BlockType.Lava;
+            int baseWX = chunkData.Position.x * chunkData.Width + x;
+            int baseWZ = chunkData.Position.y * chunkData.Width + z;
+            float fluidTop = isFluid ? FluidTop(worldManager, baseWX, y, baseWZ) : 1f;
 
             Vector3Int[] directions = Directions;
 
@@ -175,9 +173,19 @@ namespace MinecraftClone.Rendering
                     neighborType = worldManager.GetBlockAtWorldPosition(worldX, neighborY, worldZ);
                 }
 
-                if (ShouldRenderFace(type, neighborType))
+                bool drawFace = ShouldRenderFace(type, neighborType)
+                || (isFluid && i == 0 && fluidTop < 1f && !IsFluidType(neighborType));   // поверхность под блоком над водой
+
+                if (drawFace)
                 {
-                    AddFaceData(x, y, z, i, type, blockDatabase, uvMap, waterTop);
+                    AddFaceData(x, y, z, i, type, blockDatabase, uvMap, fluidTop);
+                }
+                else if (isFluid && i >= 2 && neighborType == type)
+                {
+                    // сосед той же жидкости ниже (у него сверху пусто, а у нас блок): закрываем щель
+                    float neighborTop = FluidTop(worldManager, baseWX + dir.x, y, baseWZ + dir.z);
+                    if (fluidTop > neighborTop + 0.001f)
+                        AddFaceData(x, y, z, i, type, blockDatabase, uvMap, fluidTop, neighborTop);
                 }
             }
         }
@@ -203,12 +211,13 @@ namespace MinecraftClone.Rendering
         }
 
         private void AddFaceData(
-                int x, int y, int z,
-                int faceIndex,
-                BlockType type,
-                Dictionary<BlockType, BlockDataSO> blockDatabase,
-                Dictionary<string, Rect> uvMap,
-                float topY = 1f)
+            int x, int y, int z,
+            int faceIndex,
+            BlockType type,
+            Dictionary<BlockType, BlockDataSO> blockDatabase,
+            Dictionary<string, Rect> uvMap,
+            float topY = 1f,
+            float bottomY = 0f)
         {
             int vCount = vertices.Count;
             Vector3 blockPos = new Vector3(x, y, z);
@@ -217,7 +226,11 @@ namespace MinecraftClone.Rendering
             for (int i = 0; i < 4; i++)
             {
                 Vector3 fv = faceVerts[i];
-                if (type == BlockType.Water && fv.y > 0.5f) fv.y = topY;
+                if (type == BlockType.Water || type == BlockType.Lava)
+                {
+                    if (fv.y > 0.5f) fv.y = topY;                 // верх опускается до 0.8
+                    else if (faceIndex >= 2) fv.y = bottomY;      // у боковой грани-«заплатки» низ поднят до уровня соседа
+                }
                 vertices.Add(blockPos + fv);
             }
 
@@ -566,5 +579,28 @@ namespace MinecraftClone.Rendering
             _labels.Clear();
         }
 
+        private static bool IsFluidType(BlockType t) => t == BlockType.Water || t == BlockType.Lava;
+
+        // Высота жидкости в клетке: 1, если сверху жидкость или погружённый в неё блок, иначе 0.8
+        private float FluidTop(WorldManager wm, int wx, int y, int wz)
+        {
+            BlockType above = wm.GetBlockAtWorldPosition(wx, y + 1, wz);
+
+            if (IsFluidType(above)) return 1f;   // столб жидкости
+
+            bool blockAbove = above != BlockType.Air && !IsPlantBlock(above) && !above.IsSign();
+            if (blockAbove)
+            {
+                // блок погружён: жидкость над ним или рядом с ним на его уровне
+                if (IsFluidType(wm.GetBlockAtWorldPosition(wx, y + 2, wz))
+                    || IsFluidType(wm.GetBlockAtWorldPosition(wx + 1, y + 1, wz))
+                    || IsFluidType(wm.GetBlockAtWorldPosition(wx - 1, y + 1, wz))
+                    || IsFluidType(wm.GetBlockAtWorldPosition(wx, y + 1, wz + 1))
+                    || IsFluidType(wm.GetBlockAtWorldPosition(wx, y + 1, wz - 1)))
+                    return 1f;
+            }
+
+            return 0.8f;   // сверху воздух, цветок или блок над уровнем воды
+        }
     }
 }
