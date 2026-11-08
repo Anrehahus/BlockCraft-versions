@@ -59,7 +59,8 @@ namespace MinecraftClone.Management
             ShowMainMenu();
             UpdateWorldButtonsText();
 
-            if (modsButton != null) modsButton.interactable = false;
+            ForceDisabledLook(modsButton);
+            StartCoroutine(ApplyModsLookNextFrame());   // ещё раз после первого кадра, когда меню уже показано
 
             // Auto-wire Singleplayer
             if (singleplayerButton == null)
@@ -480,6 +481,29 @@ namespace MinecraftClone.Management
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #endif
+        }
+
+        // Серый вид выключенной кнопки без плавного перехода (он иногда не успевает отработать)
+        private void ForceDisabledLook(Button b)
+        {
+            if (b == null) return;
+            b.interactable = false;
+
+            Graphic g = b.targetGraphic;
+            if (b.transition == Selectable.Transition.ColorTint && g != null)
+            {
+                g.canvasRenderer.SetColor(b.colors.disabledColor * b.colors.colorMultiplier);
+            }
+            else if (b.transition == Selectable.Transition.SpriteSwap && g is Image img && b.spriteState.disabledSprite != null)
+            {
+                img.overrideSprite = b.spriteState.disabledSprite;
+            }
+        }
+
+        private System.Collections.IEnumerator ApplyModsLookNextFrame()
+        {
+            yield return null;
+            ForceDisabledLook(modsButton);
         }
     }
 }

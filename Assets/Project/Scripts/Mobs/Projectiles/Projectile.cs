@@ -213,9 +213,12 @@ namespace MinecraftClone.Mobs
 
         private void BuildModel()
         {
-            Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
-            if (sh == null) sh = Shader.Find("Unlit/Texture");
-            if (sh == null) sh = Shader.Find("Sprites/Default");
+            Shader sh = Resources.Load<Shader>("Shaders/MobUnlit");
+            if (sh == null)
+            {
+                Debug.LogError("[MobModel] Не найден Resources/MobUnlit.shader");
+                sh = Shader.Find("Unlit/Texture");
+            }
             _mat = new Material(sh);
 
             Texture2D tex = _data.Texture;
@@ -229,12 +232,7 @@ namespace MinecraftClone.Mobs
                 _mat.color = new Color(0.8f, 0.7f, 0.5f);
             }
 
-            // в текстуре стрелы много прозрачных пикселей: вырезаем их и рисуем обе стороны
-            _mat.SetFloat("_AlphaClip", 1f);
             _mat.SetFloat("_Cutoff", 0.5f);
-            _mat.EnableKeyword("_ALPHATEST_ON");
-            _mat.renderQueue = 2450;
-            _mat.SetFloat("_Cull", 0f);
 
             float W = tex != null ? tex.width : 32f;
             float H = tex != null ? tex.height : 32f;

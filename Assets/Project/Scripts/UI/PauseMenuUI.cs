@@ -604,9 +604,13 @@ namespace MinecraftClone.UI
 
             yield return null;
 
-            if (!string.IsNullOrEmpty(mainMenuSceneName))
+            // после StopHost Mirror мог уже сам загрузить меню (Offline Scene), второй раз не грузим
+            if (!string.IsNullOrEmpty(mainMenuSceneName)
+                && SceneManager.GetActiveScene().name != mainMenuSceneName)
             {
-                SceneManager.LoadScene(mainMenuSceneName);
+                yield return null;   // даём Mirror закончить собственную загрузку
+                if (SceneManager.GetActiveScene().name != mainMenuSceneName)
+                    SceneManager.LoadScene(mainMenuSceneName);
             }
         }
 

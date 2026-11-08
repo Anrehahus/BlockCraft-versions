@@ -72,16 +72,14 @@ namespace MinecraftClone.Mobs
 
         private void BuildMaterials()
         {
-            Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
-            if (sh == null) sh = Shader.Find("Unlit/Texture");
-            if (sh == null) sh = Shader.Find("Sprites/Default");
+            Shader sh = Resources.Load<Shader>("Shaders/MobUnlit");
+            if (sh == null)
+            {
+                Debug.LogError("[MobModel] Не найден Resources/MobUnlit.shader");
+                sh = Shader.Find("Unlit/Texture");
+            }
             _normalMat = new Material(sh);
-            // прозрачные пиксели текстуры (рёбра скелета) вырезаем, а не рисуем чёрными
-            _normalMat.SetFloat("_AlphaClip", 1f);
             _normalMat.SetFloat("_Cutoff", 0.5f);
-            _normalMat.EnableKeyword("_ALPHATEST_ON");
-            _normalMat.renderQueue = 2450;   // AlphaTest
-            _normalMat.SetFloat("_Cull", 0f);   // рисовать обе стороны граней: сквозь рёбра видно спину и наоборот
 
             Texture2D skin = _data.Texture;
             if (skin != null)
