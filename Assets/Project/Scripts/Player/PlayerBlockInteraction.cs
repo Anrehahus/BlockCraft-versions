@@ -243,8 +243,10 @@ namespace MinecraftClone.Player
             private void PlaceBlock(Vector3Int blockPos, Vector3Int normal)
             {
                 BlockType selectedType = CurrentSelectedBlock;
+                // пока в этой клетке проходит падающий блок, ставить нельзя
+                if (GravityBlockSystem.Instance != null && GravityBlockSystem.Instance.IsOccupiedByFalling(blockPos)) return;
 
-                if (selectedType.IsSign())
+            if (selectedType.IsSign())
                 {
                     if (normal.y < 0) return;   // на потолок нельзя
                     if (_worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z) != BlockType.Air) return;

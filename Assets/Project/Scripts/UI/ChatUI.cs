@@ -11,6 +11,7 @@ namespace MinecraftClone.UI
     {
         public static ChatUI Instance { get; private set; }
         public static bool IsOpen { get; private set; }
+        public static int ClosedFrame { get; private set; } = -1;
 
         [SerializeField] private string mainMenuSceneName = "MainMenu";
         [SerializeField] private int fontSize = 16;
@@ -98,6 +99,7 @@ namespace MinecraftClone.UI
             _input = "";
             _historyIndex = -1;
             _tabLast = null;
+            ClosedFrame = Time.frameCount;
         }
 
         private void Update()

@@ -4,6 +4,7 @@ using System.IO;
 using UnityEngine;
 using MinecraftClone.Player;
 using MinecraftClone.Core;
+using MinecraftClone.Physics;
 
 namespace MinecraftClone.Management
 {
@@ -103,6 +104,7 @@ namespace MinecraftClone.Management
 
         public bool SaveWorldFileSync(int slotIndex, Dictionary<Vector2Int, ChunkData> loadedChunks, int seed, Vector3 playerPosition, Vector2 playerRotation = default)
         {
+            if (GravityBlockSystem.Instance != null) GravityBlockSystem.Instance.LandAllImmediately();
             InitSavePath();
             string worldFolder = GetSlotFolderPath(slotIndex);
 

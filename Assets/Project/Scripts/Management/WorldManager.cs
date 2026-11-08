@@ -113,6 +113,7 @@ namespace MinecraftClone.Management
         public WorldConfigSO Config => worldConfig;
         public Dictionary<BlockType, BlockDataSO> BlockDatabase => blockDatabase;
         public Dictionary<string, Rect> UVMap => stitcher != null ? stitcher.UVMap : null;
+        public Material BlocksMaterial => blocksMaterial;
         public int UpdatedChunksCount => modifiedChunks.Count;
         public bool IsWorldReady => isWorldReady;
 
@@ -1215,7 +1216,7 @@ namespace MinecraftClone.Management
             BlockParticleSpawner.SpawnBreakParticles(new Vector3(pos.x + 0.5f, pos.y + 0.5f, pos.z + 0.5f), tex);
         }
 
-        public void ApplyBlockChange(int worldX, int worldY, int worldZ, BlockType type, bool rebuildMesh = true, HashSet<Vector2Int> dirtyChunks = null)
+        public void ApplyBlockChange(int worldX, int worldY, int worldZ, BlockType type, bool rebuildMesh = true, HashSet<Vector2Int> dirtyChunks = null, bool silent = false)
         {
             if (worldConfig == null) return;
 
@@ -1241,14 +1242,24 @@ namespace MinecraftClone.Management
                     FluidSystem.Instance.WakeWaterAround(new Vector3Int(worldX, worldY, worldZ), 3, 2, 3);
                 }
 
-                if (type == BlockType.Air && oldType != BlockType.Air && oldType != BlockType.Water && oldType != BlockType.Lava)
+                // клиент: блок убрали потому, что он начал падать (сущность уже создана): без частиц и звука
+                if (!silent && type == BlockType.Air && GravityBlockSystem.Instance != null
+                    && GravityBlockSystem.Instance.ConsumeSilentRemoval(new Vector3Int(worldX, worldY, worldZ)))
                 {
-                    SpawnBreakEffect(new Vector3Int(worldX, worldY, worldZ), oldType);
+                    silent = true;
                 }
 
-                Vector3 soundPos = new Vector3(worldX + 0.5f, worldY + 0.5f, worldZ + 0.5f);
-                if (type == BlockType.Air) BlockSounds.Play(oldType, soundPos, 0.8f, 0.8f);   // ломание
-                else if (type != oldType) BlockSounds.Play(type, soundPos, 0.8f, 1.0f);       // установка
+                if (!silent)
+                {
+                    if (type == BlockType.Air && oldType != BlockType.Air && oldType != BlockType.Water && oldType != BlockType.Lava)
+                    {
+                        SpawnBreakEffect(new Vector3Int(worldX, worldY, worldZ), oldType);
+                    }
+
+                    Vector3 soundPos = new Vector3(worldX + 0.5f, worldY + 0.5f, worldZ + 0.5f);
+                    if (type == BlockType.Air) BlockSounds.Play(oldType, soundPos, 0.8f, 0.8f);   // ломание
+                    else if (type != oldType) BlockSounds.Play(type, soundPos, 0.8f, 1.0f);       // установка
+                }
 
                 BroadcastBlock(new Vector3Int(worldX, worldY, worldZ), type);
 

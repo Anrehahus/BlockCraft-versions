@@ -280,17 +280,15 @@ namespace MinecraftClone.Player
             _head.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
         }
 
-        // Свою модель от первого лица не показываем, чужие показываем
+        // Свою модель от первого лица не показываем, чужие показываем. Применяется каждый кадр, без кэша.
         private void UpdateVisibility()
         {
             if (_deathHidden) return;
-            bool own = _identity == null || _identity.netId == 0 || _identity.isLocalPlayer;
-            bool show = !own;
-            if (show == _visible) return;
-
+            bool show = !IsOwn;
             _visible = show;
+            if (_renderers == null) return;
             foreach (var r in _renderers)
-                if (r != null) r.enabled = show;
+                if (r != null && r.enabled != show) r.enabled = show;
         }
 
         private void UpdateFootsteps(float dist)
@@ -312,7 +310,9 @@ namespace MinecraftClone.Player
             BlockSounds.Play(below, p, 0.3f, 1.0f);
         }
 
-        private bool IsOwn => _identity == null || _identity.netId == 0 || _identity.isLocalPlayer;
+        private bool IsOwn =>
+            _identity == null || _identity.netId == 0 || _identity.isLocalPlayer
+            || (NetworkServer.active && _identity.connectionToClient == NetworkServer.localConnection);
 
         // true, пока игрок мёртв (обычную анимацию не играем)
         private bool UpdateDeath()

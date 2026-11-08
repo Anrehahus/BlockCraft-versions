@@ -42,7 +42,9 @@ namespace MinecraftClone.Player
 
         public void Swing() { _swing = 0f; }
 
-        private bool IsOwn => _identity == null || _identity.netId == 0 || _identity.isLocalPlayer;
+        private bool IsOwn =>
+            _identity == null || _identity.netId == 0 || _identity.isLocalPlayer
+            || (NetworkServer.active && _identity.connectionToClient == NetworkServer.localConnection);
 
         private void Start()
         {

@@ -31,6 +31,7 @@ namespace MinecraftClone.Networking
 
     public struct BlockChangeRequestMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct BlockChangeMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
+    public struct FallingBlockMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct ChunkRequestMessage : NetworkMessage { public int X; public int Z; }
     public struct ChunkDataMessage : NetworkMessage { public int X; public int Z; public int[] Rle; }
     public struct ChatSendMessage : NetworkMessage { public string Text; }
@@ -202,6 +203,13 @@ namespace MinecraftClone.Networking
                 && wm.BlockDatabase.TryGetValue(msg.Type, out BlockDataSO placed)
                 && placed != null && placed.IsSolid
                 && NetworkPlayer.IsBlockOverlappingAnyPlayer(msg.Pos))
+            {
+                return;
+            }
+
+            if (msg.Type != BlockType.Air
+                && MinecraftClone.Physics.GravityBlockSystem.Instance != null
+                && MinecraftClone.Physics.GravityBlockSystem.Instance.IsOccupiedByFalling(msg.Pos))
             {
                 return;
             }
@@ -736,6 +744,7 @@ namespace MinecraftClone.Networking
             NetworkClient.RegisterHandler<ChunkDataMessage>(OnClientChunkData);
             NetworkClient.RegisterHandler<ChatMessage>(OnClientChat);
             NetworkClient.RegisterHandler<ViewDistanceMessage>(OnClientViewDistance);
+            NetworkClient.RegisterHandler<FallingBlockMessage>(OnClientFallingBlock);
         }
 
         public override void OnClientConnect()
@@ -806,6 +815,13 @@ namespace MinecraftClone.Networking
             if (NetworkServer.active) return; // хост уже применил изменение сам
             if (WorldManager.Instance != null)
                 WorldManager.Instance.ApplyBlockChange(msg.Pos.x, msg.Pos.y, msg.Pos.z, msg.Type, true);
+        }
+
+        private void OnClientFallingBlock(FallingBlockMessage msg)
+        {
+            if (NetworkServer.active) return;   // у хоста сущность уже создана сервером
+            if (MinecraftClone.Physics.GravityBlockSystem.Instance != null)
+                MinecraftClone.Physics.GravityBlockSystem.Instance.ClientSpawnFalling(msg.Pos, msg.Type);
         }
 
         private void OnClientChunkData(ChunkDataMessage msg)

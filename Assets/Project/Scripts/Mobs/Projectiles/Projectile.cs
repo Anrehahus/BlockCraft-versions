@@ -23,6 +23,9 @@ namespace MinecraftClone.Mobs
 
         private float _age, _stuckTime;
         private bool _stuck;
+        private bool _falling;          // стрела потеряла опору и падает вертикально
+        private float _fallSpeed;       // скорость падения (отрицательная)
+        private float _supportTimer;    // проверка опоры раз в 0.1 с
 
         private Material _mat;
         private Mesh _mesh;
@@ -58,7 +61,26 @@ namespace MinecraftClone.Mobs
             if (_stuck)
             {
                 _stuckTime += dt;
-                if (_stuckTime >= _data.StuckLifetime) Destroy(gameObject);
+                if (_stuckTime >= _data.StuckLifetime) { Destroy(gameObject); return; }
+
+                _supportTimer -= dt;
+                if (_supportTimer <= 0f)
+                {
+                    _supportTimer = 0.1f;
+                    if (!IsSupported(transform.position))
+                    {
+                        // блок, в котором торчала стрела, исчез: начинаем падать строго вниз
+                        _stuck = false;
+                        _falling = true;
+                        _fallSpeed = 0f;
+                    }
+                }
+                if (_stuck) return;
+            }
+
+            if (_falling)
+            {
+                FallStraight(dt);
                 return;
             }
 
@@ -118,7 +140,56 @@ namespace MinecraftClone.Mobs
             return true;
         }
         private static readonly System.Func<int, int, int, bool> SolidCell =
-    (x, y, z) => SolidAt(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f));
+            (x, y, z) => SolidAt(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f));
+
+        // есть ли рядом с остриём хоть один твёрдый блок (в радиусе 0.2)
+        private static bool IsSupported(Vector3 p)
+        {
+            const float r = 0.2f;
+            if (SolidAt(p)) return true;
+            for (int ix = -1; ix <= 1; ix += 2)
+                for (int iy = -1; iy <= 1; iy += 2)
+                    for (int iz = -1; iz <= 1; iz += 2)
+                        if (SolidAt(p + new Vector3(ix * r, iy * r, iz * r))) return true;
+            return false;
+        }
+
+        private void FallStraight(float dt)
+        {
+            _stuckTime += dt;   // время жизни стрелы продолжает идти
+            if (_stuckTime >= _data.StuckLifetime) { Destroy(gameObject); return; }
+
+            dt = Mathf.Min(dt, 0.05f);
+            // разворачиваем стрелу остриём вниз (плавно, минимальным поворотом)
+            Quaternion pointDown = Quaternion.FromToRotation(transform.forward, Vector3.down) * transform.rotation;
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, pointDown, 540f * dt);
+            float g = _data.Gravity < 0f ? _data.Gravity : -20f;
+            _fallSpeed = Mathf.Max(_fallSpeed + g * dt, -78f);
+
+            float dy = _fallSpeed * dt;
+            int n = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(dy) / 0.25f));
+            Vector3 s = Vector3.up * (dy / n);
+            Vector3 p = transform.position;
+
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 next = p + s;
+                if (SolidAt(next))
+                {
+                    // упёрлись в следующий блок: втыкаемся и снова ждём, пока его не уберут
+                    transform.position = p + Vector3.down * 0.15f;
+                    _falling = false;
+                    _stuck = true;
+                    transform.rotation = Quaternion.LookRotation(Vector3.down, transform.up);
+                    _supportTimer = 0.1f;
+                    return;
+                }
+                p = next;
+            }
+
+            transform.position = p;
+            if (p.y < -20f) Destroy(gameObject);   // упала за пределы мира
+        }
 
         // коробка игрока: ширина 0.8 (с запасом), высота 1.8, точка у ног
         private static bool HitsPlayer(Vector3 pos, out NetworkPlayer hit)
