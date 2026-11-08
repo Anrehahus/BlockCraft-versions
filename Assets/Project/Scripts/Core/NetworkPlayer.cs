@@ -204,16 +204,17 @@ namespace MinecraftClone.Networking
 
         public static bool IsBlockOverlappingAnyPlayer(Vector3Int pos)
         {
-            const float halfWidth = 0.35f;
+            const float halfWidth = 0.3f;   // ширина 0.6
             const float height = 1.8f;
+            const float eps = 0.001f;       // касание гранью блоку не мешает
 
             foreach (var p in FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None))
             {
                 Vector3 c = p.transform.position; // точка у ног
 
-                bool overlapX = c.x + halfWidth > pos.x && c.x - halfWidth < pos.x + 1f;
-                bool overlapZ = c.z + halfWidth > pos.z && c.z - halfWidth < pos.z + 1f;
-                bool overlapY = c.y + height > pos.y && c.y < pos.y + 1f;
+                bool overlapX = c.x + halfWidth > pos.x + eps && c.x - halfWidth < pos.x + 1f - eps;
+                bool overlapZ = c.z + halfWidth > pos.z + eps && c.z - halfWidth < pos.z + 1f - eps;
+                bool overlapY = c.y + height > pos.y + eps && c.y < pos.y + 1f - eps;
 
                 if (overlapX && overlapZ && overlapY) return true;
             }

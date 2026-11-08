@@ -73,6 +73,13 @@ namespace MinecraftClone.Player
         {
             controller = GetComponent<CharacterController>();
             playerCamera = GetComponentInChildren<Camera>();
+            if (controller != null)
+            {
+                controller.radius = 0.3f;                       // ширина 0.6
+                controller.height = 1.8f;
+                controller.center = new Vector3(0f, 0.9f, 0f);  // pivot игрока у ног
+                controller.skinWidth = 0.03f;                   // маленький «зазор», чтобы не было ложного отступа от стен
+            }
         }
 
         private void Start()

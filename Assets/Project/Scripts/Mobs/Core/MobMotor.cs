@@ -96,15 +96,20 @@ namespace MinecraftClone.Mobs
         }
 
         // есть ли прямая видимость между двумя точками
+        private System.Func<int, int, int, bool> _solidFn;
+
         public bool LineClear(Vector3 a, Vector3 b)
         {
             if (Wm == null) return false;
+            if (_solidFn == null) _solidFn = Solid;
+
             float dist = Vector3.Distance(a, b);
-            int steps = Mathf.CeilToInt(dist / 0.4f);
+            int steps = Mathf.CeilToInt(dist / 0.2f);
             for (int i = 1; i < steps; i++)
             {
                 Vector3 p = Vector3.Lerp(a, b, i / (float)steps);
                 if (Solid(Mathf.FloorToInt(p.x), Mathf.FloorToInt(p.y), Mathf.FloorToInt(p.z))) return false;
+                if (VoxelSeam.IsSeam(p, _solidFn)) return false;   // диагональный шов считаем стеной
             }
             return true;
         }

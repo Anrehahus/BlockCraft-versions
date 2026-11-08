@@ -265,17 +265,12 @@ namespace MinecraftClone.Player
                     return;
                 }
 
-                if (_playerCollider != null && _worldManager.BlockDatabase.TryGetValue(selectedType, out BlockDataSO data))
-                {
-                    if (data.IsSolid)
-                    {
-                        Bounds blockBounds = new Bounds(blockPos + new Vector3(0.5f, 0.5f, 0.5f), Vector3.one * 0.9f);
-                        if (_playerCollider.bounds.Intersects(blockBounds)) return;
-                        if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return;
-                    }
-                }
+            if (_worldManager.BlockDatabase.TryGetValue(selectedType, out BlockDataSO data) && data.IsSolid)
+            {
+                if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return;   // точная коробка 0.6 x 1.8
+            }
 
-                _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
+            _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
             }
 
         // true, если перед игроком моб (тогда блок за ним не ломаем)

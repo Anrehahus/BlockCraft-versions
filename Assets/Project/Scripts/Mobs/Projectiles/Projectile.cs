@@ -77,7 +77,7 @@ namespace MinecraftClone.Mobs
             {
                 Vector3 next = p + s;
 
-                if (SolidAt(next))
+                if (SolidAt(next) || VoxelSeam.IsSeam(next, SolidCell))
                 {
                     // втыкаемся: чуть заглубляем в блок и замираем
                     transform.position = p + s.normalized * 0.15f;
@@ -117,6 +117,8 @@ namespace MinecraftClone.Mobs
                 return d.IsSolid;   // цветы и саженцы стрела пролетает
             return true;
         }
+        private static readonly System.Func<int, int, int, bool> SolidCell =
+    (x, y, z) => SolidAt(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f));
 
         // коробка игрока: ширина 0.8 (с запасом), высота 1.8, точка у ног
         private static bool HitsPlayer(Vector3 pos, out NetworkPlayer hit)
@@ -126,9 +128,9 @@ namespace MinecraftClone.Mobs
             {
                 if (pl == null) continue;
                 Vector3 c = pl.transform.position;
-                if (Mathf.Abs(pos.x - c.x) < 0.4f && Mathf.Abs(pos.z - c.z) < 0.4f
+                if (Mathf.Abs(pos.x - c.x) < 0.3f && Mathf.Abs(pos.z - c.z) < 0.3f
                     && pos.y > c.y && pos.y < c.y + 1.8f)
-                {
+        {
                     hit = pl;
                     return true;
                 }
