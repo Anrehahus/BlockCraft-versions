@@ -12,6 +12,16 @@ namespace MinecraftClone.Player
 
         private void Awake() { _model = GetComponent<PlayerModel>(); }
 
+        private void Start()
+        {
+            // Одиночная игра: сети нет, OnStartLocalPlayer не вызывается, поэтому применяем скин лаунчера напрямую.
+            // В сети скин приходит через SyncVar, там этот код не нужен.
+            if (NetworkServer.active || NetworkClient.active) return;
+
+            byte[] bytes = LauncherSkin.GetBytes();
+            if (bytes != null) Apply(bytes);
+        }
+
         private void OnSkinChanged(byte[] oldData, byte[] newData)
         {
             Apply(newData);
