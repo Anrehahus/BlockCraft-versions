@@ -5,6 +5,7 @@ using MinecraftClone.Management;
 using MinecraftClone.Player;
 using MinecraftClone.UI;
 using MinecraftClone.Mobs;
+using MinecraftClone.Core;
 
 namespace MinecraftClone.Networking
 {
@@ -68,6 +69,13 @@ namespace MinecraftClone.Networking
         [SerializeField] private GameObject playerUI;
 
         private GUIStyle _nameTagStyle;
+        private const float NameTagMaxDist = 64f;   // дальше этого ник не виден
+        private const int NameTagMaxSize = 26;      // размер шрифта вплотную
+        private const int NameTagMinSize = 12;      // размер на 64 блоках (не мельче, чтобы читался)
+        private const float NameTagHiddenAlpha = 0.35f;   // прозрачность ника сквозь блоки
+
+        private static Font _pixelFont;
+        private float _tagAlpha = 1f;
         private Texture2D _backgroundTex;
         private Camera _mainCamera;
 
@@ -399,30 +407,86 @@ namespace MinecraftClone.Networking
 
         private void OnNicknameChanged(string oldNick, string newNick) => gameObject.name = $"Player_{newNick}";
 
+        private static Font GetPixelFont()
+        {
+            if (_pixelFont != null) return _pixelFont;
+            foreach (var f in Resources.FindObjectsOfTypeAll<Font>())
+                if (f != null && f.name.ToLower().Contains("minecraft")) { _pixelFont = f; break; }
+            return _pixelFont;
+        }
+
+        private void EnsureNameTagStyle(int size)
+        {
+            if (_nameTagStyle == null)
+            {
+                _nameTagStyle = new GUIStyle { alignment = TextAnchor.MiddleCenter, wordWrap = false };
+                Font font = GetPixelFont();
+                if (font != null) _nameTagStyle.font = font;
+            }
+            _nameTagStyle.fontSize = size;
+        }
+
+        // ник приглушается, если между камерой и ним есть твёрдые блоки
+        private static bool IsLineBlocked(WorldManager wm, Vector3 from, Vector3 to)
+        {
+            Vector3 d = to - from;
+            float len = d.magnitude;
+            if (len < 1f) return false;
+            d /= len;
+
+            for (float t = 0.5f; t < len - 0.3f; t += 0.4f)
+            {
+                Vector3 p = from + d * t;
+                BlockType b = wm.GetBlockAtWorldPosition(Mathf.FloorToInt(p.x), Mathf.FloorToInt(p.y), Mathf.FloorToInt(p.z));
+                if (b == BlockType.Air || b == BlockType.Water || b == BlockType.Lava || b == BlockType.Glass
+                    || b.IsPlant() || b.IsSign()) continue;
+                return true;
+            }
+            return false;
+        }
+
+        private void LateUpdate()
+        {
+            if (isLocalPlayer) return;
+
+            if (_mainCamera == null) _mainCamera = Camera.main;
+            WorldManager wm = WorldManager.Instance;
+            if (_mainCamera == null || wm == null) return;
+
+            Vector3 tagPos = transform.position + Vector3.up * nameTagHeight;
+            bool blocked = IsLineBlocked(wm, _mainCamera.transform.position, tagPos);
+            _tagAlpha = Mathf.MoveTowards(_tagAlpha, blocked ? NameTagHiddenAlpha : 1f, Time.unscaledDeltaTime * 6f);
+        }
+
         private void OnGUI()
         {
+            if (Event.current.type != EventType.Repaint) return;
             if (isLocalPlayer || string.IsNullOrEmpty(_nickname)) return;
 
             if (_mainCamera == null) _mainCamera = Camera.main;
             if (_mainCamera == null) return;
 
             Vector3 worldPos = transform.position + Vector3.up * nameTagHeight;
-            Vector3 screenPos = _mainCamera.WorldToScreenPoint(worldPos);
+            float dist = Vector3.Distance(_mainCamera.transform.position, worldPos);
+            if (dist > NameTagMaxDist) return;   // дальше 64 блоков ник не показываем
 
-            if (screenPos.z > 0)
-            {
-                InitNameTagStyle();
+            Vector3 sp = _mainCamera.WorldToScreenPoint(worldPos);
+            if (sp.z <= 0f) return;
 
-                GUIContent content = new GUIContent(_nickname);
-                Vector2 size = _nameTagStyle.CalcSize(content);
+            int size = Mathf.RoundToInt(Mathf.Lerp(NameTagMaxSize, NameTagMinSize, dist / NameTagMaxDist));
+            EnsureNameTagStyle(size);
 
-                float width = size.x + 12f;
-                float height = size.y + 4f;
-                float x = screenPos.x - width / 2f;
-                float y = Screen.height - screenPos.y - height;
+            GUIContent content = new GUIContent(_nickname);
+            Vector2 sz = _nameTagStyle.CalcSize(content);
+            Rect r = new Rect(Mathf.Round(sp.x - sz.x * 0.5f), Mathf.Round(Screen.height - sp.y - sz.y), sz.x, sz.y);
 
-                GUI.Label(new Rect(x, y, width, height), content, _nameTagStyle);
-            }
+            // тень, как в оригинале
+            float so = Mathf.Max(1f, Mathf.Round(size / 8f));
+            _nameTagStyle.normal.textColor = new Color(0f, 0f, 0f, 0.75f * _tagAlpha);
+            GUI.Label(new Rect(r.x + so, r.y + so, r.width, r.height), content, _nameTagStyle);
+
+            _nameTagStyle.normal.textColor = new Color(1f, 1f, 1f, _tagAlpha);
+            GUI.Label(r, content, _nameTagStyle);
         }
     }
 }
