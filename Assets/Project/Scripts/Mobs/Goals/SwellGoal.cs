@@ -38,6 +38,7 @@ namespace MinecraftClone.Mobs
                 Vector3 center = mob.CenterPos;
                 MobExplosion.Explode(center, _def.explosionRadius);
                 MobExplosion.DamagePlayers(center, _def.damageRadius, _def.minDamage, _def.maxDamage);
+                MobExplosion.DamageMobs(center, _def.damageRadius, _def.minDamage, _def.maxDamage, mob);
                 mob.ServerDespawn();
             }
         }

@@ -69,5 +69,24 @@ namespace MinecraftClone.Mobs
                 health.TakeDamage(damage, center);
             }
         }
+
+        // Урон мобам от взрыва, формула та же, что для игроков. Только сервер / одиночная игра.
+        public static void DamageMobs(Vector3 center, float radius, float minDamage, float maxDamage, Mob exclude = null)
+        {
+            if (NetworkClient.active && !NetworkServer.active) return;
+
+            // копия списка: пока идём по нему, мобы могут умирать и менять Mob.All
+            var mobs = new List<Mob>(Mob.All);
+            foreach (var m in mobs)
+            {
+                if (m == null || m == exclude) continue;
+
+                float dist = Vector3.Distance(center, m.CenterPos);
+                if (dist > radius) continue;
+
+                float damage = Mathf.Round(Mathf.Lerp(maxDamage, minDamage, dist / radius));
+                m.ServerTakeDamage(damage, center, null);
+            }
+        }
     }
 }
