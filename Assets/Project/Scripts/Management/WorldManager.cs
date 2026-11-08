@@ -27,8 +27,10 @@ namespace MinecraftClone.Management
         public static float GenerationProgress { get; private set; } = 0f;
         public static string GenerationStatusText { get; private set; } = "Загрузка...";
 
-        public float FogStart => Mathf.Max(10f, (viewDistanceInChunks - 2) * worldConfig.ChunkWidth);
         public float FogEnd => Mathf.Max(30f, viewDistanceInChunks * worldConfig.ChunkWidth);
+        public float FogStart => FogEnd * 0.2f;   // туман начинается близко и нарастает плавно
+        public static readonly Color SkyColor = new Color(0.45f, 0.65f, 1f);   // цвет неба и тумана
+        public static readonly Color FogColor = new Color(0.88f, 0.93f, 1f);
 
         public static int HostViewLimit = int.MaxValue;
         private int userViewDistance = 5;
@@ -220,6 +222,9 @@ namespace MinecraftClone.Management
 
         private void Start()
         {
+            if (GetComponent<MinecraftClone.Environment.CloudSystem>() == null)
+                gameObject.AddComponent<MinecraftClone.Environment.CloudSystem>();
+
             Debug.Log($"[WM] Start: NetworkClient.active={NetworkClient.active}, NetworkServer.active={NetworkServer.active}");
 
             SetupFog();
@@ -925,21 +930,21 @@ namespace MinecraftClone.Management
 
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            Color fogColor = new Color(0.6f, 0.8f, 1f);
+            Color fogColor = FogColor;
             RenderSettings.fogColor = fogColor;
 
             Camera mainCam = Camera.main;
             if (mainCam != null)
             {
-                mainCam.backgroundColor = fogColor;
+                mainCam.backgroundColor = SkyColor;   // небо синее, туман белый
                 mainCam.clearFlags = CameraClearFlags.SolidColor;
                 mainCam.nearClipPlane = 0.1f;
                 mainCam.farClipPlane = 1000f;
             }
 
             float chunkSize = worldConfig.ChunkWidth;
-            RenderSettings.fogStartDistance = Mathf.Max(10f, (viewDistanceInChunks - 2) * chunkSize);
-            RenderSettings.fogEndDistance = Mathf.Max(30f, viewDistanceInChunks * chunkSize);
+            RenderSettings.fogStartDistance = FogStart;
+            RenderSettings.fogEndDistance = FogEnd;
         }
 
         private void InitializeBlockDatabase()

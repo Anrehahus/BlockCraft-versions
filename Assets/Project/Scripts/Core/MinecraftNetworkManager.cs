@@ -416,7 +416,7 @@ namespace MinecraftClone.Networking
             yield return new WaitForSeconds(0.1f);
             conn.Disconnect();
         }
-
+        
         private void Reply(NetworkConnectionToClient conn, string text, byte kind = 0)
         {
             conn.Send(new ChatMessage { Text = text, Kind = kind });

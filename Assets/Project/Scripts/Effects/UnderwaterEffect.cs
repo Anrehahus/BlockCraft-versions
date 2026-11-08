@@ -54,7 +54,9 @@ namespace MinecraftClone.Effects
                 worldManager = FindFirstObjectByType<WorldManager>();
             }
 
-            _defaultFogColor = RenderSettings.fogColor;
+            _defaultFogColor = WorldManager.FogColor;
+            _cam.clearFlags = CameraClearFlags.SolidColor;   // сплошное синее небо вместо серого Skybox Unity
+            if (GetComponent<HorizonHaze>() == null) gameObject.AddComponent<HorizonHaze>();
             _defaultFogStart = RenderSettings.fogStartDistance;
             _defaultFogEnd = RenderSettings.fogEndDistance;
 
@@ -126,7 +128,7 @@ namespace MinecraftClone.Effects
                     RenderSettings.fogColor = _defaultFogColor;
                     RenderSettings.fogStartDistance = _defaultFogStart;
                     RenderSettings.fogEndDistance = _defaultFogEnd;
-                    _cam.backgroundColor = _defaultFogColor;
+                    _cam.backgroundColor = WorldManager.SkyColor;
                     break;
             }
         }
