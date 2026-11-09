@@ -8,16 +8,18 @@ namespace MinecraftClone.Core
         public Vector2Int Position { get; }
         public BlockType[,,] Blocks { get; }
         public WorldConfigSO Config { get; }
-
-        // Удобные геттеры для быстрого доступа к размерам чанка
-        public int Width => Config.ChunkWidth;
-        public int Height => Config.ChunkHeight;
+        public int Version { get; private set; }
+        public void Touch() { Version++; }
+        public int Width { get; }
+        public int Height { get; }
 
         public ChunkData(Vector2Int position, WorldConfigSO config)
         {
             Position = position;
             Config = config;
-            Blocks = new BlockType[config.ChunkWidth, config.ChunkHeight, config.ChunkWidth];
+            Width = config.ChunkWidth;
+            Height = config.ChunkHeight;
+            Blocks = new BlockType[Width, Height, Width];
         }
 
         public BlockType GetBlock(int x, int y, int z)
@@ -34,13 +36,14 @@ namespace MinecraftClone.Core
                 return;
 
             Blocks[x, y, z] = type;
+            Version++;
         }
 
         public bool IsOutOfBounds(int x, int y, int z)
         {
-            return x < 0 || x >= Config.ChunkWidth ||
-                   y < 0 || y >= Config.ChunkHeight ||
-                   z < 0 || z >= Config.ChunkWidth;
+            return x < 0 || x >= Width ||
+                   y < 0 || y >= Height ||
+                   z < 0 || z >= Width;
         }
     }
 }

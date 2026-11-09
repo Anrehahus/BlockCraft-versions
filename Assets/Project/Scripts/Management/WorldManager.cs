@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 using UnityEngine;
 using Mirror;
 using MinecraftClone.Core;
@@ -18,7 +20,7 @@ using MinecraftClone.Player;
 
 namespace MinecraftClone.Management
 {
-    public class WorldManager : MonoBehaviour
+    public class WorldManager : MonoBehaviour, IBlockReader
     {
         public static WorldManager Instance { get; private set; }
 
@@ -76,7 +78,8 @@ namespace MinecraftClone.Management
         private Transform playerTransform;
 
         [Header("Материалы блоков")]
-        [SerializeField] private Material blocksMaterial;
+        [SerializeField] private Material blocksMaterial;          // вырезной (листья, стекло, растения): шейдер BlocksUnlit
+        [SerializeField] private Material blocksOpaqueMaterial;    // непрозрачный: шейдер BlocksOpaque (если пусто, везде blocksMaterial)
         [SerializeField] private Material waterMaterial;
         [SerializeField] private Material lavaMaterial;
 
@@ -111,6 +114,36 @@ namespace MinecraftClone.Management
         private Transform chunksParentContainer;
 
         private readonly HashSet<Vector3Int> spongePositions = new HashSet<Vector3Int>();
+
+        [Header("Физика чанков")]
+        [Tooltip("Радиус (в чанках) вокруг игрока, где у чанков включён MeshCollider. Дальше физика не нужна, а запекание дорогое.")]
+        [SerializeField] private int collisionRadiusChunks = 3;
+
+        // ---------- Фоновая сборка мешей ----------
+        private const int MaxMeshJobsInFlight = 3;
+
+        private sealed class MeshJob
+        {
+            public Vector2Int Pos;
+            public ChunkRenderer Renderer;
+            public int Ticket;
+            public ChunkMeshGenerator Gen;
+            public ChunkSnapshot Snap;
+            public Exception Error;
+        }
+
+        private readonly ConcurrentQueue<MeshJob> _meshDone = new ConcurrentQueue<MeshJob>();
+        private readonly Stack<ChunkMeshGenerator> _genPool = new Stack<ChunkMeshGenerator>();
+        private int _meshInFlight;
+
+        // Очередь фоновых пересборок изменённых чанков (правки блоков, жидкости, взрывы)
+        private readonly Queue<Vector2Int> _rebuildQueue = new Queue<Vector2Int>();
+        private readonly HashSet<Vector2Int> _rebuildSet = new HashSet<Vector2Int>();
+
+        private Material OpaqueMat => blocksOpaqueMaterial != null ? blocksOpaqueMaterial : blocksMaterial;
+
+        private Vector2Int _collisionCenter;
+        private readonly List<Vector2Int> _collisionQueue = new List<Vector2Int>();
 
         public WorldConfigSO Config => worldConfig;
         public Dictionary<BlockType, BlockDataSO> BlockDatabase => blockDatabase;
@@ -345,6 +378,7 @@ namespace MinecraftClone.Management
             GenerationStatusText = "Генерация местности...";
 
             Vector2Int centerChunk = GetChunkCoordFromPosition(spawnPosition);
+            _collisionCenter = centerChunk;
             int halfWorld = worldSizeInChunks / 2;
 
             // Фаза 1 (0-60%): данные чанков с запасом +1, чтобы у краёв правильно считались соседи
@@ -439,6 +473,7 @@ namespace MinecraftClone.Management
         public IEnumerator EnsureChunksAroundPositionAsync(Vector3 position)
         {
             Vector2Int centerChunk = GetChunkCoordFromPosition(position);
+            _collisionCenter = centerChunk;
             int halfWorld = worldSizeInChunks / 2;
             int chunksCreatedThisFrame = 0;
 
@@ -492,6 +527,9 @@ namespace MinecraftClone.Management
 
             chunksToRenderQueue.Clear();
             queuedChunksSet.Clear();
+            _collisionQueue.Clear();
+            _rebuildQueue.Clear();
+            _rebuildSet.Clear();
 
             foreach (var kvp in chunkRenderers)
             {
@@ -679,6 +717,8 @@ namespace MinecraftClone.Management
                     queuedChunksSet.Remove(pos);
                 }
             }
+
+            UpdateCollisionTargets();
         }
 
         private bool IsChunkWithinBounds(int chunkX, int chunkZ, int halfWorld)
@@ -802,19 +842,22 @@ namespace MinecraftClone.Management
 
             chunkRenderers[chunkPos] = chunkObject;
 
-            var uvMap = stitcher != null ? stitcher.UVMap : null;
-            chunkObject.RenderChunk(chunkData, blockDatabase, uvMap, this, blocksMaterial, waterMaterial, lavaMaterial);
+            chunkObject.RenderChunk(chunkData, this, OpaqueMat, blocksMaterial, waterMaterial, lavaMaterial, IsNearCollisionCenter(chunkPos));
         }
 
         private IEnumerator ProcessRenderQueue()
         {
             while (true)
             {
+                DrainMeshResults();
+                ProcessRebuildQueue();
+
                 if (isWorldReady && chunksToRenderQueue.Count > 0)
                 {
                     var sw = System.Diagnostics.Stopwatch.StartNew();
-                    int processedCount = 0;
-                    while (chunksToRenderQueue.Count > 0 && (processedCount == 0 || sw.Elapsed.TotalMilliseconds < 5.0))
+                    while (chunksToRenderQueue.Count > 0
+                           && _meshInFlight < MaxMeshJobsInFlight
+                           && sw.Elapsed.TotalMilliseconds < 5.0)
                     {
                         int lastIndex = chunksToRenderQueue.Count - 1;
                         Vector2Int chunkPos = chunksToRenderQueue[lastIndex];
@@ -824,14 +867,151 @@ namespace MinecraftClone.Management
                         if (!chunkRenderers.ContainsKey(chunkPos))
                         {
                             EnsureNeighborData(chunkPos);
-                            RenderChunkImmediate(chunkPos);
-                            processedCount++;
+                            StartAsyncChunk(chunkPos);
                         }
                     }
                 }
 
+                EnableQueuedCollisions();
+
                 yield return null;
             }
+        }
+
+        // Создаёт объект чанка и отправляет сборку меша в фоновый поток
+        private void StartAsyncChunk(Vector2Int chunkPos)
+        {
+            GetOrCreateChunkData(chunkPos);
+            Vector3 worldPosition = new Vector3(chunkPos.x * worldConfig.ChunkWidth, 0, chunkPos.y * worldConfig.ChunkWidth);
+
+            ChunkRenderer chunkObject = SpawnChunkRenderer(worldPosition);
+            chunkObject.name = $"Chunk_{chunkPos.x}_{chunkPos.y}";
+            chunkRenderers[chunkPos] = chunkObject;
+
+            ScheduleChunkBuild(chunkPos);
+        }
+
+        private void ScheduleChunkBuild(Vector2Int chunkPos)
+        {
+            if (!loadedChunks.TryGetValue(chunkPos, out ChunkData data)) return;
+            if (!chunkRenderers.TryGetValue(chunkPos, out ChunkRenderer renderer) || renderer == null) return;
+
+            var job = new MeshJob
+            {
+                Pos = chunkPos,
+                Renderer = renderer,
+                Ticket = renderer.BeginBuild(),
+                Snap = new ChunkSnapshot(),
+                Gen = _genPool.Count > 0 ? _genPool.Pop() : new ChunkMeshGenerator()
+            };
+            job.Snap.Fill(data, loadedChunks);   // снимок собирается здесь, на основном потоке
+
+            _meshInFlight++;
+            Task.Run(() =>
+            {
+                try { job.Gen.Build(data, job.Snap); }
+                catch (Exception e) { job.Error = e; }
+                _meshDone.Enqueue(job);
+            });
+        }
+
+        // Берёт изменённые чанки из очереди пересборок и отправляет их в фоновые потоки.
+        // Идёт раньше загрузки новых чанков: правки блоков важнее дальней подгрузки.
+        private void ProcessRebuildQueue()
+        {
+            while (_rebuildQueue.Count > 0 && _meshInFlight < MaxMeshJobsInFlight)
+            {
+                Vector2Int pos = _rebuildQueue.Dequeue();
+
+                // уже пересобран синхронно (RebuildChunkMeshNow) или убран из очереди
+                if (!_rebuildSet.Remove(pos)) continue;
+
+                // у чанка ещё нет объекта: он будет собран при обычной загрузке
+                if (!chunkRenderers.ContainsKey(pos)) continue;
+
+                ScheduleChunkBuild(pos);
+            }
+        }
+
+        // Забирает готовые меши и применяет их на основном потоке (не больше ~3 мс за кадр)
+        private void DrainMeshResults()
+        {
+            if (_meshDone.IsEmpty) return;
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (_meshDone.TryDequeue(out MeshJob job))
+            {
+                _meshInFlight--;
+
+                if (job.Error != null) Debug.LogException(job.Error);
+
+                bool valid = job.Error == null
+                             && job.Renderer != null
+                             && job.Renderer.BuildTicket == job.Ticket
+                             && chunkRenderers.TryGetValue(job.Pos, out ChunkRenderer current)
+                             && current == job.Renderer;
+
+                if (valid && job.Snap.IsStale())
+                {
+                    // пока строили, блоки изменились: строим заново по свежим данным
+                    _genPool.Push(job.Gen);
+                    ScheduleChunkBuild(job.Pos);
+                    continue;
+                }
+
+                if (valid)
+                {
+                    // физику не отнимаем: если у чанка она уже была, она остаётся
+                    bool collision = job.Renderer.CollisionEnabled || IsNearCollisionCenter(job.Pos);
+                    job.Renderer.ApplyFrom(job.Gen, OpaqueMat, blocksMaterial, waterMaterial, lavaMaterial, collision);
+                }
+
+                _genPool.Push(job.Gen);
+
+                if (sw.Elapsed.TotalMilliseconds > 3.0) break;
+            }
+        }
+
+        // ---------- Физика только рядом с игроком ----------
+
+        private bool IsNearCollisionCenter(Vector2Int p)
+        {
+            return Mathf.Abs(p.x - _collisionCenter.x) <= collisionRadiusChunks
+                && Mathf.Abs(p.y - _collisionCenter.y) <= collisionRadiusChunks;
+        }
+
+        private void UpdateCollisionTargets()
+        {
+            _collisionCenter = lastPlayerChunkPos;
+            _collisionQueue.Clear();
+
+            foreach (var kvp in chunkRenderers)
+            {
+                ChunkRenderer r = kvp.Value;
+                if (r == null) continue;
+
+                if (!IsNearCollisionCenter(kvp.Key)) r.SetCollisionEnabled(false);
+                else if (!r.CollisionEnabled) _collisionQueue.Add(kvp.Key);
+            }
+
+            // из очереди берём с конца, поэтому самые дальние в начале, ближние в конце
+            Vector2Int c = _collisionCenter;
+            _collisionQueue.Sort((a, b) =>
+                ((b.x - c.x) * (b.x - c.x) + (b.y - c.y) * (b.y - c.y))
+                .CompareTo((a.x - c.x) * (a.x - c.x) + (a.y - c.y) * (a.y - c.y)));
+        }
+
+        // По одному чанку за кадр: запекание коллайдера дорогое, растягиваем его во времени
+        private void EnableQueuedCollisions()
+        {
+            if (_collisionQueue.Count == 0) return;
+
+            int last = _collisionQueue.Count - 1;
+            Vector2Int pos = _collisionQueue[last];
+            _collisionQueue.RemoveAt(last);
+
+            if (chunkRenderers.TryGetValue(pos, out ChunkRenderer r) && r != null && IsNearCollisionCenter(pos))
+                r.SetCollisionEnabled(true);
         }
 
         private ChunkData GetOrCreateChunkData(Vector2Int chunkPos, bool generateTerrain = true)
@@ -982,7 +1162,9 @@ namespace MinecraftClone.Management
             {
                 stitcher = new TextureStitcher(4);
                 stitcher.StitchTextures(new List<Texture2D>(allTextures).ToArray(), blocksMaterial);
+                ChunkUV.Build(blockDatabase, stitcher.UVMap);
 
+                ApplyAtlas(blocksOpaqueMaterial);
                 ApplyAtlas(waterMaterial);
                 ApplyAtlas(lavaMaterial);
                 SetupBlockAnimation(BlockType.Water, waterAnimationStrip, 0.1f);
@@ -1101,6 +1283,7 @@ namespace MinecraftClone.Management
             if (!loadedChunks.TryGetValue(pos, out ChunkData chunk) || SaveSystem.Instance == null) return;
 
             SaveSystem.Instance.DeserializeBlocks(chunk, new ChunkSaveData { ChunkX = cx, ChunkZ = cz, CompressedBlocks = rle });
+            chunk.Touch();   // отметить изменение: устаревшие фоновые сборки будут отброшены
 
             RebuildChunkMesh(pos);
             RebuildChunkMesh(new Vector2Int(cx - 1, cz));
@@ -1109,13 +1292,33 @@ namespace MinecraftClone.Management
             RebuildChunkMesh(new Vector2Int(cx, cz + 1));
         }
 
+        // Пересборка меша чанка В ФОНЕ: чанк ставится в очередь, меш строится в другом потоке
+        // и применяется через 1-3 кадра. Для жидкостей, взрывов и обновлений от сервера.
         public void RebuildChunkMesh(Vector2Int chunkPos)
         {
-            if (loadedChunks.TryGetValue(chunkPos, out ChunkData chunkData) &&
-                chunkRenderers.TryGetValue(chunkPos, out ChunkRenderer renderer))
+            // пока мир не готов (загрузка, старт), собираем сразу, как раньше
+            if (!isWorldReady)
             {
-                var uvMap = stitcher != null ? stitcher.UVMap : null;
-                renderer.RenderChunk(chunkData, blockDatabase, uvMap, this, blocksMaterial, waterMaterial, lavaMaterial);
+                RebuildChunkMeshNow(chunkPos);
+                return;
+            }
+
+            if (!loadedChunks.ContainsKey(chunkPos) || !chunkRenderers.ContainsKey(chunkPos)) return;
+
+            if (_rebuildSet.Add(chunkPos)) _rebuildQueue.Enqueue(chunkPos);
+        }
+
+        // Пересборка на основном потоке: меш обновится в этом же кадре. Нужна для правки блока
+        // игроком (мгновенный отклик и физика), поэтому вызывается только для одного чанка.
+        public void RebuildChunkMeshNow(Vector2Int chunkPos)
+        {
+            _rebuildSet.Remove(chunkPos);   // запись в очереди (если была) пропустится сама
+
+            if (loadedChunks.TryGetValue(chunkPos, out ChunkData chunkData) &&
+                chunkRenderers.TryGetValue(chunkPos, out ChunkRenderer renderer) && renderer != null)
+            {
+                renderer.RenderChunk(chunkData, this, OpaqueMat, blocksMaterial, waterMaterial, lavaMaterial,
+                                     renderer.CollisionEnabled || IsNearCollisionCenter(chunkPos));
             }
         }
 
@@ -1198,6 +1401,12 @@ namespace MinecraftClone.Management
                     ApplyBlockChange(worldX, worldY + 1, worldZ, BlockType.Air, rebuildMesh: true);
                 }
             }
+
+            // Правка игрока: чанк с блоком обновляем сразу (отклик без задержки, физика не отстаёт),
+            // соседние чанки на границе уже стоят в фоновой очереди.
+            RebuildChunkMeshNow(new Vector2Int(
+                Mathf.FloorToInt((float)worldX / worldConfig.ChunkWidth),
+                Mathf.FloorToInt((float)worldZ / worldConfig.ChunkWidth)));
 
             return true;
         }

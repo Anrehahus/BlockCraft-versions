@@ -8,7 +8,7 @@ namespace MinecraftClone.Rendering
         [SerializeField] private float frameTime = 0.1f;
 
         private Texture2D _atlas;
-        private Color[][] _frames;
+        private Texture2D[] _frameTex;
         private int _x, _y, _size;
         private int _index;
         private float _timer;
@@ -29,22 +29,27 @@ namespace MinecraftClone.Rendering
                 return;
             }
 
-            _frames = new Color[count][];
+            _frameTex = new Texture2D[count];
             for (int i = 0; i < count; i++)
-                _frames[i] = strip.GetPixels(0, strip.height - (i + 1) * _size, _size, _size); // первый кадр сверху
+            {
+                var t = new Texture2D(_size, _size, TextureFormat.RGBA32, false);
+                t.filterMode = FilterMode.Point;
+                t.SetPixels(strip.GetPixels(0, strip.height - (i + 1) * _size, _size, _size));
+                t.Apply(false, true);   // true: освободить CPU-копию кадра
+                _frameTex[i] = t;
+            }
         }
 
         private void Update()
         {
-            if (_frames == null || _atlas == null) return;
+            if (_frameTex == null || _atlas == null) return;
 
             _timer += Time.deltaTime;
             if (_timer < frameTime) return;
             _timer -= frameTime;
 
-            _index = (_index + 1) % _frames.Length;
-            _atlas.SetPixels(_x, _y, _size, _size, _frames[_index]);
-            _atlas.Apply(false);
+            _index = (_index + 1) % _frameTex.Length;
+            Graphics.CopyTexture(_frameTex[_index], 0, 0, 0, 0, _size, _size, _atlas, 0, 0, _x, _y);
         }
     }
 }
