@@ -24,12 +24,26 @@ namespace MinecraftClone.Player
         [SerializeField] private LayerMask blockLayerMask; // Слой блоков (больше не используется)
         [SerializeField] private LayerMask waterLayerMask; // Слой воды/жидкостей (больше не используется)
 
-        public static readonly BlockType[] HotbarBlocks =
+        // Креатив. false = выживание: инвентарь и хотбар пустые. Для возврата креатива поставить true.
+        public static bool CreativeInventory = false;
+
+        // 9 слотов, по умолчанию все Air (= пусто)
+        public static readonly BlockType[] HotbarBlocks = new BlockType[9];
+
+        // Старый набор креатива сохранён, он понадобится при возврате режима
+        private static readonly BlockType[] CreativeHotbar =
         {
-            BlockType.Stone, BlockType.Dirt, BlockType.Sponge,
-            BlockType.OakPlanks, BlockType.OakSapling, BlockType.OakLog,
-            BlockType.OakLeaves, BlockType.Glass, BlockType.Gravel
-        };
+    BlockType.Stone, BlockType.Dirt, BlockType.Sponge,
+    BlockType.OakPlanks, BlockType.OakSapling, BlockType.OakLog,
+    BlockType.OakLeaves, BlockType.Glass, BlockType.Gravel
+};
+
+        // Хотбар статический и живёт между мирами, поэтому сбрасываем его при входе
+        public static void ResetHotbar()
+        {
+            for (int i = 0; i < HotbarBlocks.Length; i++)
+                HotbarBlocks[i] = CreativeInventory ? CreativeHotbar[i] : BlockType.Air;
+        }
 
         private int _selectedBlockIndex = 0;
         private WorldManager _worldManager;
@@ -47,6 +61,7 @@ namespace MinecraftClone.Player
 
         private void Start()
         {
+            ResetHotbar();
             if (cameraTransform == null)
             {
                 Camera cam = GetComponentInChildren<Camera>();
@@ -216,6 +231,7 @@ namespace MinecraftClone.Player
 
         private void TryPlaceBlock()
         {
+            if (CurrentSelectedBlock == BlockType.Air) return;   // пустой слот: ничего не ставим
             if (cameraTransform == null || _worldManager == null) return;
 
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);

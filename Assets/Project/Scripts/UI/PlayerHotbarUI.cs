@@ -100,6 +100,7 @@ namespace MinecraftClone.UI
 
         public Texture2D GetIcon(BlockType type, WorldManager wm)
         {
+            if (type == BlockType.Air) return null;   // у пустого слота иконки нет
             if (_icons.TryGetValue(type, out Texture2D cached)) return cached;
 
             Texture2D icon = null;

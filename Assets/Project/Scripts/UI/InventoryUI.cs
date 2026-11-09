@@ -58,11 +58,15 @@ namespace MinecraftClone.UI
         {
             _blocks.Clear();
             var db = WorldManager.Instance.BlockDatabase;
-            foreach (BlockType t in System.Enum.GetValues(typeof(BlockType)))
+
+            if (PlayerBlockInteraction.CreativeInventory)
             {
-                if (t == BlockType.Air || t == BlockType.Bedrock || t == BlockType.Water || t == BlockType.Lava) continue;
-                if (t.IsSign() && t != BlockType.SignStanding0) continue;   // в инвентаре одна табличка, а не 12
-                if (db != null && db.ContainsKey(t)) _blocks.Add(t);
+                foreach (BlockType t in System.Enum.GetValues(typeof(BlockType)))
+                {
+                    if (t == BlockType.Air || t == BlockType.Bedrock || t == BlockType.Water || t == BlockType.Lava) continue;
+                    if (t.IsSign() && t != BlockType.SignStanding0) continue;   // в инвентаре одна табличка, а не 12
+                    if (db != null && db.ContainsKey(t)) _blocks.Add(t);
+                }
             }
 
             _scrollRow = 0;
