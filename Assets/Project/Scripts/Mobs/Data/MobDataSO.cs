@@ -58,6 +58,12 @@ namespace MinecraftClone.Mobs
         [Header("Поведения (Goals)")]
         public List<GoalDef> Goals = new List<GoalDef>();
 
+        [Header("Взрыв при смерти")]
+        public float ExplosionRadius;
+        public float ExplosionDamageRadius;
+        public float ExplosionMinDamage;
+        public float ExplosionMaxDamage;
+
         [Header("Заряд (крипер и подобные). 0 = не используется")]
         public float ChargeTime = 0f;
         public ChargeEffect ChargeEffect = ChargeEffect.None;

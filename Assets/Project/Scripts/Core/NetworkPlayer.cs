@@ -11,7 +11,7 @@ namespace MinecraftClone.Networking
 {
     public class NetworkPlayer : NetworkBehaviour
     {
-        public const float AttackDamage = 2f;   // урон кулаком (2 = одно сердце)
+        public const float AttackDamage = 8f;   // урон кулаком (8 = четыре сердца)
         public bool AdoptedFromOffline;   // игрок уже был в мире до открытия для сети: ничего не пересоздаём
 
         // Вызывает владелец игрока, когда ударил моба

@@ -353,6 +353,14 @@ namespace MinecraftClone.Mobs
             {
                 if (attacker != null) attacker.AddKill(Data.Id);
 
+                if (Data.ExplosionRadius > 0f)
+                {
+                    Vector3 center = CenterPos;
+                    MobExplosion.Explode(center, Data.ExplosionRadius);
+                    MobExplosion.DamagePlayers(center, Data.ExplosionDamageRadius, Data.ExplosionMinDamage, Data.ExplosionMaxDamage);
+                    MobExplosion.DamageMobs(center, Data.ExplosionDamageRadius, Data.ExplosionMinDamage, Data.ExplosionMaxDamage, this);
+                }
+
                 _dyingLocal = true;
                 if (isServer) _dyingSync = true;
                 _dyingTimer = DeathDuration;
