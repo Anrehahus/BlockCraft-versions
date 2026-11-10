@@ -96,6 +96,7 @@ namespace MinecraftClone.Management
 
         private Vector2Int lastPlayerChunkPos = new Vector2Int(int.MinValue, int.MinValue);
         private bool isWorldReady = false;
+        public WorldGameMode GameMode { get; private set; } = WorldGameMode.Classic024SurvivalTest;
 
         private List<Vector2Int> chunksToRenderQueue = new List<Vector2Int>();
         private HashSet<Vector2Int> queuedChunksSet = new HashSet<Vector2Int>();
@@ -263,7 +264,11 @@ namespace MinecraftClone.Management
             SetupFog();
 
             // чистый клиент ждёт seed от сервера, свой мир не создаёт
-            if (NetworkClient.active && !NetworkServer.active) return;
+            if (NetworkClient.active && !NetworkServer.active)
+            {
+                GameMode = WorldGameMode.Legacy;
+                return;
+            }
 
             if (isWorldReady) return;
 
@@ -276,6 +281,8 @@ namespace MinecraftClone.Management
 
             if (slotExists)
             {
+                WorldSaveData worldSave = SaveSystem.LoadWorldStatic(slotIndex);
+                GameMode = worldSave != null ? (WorldGameMode)worldSave.GameMode : WorldGameMode.Legacy;
                 WorldBlocksData blocksData = SaveSystem.LoadWorldBlocksStatic(slotIndex);
                 PlayerSaveData playerData = SaveSystem.LoadPlayerDataStatic(slotIndex);
 
@@ -288,6 +295,12 @@ namespace MinecraftClone.Management
                 Debug.LogError($"[WorldManager] Сохранение слота №{slotIndex} не прочиталось, создаём новый мир.");
             }
 
+            GameMode = WorldSlotSelection.NewWorldMode;
+            if (GameMode == WorldGameMode.Classic024SurvivalTest)
+            {
+                SurvivalInventory.Reset();
+                DroppedBlockItem.ClearAll();
+            }
             GenerateNewWorld();
         }
 
@@ -516,6 +529,8 @@ namespace MinecraftClone.Management
 
         public void ClearWorld()
         {
+            DroppedBlockItem.ClearAll();
+            if (FluidSystem.Instance != null) FluidSystem.Instance.ClearPendingUpdates();
             isWorldReady = false;
             GenerationProgress = 0f;
 
@@ -577,7 +592,16 @@ namespace MinecraftClone.Management
         {
             if (blocksData == null) return;
 
+            WorldSaveData worldSave = SaveSystem.LoadWorldStatic(WorldSlotSelection.Slot);
+            GameMode = worldSave != null ? (WorldGameMode)worldSave.GameMode : WorldGameMode.Legacy;
+            if (GameMode == WorldGameMode.Classic024SurvivalTest)
+            {
+                SurvivalInventory.Deserialize(worldSave != null ? worldSave.InventoryJson : null);
+            }
+
             ClearWorld();
+            if (GameMode == WorldGameMode.Classic024SurvivalTest)
+                DroppedBlockItem.Deserialize(worldSave != null ? worldSave.DroppedItemsJson : null);
 
             worldConfig.Seed = blocksData.Seed;
 
@@ -1024,7 +1048,7 @@ namespace MinecraftClone.Management
                 {
                     if (terrainGenerator != null)
                     {
-                        terrainGenerator.GenerateChunkTerrain(chunkData);
+                        terrainGenerator.GenerateChunkTerrain(chunkData, GameMode == WorldGameMode.Classic024SurvivalTest);
                     }
                     TreeGenerator.GenerateTrees(chunkData);
                 }

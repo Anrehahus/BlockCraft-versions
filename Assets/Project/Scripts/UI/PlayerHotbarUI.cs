@@ -89,6 +89,16 @@ namespace MinecraftClone.UI
                 float cy = y0 + 11f * u;
                 float s = 16f * u;                               // иконка чуть меньше слота
                 GUI.DrawTexture(new Rect(cx - s / 2f, cy - s / 2f, s, s), icon, ScaleMode.StretchToFill, true);
+                if (wm.GameMode == WorldGameMode.Classic024SurvivalTest)
+                {
+                    int count = SurvivalInventory.Count(PlayerBlockInteraction.HotbarBlocks[i]);
+                    if (count > 0)
+                    {
+                        GUI.contentColor = Color.white;
+                        GUI.Label(new Rect(cx + 2f * u, cy + 1f * u, 15f * u, 10f * u), count.ToString());
+                        GUI.contentColor = Color.white;
+                    }
+                }
             }
 
             int sel = _player.SelectedSlot;

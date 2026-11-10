@@ -15,7 +15,7 @@ namespace MinecraftClone.Generation
         public const int SeaLevel = 63;
         public const int LavaLevel = 10;
 
-        public void GenerateChunkTerrain(ChunkData chunkData)
+        public void GenerateChunkTerrain(ChunkData chunkData, bool classic024 = false)
         {
             WorldConfigSO config = chunkData.Config;
 
@@ -31,6 +31,7 @@ namespace MinecraftClone.Generation
                 Width = width,
                 Height = height,
                 Seed = config.Seed,
+                Classic024 = classic024,
                 Results = blockResults
             };
 
@@ -51,7 +52,14 @@ namespace MinecraftClone.Generation
 
             blockResults.Dispose();
 
-            CarveLavaLakes(chunkData);
+            if (classic024)
+            {
+                for (int x = 0; x < width; x++)
+                    for (int z = 0; z < width; z++)
+                        chunkData.Blocks[x, 1, z] = BlockType.Lava;
+            }
+
+            if (!classic024) CarveLavaLakes(chunkData);
             CarveWaterLakes(chunkData);
             OreGenerator.GenerateOres(chunkData);
         }
@@ -65,6 +73,7 @@ namespace MinecraftClone.Generation
             public int Width;
             public int Height;
             public int Seed;
+            public bool Classic024;
 
             [NativeDisableParallelForRestriction]
             [WriteOnly]
@@ -172,7 +181,7 @@ namespace MinecraftClone.Generation
 
                     if (IsCaveBlock(worldX, y, worldZ, Seed, estimatedSurfaceY))
                     {
-                        Results[blockIndex] = (y <= LavaLevel) ? BlockType.Lava : BlockType.Air;
+                        Results[blockIndex] = (!Classic024 && y <= LavaLevel) ? BlockType.Lava : BlockType.Air;
                         continue;
                     }
 

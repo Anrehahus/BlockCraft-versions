@@ -122,7 +122,7 @@ namespace MinecraftClone.Mobs
             }
 
             Data = d;
-            _health = d.MaxHealth;
+            _health = IsClassic024 ? 20f : d.MaxHealth;
             name = d.Id;
             _box.size = new Vector3(d.Width, d.Height, d.Width);
             _box.center = new Vector3(0f, d.Height * 0.5f, 0f);
@@ -143,7 +143,7 @@ namespace MinecraftClone.Mobs
             Motor = new MobMotor(Data);
             _goals = new GoalSelector();
             foreach (var def in Data.Goals)
-                if (def != null) _goals.Add(def.priority, def.Create(this));
+                if (def != null && !(IsClassic024 && def is SwellGoalDef)) _goals.Add(def.priority, def.Create(this));
         }
 
         private void OnDestroy() { All.Remove(this); }
@@ -353,7 +353,7 @@ namespace MinecraftClone.Mobs
             {
                 if (attacker != null) attacker.AddKill(Data.Id);
 
-                if (Data.ExplosionRadius > 0f)
+                if (IsClassic024 && Data.ExplosionRadius > 0f)
                 {
                     Vector3 center = CenterPos;
                     MobExplosion.Explode(center, Data.ExplosionRadius);
@@ -369,5 +369,8 @@ namespace MinecraftClone.Mobs
                 ServerSetChargeDir(-1);
             }
         }
+
+        private static bool IsClassic024 => WorldManager.Instance != null
+            && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest;
     }
 }

@@ -20,6 +20,7 @@ namespace MinecraftClone.Mobs
         private Vector3 _vel;
         private float _damage;
         private bool _authoritative;
+        private NetworkPlayer _owner;
 
         private float _age, _stuckTime;
         private bool _stuck;
@@ -30,7 +31,7 @@ namespace MinecraftClone.Mobs
         private Material _mat;
         private Mesh _mesh;
 
-        public static Projectile Spawn(ProjectileDataSO data, Vector3 pos, Vector3 velocity, float damage, bool authoritative)
+        public static Projectile Spawn(ProjectileDataSO data, Vector3 pos, Vector3 velocity, float damage, bool authoritative, NetworkPlayer owner = null)
         {
             GameObject go = new GameObject("Projectile_" + data.Id);
             go.transform.position = pos;
@@ -41,6 +42,7 @@ namespace MinecraftClone.Mobs
             p._vel = velocity;
             p._damage = damage;
             p._authoritative = authoritative;
+            p._owner = owner;
             p.BuildModel();
             return p;
         }
@@ -107,7 +109,7 @@ namespace MinecraftClone.Mobs
                     return;
                 }
 
-                if (HitsPlayer(next, out NetworkPlayer hitPlayer))
+                if (HitsPlayer(next, out NetworkPlayer hitPlayer, _owner))
                 {
                     if (_authoritative)
                     {
@@ -192,12 +194,12 @@ namespace MinecraftClone.Mobs
         }
 
         // коробка игрока: ширина 0.8 (с запасом), высота 1.8, точка у ног
-        private static bool HitsPlayer(Vector3 pos, out NetworkPlayer hit)
+        private static bool HitsPlayer(Vector3 pos, out NetworkPlayer hit, NetworkPlayer owner = null)
         {
             hit = null;
             foreach (var pl in Mob.GetPlayers())
             {
-                if (pl == null) continue;
+                if (pl == null || pl == owner) continue;
                 Vector3 c = pl.transform.position;
                 if (Mathf.Abs(pos.x - c.x) < 0.3f && Mathf.Abs(pos.z - c.z) < 0.3f
                     && pos.y > c.y && pos.y < c.y + 1.8f)

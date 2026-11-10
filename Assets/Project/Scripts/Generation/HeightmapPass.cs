@@ -30,10 +30,6 @@ namespace MinecraftClone.Generation
                         {
                             chunkData.SetBlock(x, worldY, z, BlockType.Bedrock);
                         }
-                        else if (worldY == 1)
-                        {
-                            chunkData.SetBlock(x, worldY, z, BlockType.Lava);
-                        }
                         else if (worldY < surfaceHeight - 4)
                         {
                             chunkData.SetBlock(x, worldY, z, BlockType.Stone);

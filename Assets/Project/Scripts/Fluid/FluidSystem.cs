@@ -59,6 +59,16 @@ namespace MinecraftClone.Fluid
             Instance = this;
         }
 
+        public void ClearPendingUpdates()
+        {
+            updateQueue.Clear();
+            inQueue.Clear();
+            fluidLevels.Clear();
+            pendingRebuild.Clear();
+            rebuiltNow.Clear();
+            chunkRebuildTimers.Clear();
+        }
+
         private void Start()
         {
             StartCoroutine(FluidSimulationRoutine());
@@ -66,6 +76,7 @@ namespace MinecraftClone.Fluid
 
         public void ScheduleFluidUpdate(Vector3Int pos, BlockType fluidType, int level = 0)
         {
+            if (WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest) return;
             if (updateQueue.Count >= maxQueueSize) return;
 
             if (!fluidLevels.ContainsKey(pos))
@@ -81,6 +92,7 @@ namespace MinecraftClone.Fluid
 
         public void NotifyBlockChanged(Vector3Int pos)
         {
+            if (WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest) return;
             CheckAndSchedule(pos);
 
             foreach (var offset in NeighborOffsets)

@@ -366,6 +366,18 @@ namespace MinecraftClone.Player
                     velocity.y = McJumpVelocity;
                 }
 
+                if (!isPaused && isGrounded && !isFeetInWater && !isFeetInLava
+                    && WorldManager.Instance != null
+                    && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest
+                    && moveInput.sqrMagnitude > 0f)
+                {
+                    Vector3 low = transform.position + Vector3.up * 0.4f;
+                    Vector3 high = transform.position + Vector3.up * 1.1f;
+                    if (Physics.Raycast(low, moveInput, 0.55f, ~0, QueryTriggerInteraction.Ignore)
+                        && !Physics.Raycast(high, moveInput, 0.55f, ~0, QueryTriggerInteraction.Ignore))
+                        velocity.y = McJumpVelocity;
+                }
+
                 velocity.y -= McGravity * Time.deltaTime;
                 velocity.y *= Mathf.Pow(McDrag, Time.deltaTime * 20f);
                 velocity.y = Mathf.Max(velocity.y, McTerminal);

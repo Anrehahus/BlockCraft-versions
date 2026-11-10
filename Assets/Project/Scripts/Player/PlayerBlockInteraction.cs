@@ -16,6 +16,10 @@ namespace MinecraftClone.Player
     {
         [Header("Settings")]
         [SerializeField] private float reachDistance = 5f;
+        private float EffectiveReach => WorldManager.Instance != null
+            && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest
+                ? Mathf.Max(0f, reachDistance - 1f)
+                : reachDistance;
         [SerializeField] private float actionInterval = 0.25f; // Интервал между действиями (0.25 сек)
         [SerializeField] private Transform cameraTransform;
         [SerializeField] private BlockOutlineRenderer outlineRenderer;
@@ -61,7 +65,10 @@ namespace MinecraftClone.Player
 
         private void Start()
         {
-            ResetHotbar();
+            if (WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest)
+                SurvivalInventory.RefreshHotbar();
+            else
+                ResetHotbar();
             if (cameraTransform == null)
             {
                 Camera cam = GetComponentInChildren<Camera>();
@@ -104,8 +111,25 @@ namespace MinecraftClone.Player
             }
 
             HandleScrollWheel();
+            if (_worldManager != null && _worldManager.GameMode == WorldGameMode.Classic024SurvivalTest
+                && Input.GetKeyDown(KeyCode.Tab)) FireArrow();
             UpdateTargetBlock();
             HandleInput();
+        }
+
+        private void FireArrow()
+        {
+            if (cameraTransform == null) return;
+            ProjectileDataSO data = Resources.Load<ProjectileDataSO>("Projectiles/arrow");
+            if (data == null)
+            {
+                Debug.LogError("Не найден снаряд Resources/Projectiles/arrow");
+                return;
+            }
+            if (!SurvivalInventory.ConsumeArrow()) return;
+
+            Vector3 origin = cameraTransform.position + cameraTransform.forward * 0.5f;
+            Projectile.Spawn(data, origin, cameraTransform.forward * 30f, 3f, true, _netPlayer);
         }
 
         private void HandleScrollWheel()
@@ -181,7 +205,7 @@ namespace MinecraftClone.Player
             }
 
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
-            if (VoxelRaycast(ray, reachDistance, false, out Vector3Int hit, out _))
+            if (VoxelRaycast(ray, EffectiveReach, false, out Vector3Int hit, out _))
             {
                 _selectedBlockPos = hit;
                 _hasTargetBlock = true;
@@ -231,16 +255,30 @@ namespace MinecraftClone.Player
 
         private void TryPlaceBlock()
         {
+            if (_worldManager != null && _worldManager.GameMode == WorldGameMode.Classic024SurvivalTest
+                && (CurrentSelectedBlock == BlockType.BrownMushroom || CurrentSelectedBlock == BlockType.RedMushroom))
+            {
+                if (SurvivalInventory.Consume(CurrentSelectedBlock))
+                {
+                    if (CurrentSelectedBlock == BlockType.BrownMushroom) _health?.Heal(5f);
+                    else _health?.TakeFoodDamage(3f);
+                }
+                return;
+            }
             if (CurrentSelectedBlock == BlockType.Air) return;   // пустой слот: ничего не ставим
+            bool classic024 = _worldManager != null && _worldManager.GameMode == WorldGameMode.Classic024SurvivalTest;
+            if (classic024 && SurvivalInventory.Count(CurrentSelectedBlock) <= 0) return;
             if (cameraTransform == null || _worldManager == null) return;
 
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
-            if (!VoxelRaycast(ray, reachDistance, true, out Vector3Int hit, out Vector3Int normal)) return;
+            if (!VoxelRaycast(ray, EffectiveReach, true, out Vector3Int hit, out Vector3Int normal)) return;
 
             Vector3Int placePos = hit + normal;
             BlockType target = _worldManager.GetBlockAtWorldPosition(placePos.x, placePos.y, placePos.z);
             if (target == BlockType.Air || target == BlockType.Water || target == BlockType.Lava)
-                PlaceBlock(placePos, normal);
+            {
+                if (PlaceBlock(placePos, normal) && classic024) SurvivalInventory.Consume(CurrentSelectedBlock);
+            }
         }
 
         private void BreakBlock(Vector3Int blockPos)
@@ -253,19 +291,22 @@ namespace MinecraftClone.Player
                 if (!blockData.IsBreakable) return;
             }
 
-            _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, BlockType.Air);
+            if (_worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, BlockType.Air)
+                && _worldManager.GameMode == WorldGameMode.Classic024SurvivalTest
+                && ClassicBlockDrops.TryGet(brokenBlockType, out BlockType drop, out int count))
+                DroppedBlockItem.Spawn(drop, count, blockPos + Vector3.one * 0.5f);
         }
 
-            private void PlaceBlock(Vector3Int blockPos, Vector3Int normal)
+            private bool PlaceBlock(Vector3Int blockPos, Vector3Int normal)
             {
                 BlockType selectedType = CurrentSelectedBlock;
                 // пока в этой клетке проходит падающий блок, ставить нельзя
-                if (GravityBlockSystem.Instance != null && GravityBlockSystem.Instance.IsOccupiedByFalling(blockPos)) return;
+                if (GravityBlockSystem.Instance != null && GravityBlockSystem.Instance.IsOccupiedByFalling(blockPos)) return false;
 
             if (selectedType.IsSign())
                 {
-                    if (normal.y < 0) return;   // на потолок нельзя
-                    if (_worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z) != BlockType.Air) return;
+                    if (normal.y < 0) return false;   // на потолок нельзя
+                    if (_worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z) != BlockType.Air) return false;
 
                     if (normal.y > 0)
                     {
@@ -279,16 +320,15 @@ namespace MinecraftClone.Player
                         selectedType = BlockTypeUtil.WallSignFromNormal(normal);   // на боковую грань
                     }
 
-                    _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
-                    return;
+                    return _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
                 }
 
             if (_worldManager.BlockDatabase.TryGetValue(selectedType, out BlockDataSO data) && data.IsSolid)
             {
-                if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return;   // точная коробка 0.6 x 1.8
+                if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return false;   // точная коробка 0.6 x 1.8
             }
 
-            _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
+            return _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
             }
 
         // true, если перед игроком моб (тогда блок за ним не ломаем)
@@ -297,7 +337,7 @@ namespace MinecraftClone.Player
             if (cameraTransform == null) return false;
 
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
-            RaycastHit[] hits = UnityEngine.Physics.RaycastAll(ray, reachDistance, ~0, QueryTriggerInteraction.Collide);
+            RaycastHit[] hits = UnityEngine.Physics.RaycastAll(ray, EffectiveReach, ~0, QueryTriggerInteraction.Collide);
             if (hits.Length == 0) return false;
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 

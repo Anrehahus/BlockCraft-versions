@@ -22,14 +22,15 @@ MonoBehaviour:
   Targeting: 1
   FollowRange: 16
   Goals:
+  - {fileID: 11400000, guid: 7d7019b7261a3cd42ba6ec4ffa593db2, type: 2}
   - {fileID: 11400000, guid: a98931c4ba7b09549b20bb70a7201b36, type: 2}
   - {fileID: 11400000, guid: 05c6da9ea45b8bb479d22a2f0a81a605, type: 2}
   ExplosionRadius: 3
   ExplosionDamageRadius: 4
   ExplosionMinDamage: 2
   ExplosionMaxDamage: 6
-  ChargeTime: 0
-  ChargeEffect: 0
+  ChargeTime: 1.5
+  ChargeEffect: 1
   Texture: {fileID: 2800000, guid: 35bdfdd351386c843a6389af11e480f2, type: 3}
   PixelSize: 0.0625
   ModelParts:

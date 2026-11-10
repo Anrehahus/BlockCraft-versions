@@ -68,6 +68,10 @@ namespace MinecraftClone.UI
                     if (db != null && db.ContainsKey(t)) _blocks.Add(t);
                 }
             }
+            else if (WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest)
+            {
+                _blocks.AddRange(SurvivalInventory.GetAvailableTypes());
+            }
 
             _scrollRow = 0;
             _hasHeld = false;
@@ -158,7 +162,10 @@ namespace MinecraftClone.UI
                         for (int c = 0; c < PlayerBlockInteraction.HotbarBlocks.Length; c++)
                             if (HotRect(c).Contains(e.mousePosition))
                             {
-                                PlayerBlockInteraction.HotbarBlocks[c] = _held;
+                                if (WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest)
+                                    SurvivalInventory.SetHotbarBlock(c, _held);
+                                else
+                                    PlayerBlockInteraction.HotbarBlocks[c] = _held;
                                 _hasHeld = false;
                                 handled = true;
                                 break;
@@ -183,6 +190,8 @@ namespace MinecraftClone.UI
             Fill(new Rect(panel.x + s, panel.y + s, s, panel.height - 2 * s), Color.white);
             Fill(new Rect(panel.x + s, panel.yMax - 2 * s, panel.width - 2 * s, s), new Color(0.35f, 0.35f, 0.35f, 1f));
             Fill(new Rect(panel.xMax - 2 * s, panel.y + s, s, panel.height - 2 * s), new Color(0.35f, 0.35f, 0.35f, 1f));
+            if (wm.GameMode == WorldGameMode.Classic024SurvivalTest)
+                GUI.Label(new Rect(x0 + Pad * s, y0 + s, 110f * s, 16f * s), $"Стрелы: {SurvivalInventory.Arrows}");
 
             Vector2 mouse = e.mousePosition;
             bool hoverFound = false;
@@ -200,6 +209,12 @@ namespace MinecraftClone.UI
                     Texture2D icon = hb.GetIcon(_blocks[idx], wm);
                     if (icon != null)
                         GUI.DrawTexture(new Rect(cell.x + s, cell.y + s, 16f * s, 16f * s), icon, ScaleMode.StretchToFill, true);
+                    if (wm.GameMode == WorldGameMode.Classic024SurvivalTest)
+                    {
+                        int count = SurvivalInventory.Count(_blocks[idx]);
+                        if (count > 0)
+                            GUI.Label(new Rect(cell.x + 2f * s, cell.yMax - 10f * s, 14f * s, 8f * s), count.ToString());
+                    }
 
                     if (cell.Contains(mouse))
                     {
@@ -217,6 +232,12 @@ namespace MinecraftClone.UI
                 Texture2D icon = hb.GetIcon(PlayerBlockInteraction.HotbarBlocks[c], wm);
                 if (icon != null)
                     GUI.DrawTexture(new Rect(cell.x + s, cell.y + s, 16f * s, 16f * s), icon, ScaleMode.StretchToFill, true);
+                if (wm.GameMode == WorldGameMode.Classic024SurvivalTest)
+                {
+                    int count = SurvivalInventory.Count(PlayerBlockInteraction.HotbarBlocks[c]);
+                    if (count > 0)
+                        GUI.Label(new Rect(cell.x + 2f * s, cell.yMax - 10f * s, 14f * s, 8f * s), count.ToString());
+                }
 
                 if (_hasHeld && cell.Contains(mouse))
                     Fill(new Rect(cell.x + s, cell.y + s, cell.width - 2 * s, cell.height - 2 * s), new Color(1f, 1f, 1f, 0.35f));

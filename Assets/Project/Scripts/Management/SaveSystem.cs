@@ -139,6 +139,11 @@ namespace MinecraftClone.Management
                 {
                     WorldName = $"Мир {slotIndex}",
                     Seed = seed,
+                    GameMode = WorldManager.Instance != null ? (int)WorldManager.Instance.GameMode : (int)WorldGameMode.Legacy,
+                    InventoryJson = WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest
+                        ? SurvivalInventory.Serialize() : string.Empty,
+                    DroppedItemsJson = WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest
+                        ? DroppedBlockItem.Serialize() : string.Empty,
                     PlayerPositionX = playerPosition.x,
                     PlayerPositionY = playerPosition.y,
                     PlayerPositionZ = playerPosition.z,
@@ -212,6 +217,27 @@ namespace MinecraftClone.Management
 
                 WorldSaveData saveData = JsonUtility.FromJson<WorldSaveData>(json);
                 return saveData;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[SaveSystem] Ошибка чтения level.dat в слоте {slotIndex}: {ex.Message}");
+                return null;
+            }
+        }
+
+        public static WorldSaveData LoadWorldStatic(int slotIndex)
+        {
+            if (Instance != null) return Instance.LoadWorld(slotIndex);
+
+            DirectoryInfo projectRoot = Directory.GetParent(Application.dataPath);
+            string basePath = projectRoot != null ? projectRoot.FullName : Application.dataPath;
+            string levelPath = Path.Combine(basePath, "saves", $"world_{slotIndex}", "level.dat");
+            if (!File.Exists(levelPath)) return null;
+
+            try
+            {
+                string json = File.ReadAllText(levelPath);
+                return string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<WorldSaveData>(json);
             }
             catch (Exception ex)
             {
@@ -436,6 +462,9 @@ namespace MinecraftClone.Management
         public float PlayerVelY;
         public string WorldName;
         public int Seed;
+        public int GameMode;
+        public string InventoryJson;
+        public string DroppedItemsJson;
         public float PlayerPositionX;
         public float PlayerPositionY;
         public float PlayerPositionZ;

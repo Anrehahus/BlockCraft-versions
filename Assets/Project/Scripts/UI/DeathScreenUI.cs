@@ -1,5 +1,6 @@
 using UnityEngine;
 using MinecraftClone.Player;
+using MinecraftClone.Management;
 
 namespace MinecraftClone.UI
 {
@@ -99,7 +100,9 @@ namespace MinecraftClone.UI
             float y = Screen.height * 0.22f;
 
             // заголовок
-            Shadowed(new Rect(cx - 400f, y, 800f, 70f * k), "Вы погибли!", _title, Color.white);
+            bool classic024 = WorldManager.Instance != null
+                && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest;
+            Shadowed(new Rect(cx - 400f, y, 800f, 70f * k), classic024 ? "Game over!" : "Вы погибли!", _title, Color.white);
 
             // счёт: «Счёт:» белым, число жёлтым
             y += 110f * k;
@@ -119,13 +122,13 @@ namespace MinecraftClone.UI
             float bh = 40f * k;
 
             Rect respawn = new Rect(cx - bw / 2f, y, bw, bh);
-            if (Button(respawn, "Возродиться"))
+            if (!classic024 && Button(respawn, "Возродиться"))
             {
                 _respawning = true;
                 _health.RequestRespawn();
             }
 
-            Rect exit = new Rect(respawn.x, respawn.y + bh + 14f * k, bw, bh);
+            Rect exit = new Rect(respawn.x, respawn.y + (classic024 ? 0f : bh + 14f * k), bw, bh);
             if (Button(exit, "Выйти в главное меню") && !_exiting)
             {
                 _exiting = true;

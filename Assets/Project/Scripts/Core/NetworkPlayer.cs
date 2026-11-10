@@ -11,7 +11,8 @@ namespace MinecraftClone.Networking
 {
     public class NetworkPlayer : NetworkBehaviour
     {
-        public const float AttackDamage = 8f;   // урон кулаком (8 = четыре сердца)
+        public static float AttackDamage => WorldManager.Instance != null
+            && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest ? 8f : 2f;
         public bool AdoptedFromOffline;   // игрок уже был в мире до открытия для сети: ничего не пересоздаём
 
         // Вызывает владелец игрока, когда ударил моба
@@ -40,7 +41,9 @@ namespace MinecraftClone.Networking
             if (ph != null && ph.IsDead) return;
 
             Vector3 eye = transform.position + Vector3.up * 1.6f;
-            if ((mob.CenterPos - eye).sqrMagnitude > 7f * 7f) return;   // дальше дальности удара
+            float reach = WorldManager.Instance != null
+                && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest ? 4f : 7f;
+            if ((mob.CenterPos - eye).sqrMagnitude > reach * reach) return;
 
             mob.ServerTakeDamage(AttackDamage, transform.position, ph);
         }

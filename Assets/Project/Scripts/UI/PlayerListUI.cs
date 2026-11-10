@@ -22,6 +22,7 @@ namespace MinecraftClone.UI
         private void Update()
         {
             bool canShow = Input.GetKey(KeyCode.Tab)
+                && (WorldManager.Instance == null || WorldManager.Instance.GameMode != WorldGameMode.Classic024SurvivalTest)
                 && NetworkClient.active && NetworkClient.isConnected
                 && !ChatUI.IsOpen
                 && !RuntimeLoadingScreen.IsShown

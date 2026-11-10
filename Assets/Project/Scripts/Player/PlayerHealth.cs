@@ -75,9 +75,19 @@ namespace MinecraftClone.Player
 
         public void TakeDamage(float amount, Vector3 sourcePosition)
         {
+            ApplyDamage(amount, sourcePosition, false);
+        }
+
+        public void TakeFoodDamage(float amount)
+        {
+            ApplyDamage(amount, transform.position, true);
+        }
+
+        private void ApplyDamage(float amount, Vector3 sourcePosition, bool bypassInvulnerability)
+        {
             if (_deadLocal) return;
             if (!RunsLogic || amount <= 0f) return;
-            if (Time.time < _invulnerableUntil) return;
+            if (!bypassInvulnerability && Time.time < _invulnerableUntil) return;
 
             _invulnerableUntil = Time.time + invulnerableSeconds;
 
@@ -116,6 +126,7 @@ namespace MinecraftClone.Player
         // Вызывает кнопка «Возродиться» у владельца игрока
         public void RequestRespawn()
         {
+            if (WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest) return;
             if (!IsDead) return;
             if (NetworkClient.active && !NetworkServer.active) CmdRespawn();   // чистый клиент просит сервер
             else if (RunsLogic) ServerRespawn();                               // хост или одиночная игра
@@ -126,6 +137,7 @@ namespace MinecraftClone.Player
 
         private void ServerRespawn()
         {
+            if (WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest) return;
             if (!_deadLocal) return;
 
             Vector3 pos = GetRespawnPosition();
