@@ -18,8 +18,7 @@ namespace MinecraftClone.Player
         [SerializeField] private float reachDistance = 5f;
         private float EffectiveReach => WorldManager.Instance != null
             && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest
-                ? Mathf.Max(0f, reachDistance - 1f)
-                : reachDistance;
+                ? Mathf.Max(0f, reachDistance - 1f) : reachDistance;
         [SerializeField] private float actionInterval = 0.25f; // Интервал между действиями (0.25 сек)
         [SerializeField] private Transform cameraTransform;
         [SerializeField] private BlockOutlineRenderer outlineRenderer;
@@ -30,9 +29,6 @@ namespace MinecraftClone.Player
 
         // Креатив. false = выживание: инвентарь и хотбар пустые. Для возврата креатива поставить true.
         public static bool CreativeInventory = false;
-
-        // 9 слотов, по умолчанию все Air (= пусто)
-        public static readonly BlockType[] HotbarBlocks = new BlockType[9];
 
         // Старый набор креатива сохранён, он понадобится при возврате режима
         private static readonly BlockType[] CreativeHotbar =
@@ -45,8 +41,7 @@ namespace MinecraftClone.Player
         // Хотбар статический и живёт между мирами, поэтому сбрасываем его при входе
         public static void ResetHotbar()
         {
-            for (int i = 0; i < HotbarBlocks.Length; i++)
-                HotbarBlocks[i] = CreativeInventory ? CreativeHotbar[i] : BlockType.Air;
+            PlayerInventory.Reset(CreativeInventory ? CreativeHotbar : null);
         }
 
         private int _selectedBlockIndex = 0;
@@ -60,14 +55,12 @@ namespace MinecraftClone.Player
 
         private float _actionTimer = 0f; // Таймер для зажатия клавиш
 
-        public BlockType CurrentSelectedBlock => HotbarBlocks[_selectedBlockIndex];
+        public BlockType CurrentSelectedBlock => PlayerInventory.HotbarType(_selectedBlockIndex);
         public int SelectedSlot => _selectedBlockIndex;
 
         private void Start()
         {
-            if (WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest)
-                SurvivalInventory.RefreshHotbar();
-            else
+            if (WorldManager.Instance == null || WorldManager.Instance.GameMode != WorldGameMode.Classic024SurvivalTest)
                 ResetHotbar();
             if (cameraTransform == null)
             {
@@ -126,8 +119,7 @@ namespace MinecraftClone.Player
                 Debug.LogError("Не найден снаряд Resources/Projectiles/arrow");
                 return;
             }
-            if (!SurvivalInventory.ConsumeArrow()) return;
-
+            if (!PlayerInventory.ConsumeArrow()) return;
             Vector3 origin = cameraTransform.position + cameraTransform.forward * 0.5f;
             Projectile.Spawn(data, origin, cameraTransform.forward * 30f, 3f, true, _netPlayer);
         }
@@ -135,10 +127,10 @@ namespace MinecraftClone.Player
         private void HandleScrollWheel()
         {
             float scroll = Input.GetAxis("Mouse ScrollWheel");
-            if (scroll > 0f) _selectedBlockIndex = (_selectedBlockIndex + HotbarBlocks.Length - 1) % HotbarBlocks.Length;
-            else if (scroll < 0f) _selectedBlockIndex = (_selectedBlockIndex + 1) % HotbarBlocks.Length;
+            if (scroll > 0f) _selectedBlockIndex = (_selectedBlockIndex + PlayerInventory.HotbarSize - 1) % PlayerInventory.HotbarSize;
+            else if (scroll < 0f) _selectedBlockIndex = (_selectedBlockIndex + 1) % PlayerInventory.HotbarSize;
 
-            for (int i = 0; i < HotbarBlocks.Length; i++)
+            for (int i = 0; i < PlayerInventory.HotbarSize; i++)
                 if (Input.GetKeyDown(KeyCode.Alpha1 + i)) _selectedBlockIndex = i;
         }
 
@@ -258,16 +250,15 @@ namespace MinecraftClone.Player
             if (_worldManager != null && _worldManager.GameMode == WorldGameMode.Classic024SurvivalTest
                 && (CurrentSelectedBlock == BlockType.BrownMushroom || CurrentSelectedBlock == BlockType.RedMushroom))
             {
-                if (SurvivalInventory.Consume(CurrentSelectedBlock))
+                BlockType food = CurrentSelectedBlock;
+                if (PlayerInventory.ConsumeFromHotbar(_selectedBlockIndex, 1))
                 {
-                    if (CurrentSelectedBlock == BlockType.BrownMushroom) _health?.Heal(5f);
+                    if (food == BlockType.BrownMushroom) _health?.Heal(5f);
                     else _health?.TakeFoodDamage(3f);
                 }
                 return;
             }
             if (CurrentSelectedBlock == BlockType.Air) return;   // пустой слот: ничего не ставим
-            bool classic024 = _worldManager != null && _worldManager.GameMode == WorldGameMode.Classic024SurvivalTest;
-            if (classic024 && SurvivalInventory.Count(CurrentSelectedBlock) <= 0) return;
             if (cameraTransform == null || _worldManager == null) return;
 
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
@@ -276,9 +267,7 @@ namespace MinecraftClone.Player
             Vector3Int placePos = hit + normal;
             BlockType target = _worldManager.GetBlockAtWorldPosition(placePos.x, placePos.y, placePos.z);
             if (target == BlockType.Air || target == BlockType.Water || target == BlockType.Lava)
-            {
-                if (PlaceBlock(placePos, normal) && classic024) SurvivalInventory.Consume(CurrentSelectedBlock);
-            }
+                PlaceBlock(placePos, normal);
         }
 
         private void BreakBlock(Vector3Int blockPos)
@@ -291,22 +280,19 @@ namespace MinecraftClone.Player
                 if (!blockData.IsBreakable) return;
             }
 
-            if (_worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, BlockType.Air)
-                && _worldManager.GameMode == WorldGameMode.Classic024SurvivalTest
-                && ClassicBlockDrops.TryGet(brokenBlockType, out BlockType drop, out int count))
-                DroppedBlockItem.Spawn(drop, count, blockPos + Vector3.one * 0.5f);
+            _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, BlockType.Air);
         }
 
-            private bool PlaceBlock(Vector3Int blockPos, Vector3Int normal)
+        private void PlaceBlock(Vector3Int blockPos, Vector3Int normal)
             {
                 BlockType selectedType = CurrentSelectedBlock;
                 // пока в этой клетке проходит падающий блок, ставить нельзя
-                if (GravityBlockSystem.Instance != null && GravityBlockSystem.Instance.IsOccupiedByFalling(blockPos)) return false;
+                if (GravityBlockSystem.Instance != null && GravityBlockSystem.Instance.IsOccupiedByFalling(blockPos)) return;
 
             if (selectedType.IsSign())
                 {
-                    if (normal.y < 0) return false;   // на потолок нельзя
-                    if (_worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z) != BlockType.Air) return false;
+                    if (normal.y < 0) return;   // на потолок нельзя
+                    if (_worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z) != BlockType.Air) return;
 
                     if (normal.y > 0)
                     {
@@ -320,16 +306,22 @@ namespace MinecraftClone.Player
                         selectedType = BlockTypeUtil.WallSignFromNormal(normal);   // на боковую грань
                     }
 
-                    return _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
-                }
+                if (_worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType)) ConsumeSelected();
+                return;
+            }
 
             if (_worldManager.BlockDatabase.TryGetValue(selectedType, out BlockDataSO data) && data.IsSolid)
             {
-                if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return false;   // точная коробка 0.6 x 1.8
+                if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return;   // точная коробка 0.6 x 1.8
             }
 
-            return _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
-            }
+            if (_worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType)) ConsumeSelected();
+        }
+
+        private void ConsumeSelected()
+        {
+            if (!CreativeInventory) PlayerInventory.ConsumeFromHotbar(_selectedBlockIndex, 1);
+        }
 
         // true, если перед игроком моб (тогда блок за ним не ломаем)
         private bool TryAttackMob()

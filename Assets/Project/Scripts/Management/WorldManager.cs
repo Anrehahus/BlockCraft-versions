@@ -17,6 +17,7 @@ using MinecraftClone.Networking;
 using MinecraftClone.Effects;
 using MinecraftClone.Audio;
 using MinecraftClone.Player;
+using MinecraftClone.Items;
 
 namespace MinecraftClone.Management
 {
@@ -218,6 +219,11 @@ namespace MinecraftClone.Management
                 new GameObject("[Inventory]").AddComponent<InventoryUI>();
             }
 
+            if (ItemDropSystem.Instance == null && FindFirstObjectByType<ItemDropSystem>() == null)
+            {
+                new GameObject("[ItemDrops]").AddComponent<ItemDropSystem>();
+            }
+
             if (FindFirstObjectByType<MusicPlayer>() == null)
             {
                 new GameObject("[Music]").AddComponent<MusicPlayer>();
@@ -296,11 +302,8 @@ namespace MinecraftClone.Management
             }
 
             GameMode = WorldSlotSelection.NewWorldMode;
-            if (GameMode == WorldGameMode.Classic024SurvivalTest)
-            {
-                SurvivalInventory.Reset();
-                DroppedBlockItem.ClearAll();
-            }
+            PlayerInventory.Reset(null, GameMode == WorldGameMode.Classic024SurvivalTest ? 20 : 0);
+            if (ItemDropSystem.Instance != null) ItemDropSystem.Instance.ClearAll();
             GenerateNewWorld();
         }
 
@@ -529,7 +532,7 @@ namespace MinecraftClone.Management
 
         public void ClearWorld()
         {
-            DroppedBlockItem.ClearAll();
+            if (ItemDropSystem.Instance != null) ItemDropSystem.Instance.ClearAll();
             if (FluidSystem.Instance != null) FluidSystem.Instance.ClearPendingUpdates();
             isWorldReady = false;
             GenerationProgress = 0f;
@@ -595,13 +598,11 @@ namespace MinecraftClone.Management
             WorldSaveData worldSave = SaveSystem.LoadWorldStatic(WorldSlotSelection.Slot);
             GameMode = worldSave != null ? (WorldGameMode)worldSave.GameMode : WorldGameMode.Legacy;
             if (GameMode == WorldGameMode.Classic024SurvivalTest)
-            {
-                SurvivalInventory.Deserialize(worldSave != null ? worldSave.InventoryJson : null);
-            }
+                PlayerInventory.Deserialize(worldSave != null ? worldSave.InventoryJson : null);
 
             ClearWorld();
             if (GameMode == WorldGameMode.Classic024SurvivalTest)
-                DroppedBlockItem.Deserialize(worldSave != null ? worldSave.DroppedItemsJson : null);
+                ItemDropSystem.Instance?.Deserialize(worldSave != null ? worldSave.DroppedItemsJson : null);
 
             worldConfig.Seed = blocksData.Seed;
 
@@ -1051,6 +1052,7 @@ namespace MinecraftClone.Management
                         terrainGenerator.GenerateChunkTerrain(chunkData, GameMode == WorldGameMode.Classic024SurvivalTest);
                     }
                     TreeGenerator.GenerateTrees(chunkData);
+                    PlantGenerator.GeneratePlants(chunkData);
                 }
 
                 loadedChunks.Add(chunkPos, chunkData);
@@ -1416,13 +1418,18 @@ namespace MinecraftClone.Management
             }
 
             ApplyBlockChange(worldX, worldY, worldZ, newType, rebuildMesh: true);
+            if (newType == BlockType.Air && GameMode == WorldGameMode.Classic024SurvivalTest && ItemDropSystem.Instance != null)
+                ItemDropSystem.Instance.ServerDrop(currentBlock, new Vector3Int(worldX, worldY, worldZ));
             if (newType == BlockType.Sponge) AbsorbWaterAround(worldX, worldY, worldZ);
 
             if (newType == BlockType.Air && worldY + 1 < worldConfig.ChunkHeight)
             {
-                if (GetBlockAtWorldPosition(worldX, worldY + 1, worldZ).IsPlant())
+                BlockType above = GetBlockAtWorldPosition(worldX, worldY + 1, worldZ);
+                if (above.IsPlant())
                 {
                     ApplyBlockChange(worldX, worldY + 1, worldZ, BlockType.Air, rebuildMesh: true);
+                    if (GameMode == WorldGameMode.Classic024SurvivalTest && ItemDropSystem.Instance != null)
+                        ItemDropSystem.Instance.ServerDrop(above, new Vector3Int(worldX, worldY + 1, worldZ));
                 }
             }
 

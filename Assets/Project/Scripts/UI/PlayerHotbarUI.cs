@@ -81,29 +81,44 @@ namespace MinecraftClone.UI
 
             GUI.DrawTexture(new Rect(x0, y0, barW, barH), _bar, ScaleMode.StretchToFill, true);
 
-            for (int i = 0; i < PlayerBlockInteraction.HotbarBlocks.Length; i++)
+            for (int i = 0; i < PlayerInventory.HotbarSize; i++)
             {
-                Texture2D icon = GetIcon(PlayerBlockInteraction.HotbarBlocks[i], wm);
-                if (icon == null) continue;
-                float cx = x0 + (3f + 20f * i + 8f) * k;        // центр слота
+                ItemStack st = PlayerInventory.Get(i);
+                if (st.IsEmpty) continue;
+                Texture2D icon = GetIcon(st.Type, wm);
+                float cx = x0 + (3f + 20f * i + 8f) * k;
                 float cy = y0 + 11f * u;
-                float s = 16f * u;                               // иконка чуть меньше слота
-                GUI.DrawTexture(new Rect(cx - s / 2f, cy - s / 2f, s, s), icon, ScaleMode.StretchToFill, true);
-                if (wm.GameMode == WorldGameMode.Classic024SurvivalTest)
-                {
-                    int count = SurvivalInventory.Count(PlayerBlockInteraction.HotbarBlocks[i]);
-                    if (count > 0)
-                    {
-                        GUI.contentColor = Color.white;
-                        GUI.Label(new Rect(cx + 2f * u, cy + 1f * u, 15f * u, 10f * u), count.ToString());
-                        GUI.contentColor = Color.white;
-                    }
-                }
+                float s = 16f * u;
+                Rect ir = new Rect(cx - s / 2f, cy - s / 2f, s, s);
+                if (icon != null) GUI.DrawTexture(ir, icon, ScaleMode.StretchToFill, true);
+                DrawStackCount(ir, st.Count, u);
             }
 
             int sel = _player.SelectedSlot;
             float selX = x0 + (3f + 20f * sel + 8f) * k;
             GUI.DrawTexture(new Rect(selX - 12f * u, y0 - u, 24f * u, 24f * u), _sel, ScaleMode.StretchToFill, true);
+        }
+
+        private static GUIStyle _countStyle;
+        private static Font _countFont;
+
+        public static void DrawStackCount(Rect slot, int count, float u)
+        {
+            if (count <= 1) return;
+            if (_countStyle == null)
+            {
+                foreach (var f in Resources.FindObjectsOfTypeAll<Font>())
+                    if (f != null && f.name.ToLower().Contains("minecraft")) { _countFont = f; break; }
+                _countStyle = new GUIStyle { alignment = TextAnchor.LowerRight, wordWrap = false };
+                if (_countFont != null) _countStyle.font = _countFont;
+            }
+            _countStyle.fontSize = Mathf.Max(8, Mathf.RoundToInt(8f * u));
+            Rect r = new Rect(slot.x, slot.y, slot.width + u * 2f, slot.height + u * 2f);
+            string text = count.ToString();
+            _countStyle.normal.textColor = new Color(0.25f, 0.25f, 0.25f, 1f);
+            GUI.Label(new Rect(r.x + u, r.y + u, r.width, r.height), text, _countStyle);   // тень
+            _countStyle.normal.textColor = Color.white;
+            GUI.Label(r, text, _countStyle);
         }
 
         // ---------- Иконки ----------

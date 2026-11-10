@@ -5,6 +5,7 @@ using UnityEngine;
 using MinecraftClone.Player;
 using MinecraftClone.Core;
 using MinecraftClone.Physics;
+using MinecraftClone.Items;
 
 namespace MinecraftClone.Management
 {
@@ -141,9 +142,9 @@ namespace MinecraftClone.Management
                     Seed = seed,
                     GameMode = WorldManager.Instance != null ? (int)WorldManager.Instance.GameMode : (int)WorldGameMode.Legacy,
                     InventoryJson = WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest
-                        ? SurvivalInventory.Serialize() : string.Empty,
+                        ? PlayerInventory.Serialize() : string.Empty,
                     DroppedItemsJson = WorldManager.Instance != null && WorldManager.Instance.GameMode == WorldGameMode.Classic024SurvivalTest
-                        ? DroppedBlockItem.Serialize() : string.Empty,
+                        ? (ItemDropSystem.Instance != null ? ItemDropSystem.Instance.Serialize() : string.Empty) : string.Empty,
                     PlayerPositionX = playerPosition.x,
                     PlayerPositionY = playerPosition.y,
                     PlayerPositionZ = playerPosition.z,
