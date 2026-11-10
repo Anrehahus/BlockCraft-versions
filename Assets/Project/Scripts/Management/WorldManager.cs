@@ -17,6 +17,7 @@ using MinecraftClone.Networking;
 using MinecraftClone.Effects;
 using MinecraftClone.Audio;
 using MinecraftClone.Player;
+using MinecraftClone.Items;
 
 namespace MinecraftClone.Management
 {
@@ -215,6 +216,11 @@ namespace MinecraftClone.Management
             if (FindFirstObjectByType<InventoryUI>() == null)
             {
                 new GameObject("[Inventory]").AddComponent<InventoryUI>();
+            }
+
+            if (ItemDropSystem.Instance == null && FindFirstObjectByType<ItemDropSystem>() == null)
+            {
+                new GameObject("[ItemDrops]").AddComponent<ItemDropSystem>();
             }
 
             if (FindFirstObjectByType<MusicPlayer>() == null)
@@ -1027,6 +1033,7 @@ namespace MinecraftClone.Management
                         terrainGenerator.GenerateChunkTerrain(chunkData);
                     }
                     TreeGenerator.GenerateTrees(chunkData);
+                    PlantGenerator.GeneratePlants(chunkData);
                 }
 
                 loadedChunks.Add(chunkPos, chunkData);
@@ -1392,13 +1399,18 @@ namespace MinecraftClone.Management
             }
 
             ApplyBlockChange(worldX, worldY, worldZ, newType, rebuildMesh: true);
+            if (newType == BlockType.Air && ItemDropSystem.Instance != null)
+                ItemDropSystem.Instance.ServerDrop(currentBlock, new Vector3Int(worldX, worldY, worldZ));
             if (newType == BlockType.Sponge) AbsorbWaterAround(worldX, worldY, worldZ);
 
             if (newType == BlockType.Air && worldY + 1 < worldConfig.ChunkHeight)
             {
-                if (GetBlockAtWorldPosition(worldX, worldY + 1, worldZ).IsPlant())
+                BlockType above = GetBlockAtWorldPosition(worldX, worldY + 1, worldZ);
+                if (above.IsPlant())
                 {
                     ApplyBlockChange(worldX, worldY + 1, worldZ, BlockType.Air, rebuildMesh: true);
+                    if (ItemDropSystem.Instance != null)
+                        ItemDropSystem.Instance.ServerDrop(above, new Vector3Int(worldX, worldY + 1, worldZ));
                 }
             }
 

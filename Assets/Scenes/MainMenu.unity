@@ -1576,7 +1576,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 11.378906, y: -11.999512}
-  m_SizeDelta: {x: 585.21, y: 50}
+  m_SizeDelta: {x: 1148.2, y: 50}
   m_Pivot: {x: 0, y: 0}
 --- !u!114 &541416541
 MonoBehaviour:
@@ -1598,7 +1598,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Minecraft classic 0.0.24a
+  m_text: Minecraft classic 0.0.24a_SURVIVAL_TEST
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 7ee247caf3880de48bbbbd979184d295, type: 2}
   m_sharedMaterial: {fileID: -8673221938894199221, guid: 7ee247caf3880de48bbbbd979184d295, type: 2}
@@ -3212,13 +3212,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 996481385}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0.040656522, z: -0, w: 0.9991732}
   m_LocalPosition: {x: 16.78902, y: -2.64368, z: 134.50781}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -4.66, z: 0}
 --- !u!114 &996481388
 MonoBehaviour:
   m_ObjectHideFlags: 0

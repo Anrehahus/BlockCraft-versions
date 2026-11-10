@@ -247,23 +247,37 @@ namespace MinecraftClone.Generation
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             private static bool IsCaveBlock(int globalX, int y, int globalZ, int seed, int surfaceY)
             {
-                if (y <= 4 || y >= surfaceY - 7) return false;
-                if (y >= SeaLevel - 6 && y <= SeaLevel + 3) return false;
+                if (y <= 4 || y > surfaceY) return false;
+
+                // у моря и на пляже пещер нет: иначе вода зальёт их
+                if (surfaceY <= SeaLevel + 3 && y >= SeaLevel - 6) return false;
+
+                int depth = surfaceY - y;
+                float entrance = 0f;   // 0..1: насколько это «зона входов»
+                if (depth < 12)
+                {
+                    float gate = noise.cnoise(new float2((globalX + seed * 7) * 0.02f, (globalZ - seed * 5) * 0.02f));
+                    entrance = math.smoothstep(-0.15f, 0.25f, gate);
+                    if (depth < 4 && entrance < 0.15f) return false;   // вне зон входов крыша цела
+                }
 
                 float3 posA = new float3((globalX + seed) * 0.010f, y * 0.030f, globalZ * 0.010f);
                 float3 posB = new float3((globalX - seed + 500) * 0.010f, y * 0.030f, (globalZ + 500) * 0.010f);
 
                 float caveA = noise.cnoise(posA);
                 float caveB = noise.cnoise(posB);
-
                 float tunnelValue = (caveA * caveA) + (caveB * caveB);
-                float caveThreshold = 0.004f;
 
+                float caveThreshold = 0.004f;
                 if (y > SeaLevel)
                 {
                     float heightFactor = math.smoothstep((float)SeaLevel, 90f, (float)y);
-                    caveThreshold = math.lerp(caveThreshold, 0.001f, heightFactor);
+                    caveThreshold = math.lerp(caveThreshold, 0.0025f, heightFactor);
                 }
+
+                // в зонах входов тоннель у поверхности шире (до ×6 по порогу)
+                if (depth < 12)
+                    caveThreshold *= 1f + 5f * entrance * (1f - math.smoothstep(0f, 12f, (float)depth));
 
                 return tunnelValue < caveThreshold;
             }

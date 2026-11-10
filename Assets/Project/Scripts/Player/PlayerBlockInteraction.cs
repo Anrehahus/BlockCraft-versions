@@ -27,9 +27,6 @@ namespace MinecraftClone.Player
         // Креатив. false = выживание: инвентарь и хотбар пустые. Для возврата креатива поставить true.
         public static bool CreativeInventory = false;
 
-        // 9 слотов, по умолчанию все Air (= пусто)
-        public static readonly BlockType[] HotbarBlocks = new BlockType[9];
-
         // Старый набор креатива сохранён, он понадобится при возврате режима
         private static readonly BlockType[] CreativeHotbar =
         {
@@ -41,8 +38,7 @@ namespace MinecraftClone.Player
         // Хотбар статический и живёт между мирами, поэтому сбрасываем его при входе
         public static void ResetHotbar()
         {
-            for (int i = 0; i < HotbarBlocks.Length; i++)
-                HotbarBlocks[i] = CreativeInventory ? CreativeHotbar[i] : BlockType.Air;
+            PlayerInventory.Reset(CreativeInventory ? CreativeHotbar : null);
         }
 
         private int _selectedBlockIndex = 0;
@@ -56,7 +52,7 @@ namespace MinecraftClone.Player
 
         private float _actionTimer = 0f; // Таймер для зажатия клавиш
 
-        public BlockType CurrentSelectedBlock => HotbarBlocks[_selectedBlockIndex];
+        public BlockType CurrentSelectedBlock => PlayerInventory.HotbarType(_selectedBlockIndex);
         public int SelectedSlot => _selectedBlockIndex;
 
         private void Start()
@@ -111,10 +107,10 @@ namespace MinecraftClone.Player
         private void HandleScrollWheel()
         {
             float scroll = Input.GetAxis("Mouse ScrollWheel");
-            if (scroll > 0f) _selectedBlockIndex = (_selectedBlockIndex + HotbarBlocks.Length - 1) % HotbarBlocks.Length;
-            else if (scroll < 0f) _selectedBlockIndex = (_selectedBlockIndex + 1) % HotbarBlocks.Length;
+            if (scroll > 0f) _selectedBlockIndex = (_selectedBlockIndex + PlayerInventory.HotbarSize - 1) % PlayerInventory.HotbarSize;
+            else if (scroll < 0f) _selectedBlockIndex = (_selectedBlockIndex + 1) % PlayerInventory.HotbarSize;
 
-            for (int i = 0; i < HotbarBlocks.Length; i++)
+            for (int i = 0; i < PlayerInventory.HotbarSize; i++)
                 if (Input.GetKeyDown(KeyCode.Alpha1 + i)) _selectedBlockIndex = i;
         }
 
@@ -256,7 +252,7 @@ namespace MinecraftClone.Player
             _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, BlockType.Air);
         }
 
-            private void PlaceBlock(Vector3Int blockPos, Vector3Int normal)
+        private void PlaceBlock(Vector3Int blockPos, Vector3Int normal)
             {
                 BlockType selectedType = CurrentSelectedBlock;
                 // пока в этой клетке проходит падающий блок, ставить нельзя
@@ -279,17 +275,22 @@ namespace MinecraftClone.Player
                         selectedType = BlockTypeUtil.WallSignFromNormal(normal);   // на боковую грань
                     }
 
-                    _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
-                    return;
-                }
+                if (_worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType)) ConsumeSelected();
+                return;
+            }
 
             if (_worldManager.BlockDatabase.TryGetValue(selectedType, out BlockDataSO data) && data.IsSolid)
             {
                 if (NetworkPlayer.IsBlockOverlappingAnyPlayer(blockPos)) return;   // точная коробка 0.6 x 1.8
             }
 
-            _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType);
-            }
+            if (_worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType)) ConsumeSelected();
+        }
+
+        private void ConsumeSelected()
+        {
+            if (!CreativeInventory) PlayerInventory.ConsumeFromHotbar(_selectedBlockIndex, 1);
+        }
 
         // true, если перед игроком моб (тогда блок за ним не ломаем)
         private bool TryAttackMob()

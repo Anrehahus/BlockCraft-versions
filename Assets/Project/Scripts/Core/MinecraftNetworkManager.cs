@@ -32,6 +32,10 @@ namespace MinecraftClone.Networking
     public struct BlockChangeRequestMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct BlockChangeMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct FallingBlockMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
+    public struct ItemSpawnMessage : NetworkMessage { public int Id; public BlockType Type; public Vector3 Pos; public Vector3 Vel; }
+    public struct ItemRemoveMessage : NetworkMessage { public int Id; }
+    public struct ItemPickupRequestMessage : NetworkMessage { public int Id; }
+    public struct ItemPickupGrantMessage : NetworkMessage { public BlockType Type; }
     public struct ChunkRequestMessage : NetworkMessage { public int X; public int Z; }
     public struct ChunkDataMessage : NetworkMessage { public int X; public int Z; public int[] Rle; }
     public struct ChatSendMessage : NetworkMessage { public string Text; }
@@ -161,6 +165,7 @@ namespace MinecraftClone.Networking
             NetworkServer.RegisterHandler<BlockChangeRequestMessage>(OnServerBlockRequest);
             NetworkServer.RegisterHandler<ChunkRequestMessage>(OnServerChunkRequest);
             NetworkServer.RegisterHandler<ChatSendMessage>(OnServerChatSend);
+            NetworkServer.RegisterHandler<ItemPickupRequestMessage>(OnServerItemPickup);
         }
 
         public override void OnServerConnect(NetworkConnectionToClient conn)
@@ -289,6 +294,9 @@ namespace MinecraftClone.Networking
             {
                 conn.Send(new WorldSeedMessage { Seed = _worldManager.Config.Seed });
             }
+
+            if (conn != NetworkServer.localConnection && MinecraftClone.Items.ItemDropSystem.Instance != null)
+                MinecraftClone.Items.ItemDropSystem.Instance.ServerSendAllTo(conn);
 
             // 2. Загружаем или спавним игрока
             Vector3 spawnPosition = _worldManager != null ? _worldManager.GetValidSpawnPosition(Vector2Int.zero) : Vector3.up * 80f;
@@ -745,6 +753,11 @@ namespace MinecraftClone.Networking
             NetworkClient.RegisterHandler<ChatMessage>(OnClientChat);
             NetworkClient.RegisterHandler<ViewDistanceMessage>(OnClientViewDistance);
             NetworkClient.RegisterHandler<FallingBlockMessage>(OnClientFallingBlock);
+            NetworkClient.RegisterHandler<ItemSpawnMessage>(OnClientItemSpawn);
+            NetworkClient.RegisterHandler<ItemRemoveMessage>(OnClientItemRemove);
+            NetworkClient.RegisterHandler<ItemSpawnMessage>(OnClientItemSpawn);
+            NetworkClient.RegisterHandler<ItemRemoveMessage>(OnClientItemRemove);
+            NetworkClient.RegisterHandler<ItemPickupGrantMessage>(OnClientItemGrant);
         }
 
         public override void OnClientConnect()
@@ -793,6 +806,14 @@ namespace MinecraftClone.Networking
                 SceneManager.LoadScene(mainMenuSceneName);
         }
 
+        private void OnServerItemPickup(NetworkConnectionToClient conn, ItemPickupRequestMessage msg)
+        {
+            var sys = MinecraftClone.Items.ItemDropSystem.Instance;
+            if (conn.identity == null || sys == null) return;
+            if (sys.ServerTryPickup(msg.Id, conn.identity.transform.position, out BlockType type))
+                conn.Send(new ItemPickupGrantMessage { Type = type });
+        }
+
         private void OnClientReceiveSeed(WorldSeedMessage msg)
         {
             if (NetworkServer.active) return; // Хост уже сгенерировал свой мир
@@ -822,6 +843,23 @@ namespace MinecraftClone.Networking
             if (NetworkServer.active) return;   // у хоста сущность уже создана сервером
             if (MinecraftClone.Physics.GravityBlockSystem.Instance != null)
                 MinecraftClone.Physics.GravityBlockSystem.Instance.ClientSpawnFalling(msg.Pos, msg.Type);
+        }
+
+        private void OnClientItemSpawn(ItemSpawnMessage msg)
+        {
+            if (NetworkServer.active) return;   // у хоста предмет уже создан
+            MinecraftClone.Items.ItemDropSystem.HandleSpawn(msg);
+        }
+
+        private void OnClientItemRemove(ItemRemoveMessage msg)
+        {
+            if (NetworkServer.active) return;
+            MinecraftClone.Items.ItemDropSystem.HandleRemove(msg.Id);
+        }
+
+        private void OnClientItemGrant(ItemPickupGrantMessage msg)
+        {
+            MinecraftClone.Player.PlayerInventory.Add(msg.Type, 1);
         }
 
         private void OnClientChunkData(ChunkDataMessage msg)
