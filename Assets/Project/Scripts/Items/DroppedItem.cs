@@ -15,8 +15,9 @@ namespace MinecraftClone.Items
         public const float PickupDelay = 0.6f;   // сразу после выпадения подобрать нельзя
 
         public int Id { get; private set; }
-        public BlockType Type { get; private set; }
+        public int ItemId { get; private set; }
         public bool Authoritative { get; private set; }   // true на сервере и в одиночной игре
+        public int Count { get; set; } = 1;               // сколько предметов в этой сущности (при смерти выпадает целый стак)
         public Vector3 Position => _pos;
         public float Age => _age;
 
@@ -34,9 +35,9 @@ namespace MinecraftClone.Items
         private float _age, _phase, _claimedUntil;
         private bool _onGround;
 
-        public void Init(ItemDropSystem sys, int id, BlockType type, Vector3 pos, Vector3 vel, bool authoritative)
+        public void Init(ItemDropSystem sys, int id, int itemId, int count, Vector3 pos, Vector3 vel, bool authoritative)
         {
-            _sys = sys; Id = id; Type = type; Authoritative = authoritative;
+            _sys = sys; Id = id; ItemId = itemId; Count = Mathf.Max(1, count); Authoritative = authoritative;
             _pos = pos; _vel = vel;
             _phase = Random.value * Mathf.PI * 2f;
             transform.position = pos;
@@ -51,13 +52,13 @@ namespace MinecraftClone.Items
             _mr.receiveShadows = false;
             TryBindVisual();
 
-            _visual.localScale = Vector3.one * ((type.IsPlant() || type.IsSign()) ? 0.4f : 0.25f);
+            _visual.localScale = Vector3.one * (_sys.IsFlat(itemId) ? 0.4f : 0.25f);
         }
 
         // Предмет мог прийти по сети раньше, чем мир подготовил атлас текстур: добираем меш позже
         private void TryBindVisual()
         {
-            if (_mf.sharedMesh == null) _mf.sharedMesh = _sys.GetMesh(Type);
+            if (_mf.sharedMesh == null) _mf.sharedMesh = _sys.GetMesh(ItemId);
             if (_mr.sharedMaterial == null && WorldManager.Instance != null)
                 _mr.sharedMaterial = WorldManager.Instance.BlocksMaterial;
         }

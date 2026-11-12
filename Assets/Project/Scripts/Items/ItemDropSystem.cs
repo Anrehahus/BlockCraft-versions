@@ -13,15 +13,17 @@ namespace MinecraftClone.Items
     // Выпавшие предметы (сущности): создание, сеть, подбор.
     // Схема как у GravityBlockSystem: решает сервер/одиночная игра, клиенты получают
     // сообщения и показывают у себя копии (без NetworkIdentity и префабов).
+    // Одна сущность может держать несколько предметов (Count): стак игрока при смерти, кучка от взрыва.
     public class ItemDropSystem : MonoBehaviour
     {
         public static ItemDropSystem Instance { get; private set; }
 
         private const float PickupRadius = 1.5f;         // по горизонтали, у игрока на своей стороне
         private const float ServerPickupRadius = 2.6f;   // у сервера с запасом на задержку сети
+        private const int BatchSize = 6;                 // сколько блоков взрыва склеивается в одну сущность
 
         private readonly Dictionary<int, DroppedItem> _items = new Dictionary<int, DroppedItem>();
-        private readonly Dictionary<BlockType, Mesh> _meshes = new Dictionary<BlockType, Mesh>();
+        private readonly Dictionary<int, Mesh> _meshes = new Dictionary<int, Mesh>();
         private int _nextId = 1;
 
         // Сообщения, пришедшие до создания системы (клиент ещё грузит сцену)
@@ -36,7 +38,7 @@ namespace MinecraftClone.Items
             }
             Instance = this;
 
-            foreach (var m in _pendingSpawns) SpawnEntity(m.Id, m.Type, m.Pos, m.Vel, false);
+            foreach (var m in _pendingSpawns) SpawnEntity(m.Id, m.ItemId, m.Count, m.Pos, m.Vel, false);
             _pendingSpawns.Clear();
         }
 
@@ -49,36 +51,70 @@ namespace MinecraftClone.Items
 
         // ---------- Что выпадает ----------
 
-        // Какой предмет получается из сломанного блока. Все 12 вариантов таблички дают одну.
-        public static BlockType DropTypeFor(BlockType broken)
+        // Какой предмет получается из сломанного блока (0 = ничего: воздух, вода, лава, бедрок).
+        // Сюда же потом можно добавить особые правила: из камня булыжник, из листвы саженец и т.п.
+        public static int DropItemFor(BlockType broken)
         {
-            if (broken.IsSign()) return BlockType.SignStanding0;
-            return broken;
-        }
-
-        private static bool CanDrop(BlockType t)
-        {
-            return t != BlockType.Air && t != BlockType.Water && t != BlockType.Lava;
+            return ItemRegistry.IdForBlock(broken);
         }
 
         // ---------- Сервер / одиночная игра ----------
 
-        // Вызывать там, где блок реально сломан (WorldManager.SetBlockAtWorldPosition)
+        private static bool IsPureClient => NetworkClient.active && !NetworkServer.active;
+
+        // Один сломанный игроком блок (WorldManager.SetBlockAtWorldPosition)
         public void ServerDrop(BlockType broken, Vector3Int cell)
         {
-            if (NetworkClient.active && !NetworkServer.active) return;   // клиент ничего не решает
+            if (IsPureClient) return;   // клиент ничего не решает
 
-            BlockType type = DropTypeFor(broken);
-            if (!CanDrop(type)) return;
+            int itemId = DropItemFor(broken);
+            if (itemId <= 0) return;
 
             Vector3 pos = new Vector3(cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f);
             Vector3 vel = new Vector3(Random.Range(-1.2f, 1.2f), Random.Range(3f, 4.5f), Random.Range(-1.2f, 1.2f));
-            int id = _nextId++;
+            ServerSpawn(itemId, 1, pos, vel);
+        }
 
-            SpawnEntity(id, type, pos, vel, true);
+        // Целый стак (смерть игрока)
+        public void ServerDropStack(int itemId, int count, Vector3 pos)
+        {
+            if (ItemRegistry.Get(itemId) == null) Debug.LogWarning("[ItemDrop] Неизвестный предмет id=" + itemId);
+            if (IsPureClient || count <= 0 || ItemRegistry.Get(itemId) == null) return;
+
+            Vector3 vel = new Vector3(Random.Range(-2f, 2f), Random.Range(3f, 5f), Random.Range(-2f, 2f));
+            ServerSpawn(itemId, count, pos, vel);
+        }
+
+        // Блоки одного типа, разрушенные взрывом: склеиваем кучками, чтобы не плодить сотни сущностей
+        public void ServerDropBatch(BlockType broken, List<Vector3Int> cells, Vector3 center)
+        {
+            if (IsPureClient || cells == null || cells.Count == 0) return;
+
+            int itemId = DropItemFor(broken);
+            if (itemId <= 0) return;
+
+            for (int i = 0; i < cells.Count; i += BatchSize)
+            {
+                int n = Mathf.Min(BatchSize, cells.Count - i);
+                Vector3Int c = cells[i];
+                Vector3 pos = new Vector3(c.x + 0.5f, c.y + 0.5f, c.z + 0.5f);
+
+                Vector3 away = pos - center;
+                away.y = 0f;
+                away = away.sqrMagnitude > 0.01f ? away.normalized : Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward;
+                Vector3 vel = away * Random.Range(1.5f, 4f) + Vector3.up * Random.Range(2f, 4.5f);
+
+                ServerSpawn(itemId, n, pos, vel);
+            }
+        }
+
+        private void ServerSpawn(int itemId, int count, Vector3 pos, Vector3 vel)
+        {
+            int id = _nextId++;
+            SpawnEntity(id, itemId, count, pos, vel, true);
 
             if (NetworkServer.active)
-                NetworkServer.SendToAll(new ItemSpawnMessage { Id = id, Type = type, Pos = pos, Vel = vel });
+                NetworkServer.SendToAll(new ItemSpawnMessage { Id = id, ItemId = itemId, Count = count, Pos = pos, Vel = vel });
         }
 
         public void ServerRemove(int id)
@@ -94,14 +130,17 @@ namespace MinecraftClone.Items
             {
                 if (it == null || !it.Authoritative) continue;
                 it.GetState(out Vector3 pos, out Vector3 vel);
-                conn.Send(new ItemSpawnMessage { Id = it.Id, Type = it.Type, Pos = pos, Vel = vel });
+                conn.Send(new ItemSpawnMessage { Id = it.Id, ItemId = it.ItemId, Count = it.Count, Pos = pos, Vel = vel });
             }
         }
 
-        // Сервер: клиент просит подобрать предмет. true, если разрешено (предмет уже убран у всех).
-        public bool ServerTryPickup(int id, Vector3 playerPos, out BlockType type)
+        // Сервер: клиент просит подобрать предмет. room: сколько таких предметов у клиента ещё поместится.
+        // true, если разрешено. count: сколько отдаём (если забрали не всё, сущность остаётся с остатком).
+        public bool ServerTryPickup(int id, Vector3 playerPos, int room, out int itemId, out int count)
         {
-            type = BlockType.Air;
+            itemId = 0;
+            count = 0;
+            if (room <= 0) return false;
             if (!_items.TryGetValue(id, out DroppedItem it) || it == null || !it.Authoritative) return false;
             if (it.Age < DroppedItem.PickupDelay - 0.2f) return false;
 
@@ -110,8 +149,11 @@ namespace MinecraftClone.Items
             d.y = 0f;
             if (d.sqrMagnitude > ServerPickupRadius * ServerPickupRadius || dy < -2.5f || dy > 3.5f) return false;
 
-            type = it.Type;
-            ServerRemove(id);
+            itemId = it.ItemId;
+            count = Mathf.Min(it.Count, room);
+
+            if (count >= it.Count) ServerRemove(id);
+            else it.Count -= count;
             return true;
         }
 
@@ -120,7 +162,7 @@ namespace MinecraftClone.Items
         // Точки входа для сетевых обработчиков (работают, даже если системы ещё нет)
         public static void HandleSpawn(ItemSpawnMessage m)
         {
-            if (Instance != null) Instance.SpawnEntity(m.Id, m.Type, m.Pos, m.Vel, false);
+            if (Instance != null) Instance.SpawnEntity(m.Id, m.ItemId, m.Count, m.Pos, m.Vel, false);
             else _pendingSpawns.Add(m);
         }
 
@@ -132,14 +174,15 @@ namespace MinecraftClone.Items
 
         // ---------- Общее ----------
 
-        private void SpawnEntity(int id, BlockType type, Vector3 pos, Vector3 vel, bool authoritative)
+        private void SpawnEntity(int id, int itemId, int count, Vector3 pos, Vector3 vel, bool authoritative)
         {
             if (_items.ContainsKey(id)) return;
+            if (ItemRegistry.Get(itemId) == null) return;   // неизвестный предмет (другая версия игры)
 
-            var go = new GameObject("Item_" + type);
+            var go = new GameObject("Item_" + ItemRegistry.KeyOf(itemId));
             go.transform.SetParent(transform, false);
             var e = go.AddComponent<DroppedItem>();
-            e.Init(this, id, type, pos, vel, authoritative);
+            e.Init(this, id, itemId, count, pos, vel, authoritative);
             _items[id] = e;
         }
 
@@ -157,6 +200,7 @@ namespace MinecraftClone.Items
         {
             if (_items.Count == 0 || InventoryUI.IsOpen) return;   // при открытом инвентаре не подбираем
             if (WorldManager.Instance == null || !WorldManager.Instance.IsWorldReady) return;
+            if (PlayerHealth.Local != null && PlayerHealth.Local.IsDead) return;   // мёртвый ничего не подбирает
 
             var hb = PlayerHotbarUI.Instance;
             var player = hb != null ? hb.Player : null;
@@ -165,6 +209,7 @@ namespace MinecraftClone.Items
             Vector3 p = player.transform.position;
 
             DroppedItem target = null;
+            int targetRoom = 0;
             foreach (var it in _items.Values)
             {
                 if (it == null || !it.CanBePickedUp) continue;
@@ -174,24 +219,29 @@ namespace MinecraftClone.Items
                 d.y = 0f;
                 // по высоте окно с запасом: не важно, где у игрока центр, в ногах или посередине
                 if (d.sqrMagnitude > PickupRadius * PickupRadius || dy < -1.3f || dy > 2.2f) continue;
-                if (!PlayerInventory.CanAdd(it.Type)) continue;
+
+                int room = PlayerInventory.RoomFor(it.ItemId);
+                if (room <= 0) continue;
 
                 target = it;
+                targetRoom = room;
                 break;
             }
             if (target == null) return;
 
-            if (NetworkClient.active && !NetworkServer.active)
+            if (IsPureClient)
             {
-                // чистый клиент: просим сервер, предмет получим в ответе
+                // чистый клиент: просим сервер, предметы получим в ответе
                 target.MarkClaimed();
-                NetworkClient.Send(new ItemPickupRequestMessage { Id = target.Id });
+                NetworkClient.Send(new ItemPickupRequestMessage { Id = target.Id, Room = targetRoom });
             }
             else
             {
-                // одиночная игра или хост: забираем сразу
-                PlayerInventory.Add(target.Type, 1);
-                ServerRemove(target.Id);
+                // одиночная игра или хост: забираем сразу (если не влезло всё, остаток лежит дальше)
+                int n = Mathf.Min(target.Count, targetRoom);
+                PlayerInventory.Add(target.ItemId, n);
+                if (n >= target.Count) ServerRemove(target.Id);
+                else target.Count -= n;
             }
         }
 
@@ -220,13 +270,21 @@ namespace MinecraftClone.Items
 
         private static readonly byte[] FaceShade = { 255, 128, 204, 204, 153, 153 };   // верх, низ, +Z, -Z, +X, -X
 
-        public Mesh GetMesh(BlockType type)
+        // Плоская картинка вместо кубика: предметы с текстурой, цветы, грибы, таблички
+        public bool IsFlat(int itemId)
         {
-            if (_meshes.TryGetValue(type, out Mesh cached) && cached != null) return cached;
+            ItemDef def = ItemRegistry.Get(itemId);
+            if (def == null) return false;
+            return def.Texture != null || def.Block.IsPlant() || def.Block.IsSign();
+        }
 
+        public Mesh GetMesh(int itemId)
+        {
+            if (_meshes.TryGetValue(itemId, out Mesh cached) && cached != null) return cached;
+
+            ItemDef def = ItemRegistry.Get(itemId);
             var wm = WorldManager.Instance;
-            if (wm == null || wm.BlockDatabase == null
-                || !wm.BlockDatabase.TryGetValue(type, out BlockDataSO d) || d == null) return null;
+            if (def == null || wm == null) return null;
 
             var uvMap = wm.UVMap;
             if (uvMap == null || uvMap.Count == 0) return null;   // атлас ещё не готов: не кэшируем кривой меш
@@ -236,10 +294,15 @@ namespace MinecraftClone.Items
             var uv = new List<Vector2>();
             var col = new List<Color32>();
 
-            if (type.IsPlant() || type.IsSign())
+            if (IsFlat(itemId))
             {
-                // плоская картинка из двух сторон: цветок, гриб, табличка
-                Texture2D tex = type.IsSign() ? Pick(d.SideTexture, d.TopTexture) : Pick(d.TopTexture, d.SideTexture);
+                Texture2D tex = def.Texture;
+                if (tex == null)
+                {
+                    if (wm.BlockDatabase == null || !wm.BlockDatabase.TryGetValue(def.Block, out BlockDataSO bd) || bd == null) return null;
+                    tex = def.Block.IsSign() ? Pick(bd.SideTexture, bd.TopTexture) : Pick(bd.TopTexture, bd.SideTexture);
+                }
+
                 Rect r = SafeUV(uvMap, tex);
                 Vector3 a = new Vector3(-0.5f, -0.5f, 0f), b = new Vector3(-0.5f, 0.5f, 0f);
                 Vector3 c = new Vector3(0.5f, 0.5f, 0f), e = new Vector3(0.5f, -0.5f, 0f);
@@ -248,6 +311,8 @@ namespace MinecraftClone.Items
             }
             else
             {
+                if (wm.BlockDatabase == null || !wm.BlockDatabase.TryGetValue(def.Block, out BlockDataSO d) || d == null) return null;
+
                 Rect top = SafeUV(uvMap, d.TopTexture), bottom = SafeUV(uvMap, d.BottomTexture), side = SafeUV(uvMap, d.SideTexture);
                 Vector3 o = new Vector3(-0.5f, -0.5f, -0.5f);   // куб 1x1x1 с центром в нуле
                 AddFace(v, t, uv, col, o + new Vector3(0, 1, 0), o + new Vector3(0, 1, 1), o + new Vector3(1, 1, 1), o + new Vector3(1, 1, 0), top, FaceShade[0], false);
@@ -258,14 +323,14 @@ namespace MinecraftClone.Items
                 AddFace(v, t, uv, col, o + new Vector3(0, 0, 1), o + new Vector3(0, 1, 1), o + new Vector3(0, 1, 0), o + new Vector3(0, 0, 0), side, FaceShade[5], false);
             }
 
-            var mesh = new Mesh { name = "Item_" + type };
+            var mesh = new Mesh { name = "Item_" + def.Key };
             mesh.SetVertices(v);
             mesh.SetTriangles(t, 0);
             mesh.SetUVs(0, uv);
             mesh.SetColors(col);
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
-            _meshes[type] = mesh;
+            _meshes[itemId] = mesh;
             return mesh;
         }
 

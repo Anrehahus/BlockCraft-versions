@@ -135,6 +135,8 @@ namespace MinecraftClone.Management
                     if (pcv != null) velY = pcv.VerticalVelocity;
                 }
 
+                PlayerInventory.EncodeKeys(PlayerInventory.GetAll(), out string[] invKeys, out int[] invCounts);
+
                 WorldSaveData saveData = new WorldSaveData
                 {
                     WorldName = $"Мир {slotIndex}",
@@ -147,6 +149,8 @@ namespace MinecraftClone.Management
                     PlayerVelY = velY,
                     PlayerDead = PlayerHealth.Local != null && PlayerHealth.Local.IsDead,
                     PlayerScore = PlayerHealth.Local != null ? PlayerHealth.Local.Score : 0,
+                    InvKeys = invKeys,
+                    InvCounts = invCounts,
                     Chunks = new List<ChunkSaveData>()
                 };
 
@@ -277,7 +281,10 @@ namespace MinecraftClone.Management
                 rotX = saveData.PlayerRotX,
                 rotY = saveData.PlayerRotY,
                 dead = saveData.PlayerDead,
-                score = saveData.PlayerScore
+                score = saveData.PlayerScore,
+                invKeys = saveData.InvKeys,
+                invTypes = saveData.InvTypes,
+                invCounts = saveData.InvCounts
             };
         }
 
@@ -308,7 +315,10 @@ namespace MinecraftClone.Management
                     rotX = saveData.PlayerRotX,
                     rotY = saveData.PlayerRotY,
                     dead = saveData.PlayerDead,
-                    score = saveData.PlayerScore
+                    score = saveData.PlayerScore,
+                    invKeys = saveData.InvKeys,
+                    invTypes = saveData.InvTypes,
+                    invCounts = saveData.InvCounts
                 };
             }
             catch (Exception ex)
@@ -443,7 +453,12 @@ namespace MinecraftClone.Management
         public float PlayerRotY;
         public bool PlayerDead;
         public int PlayerScore;
+        public string[] InvKeys;
+        public int[] InvTypes;
+        public int[] InvCounts;
         public List<ChunkSaveData> Chunks;
+
+        public ItemStack[] GetInventory() => PlayerInventory.DecodeSave(InvKeys, InvTypes, InvCounts);
     }
 
     [Serializable]
@@ -464,8 +479,12 @@ namespace MinecraftClone.Management
         public float posZ;
         public float rotX;
         public float rotY;
+        public string[] invKeys;
+        public int[] invTypes;
+        public int[] invCounts;
 
         public Vector3 Position => new Vector3(posX, posY, posZ);
+        public ItemStack[] GetInventory() => PlayerInventory.DecodeSave(invKeys, invTypes, invCounts);
     }
 
     [Serializable]

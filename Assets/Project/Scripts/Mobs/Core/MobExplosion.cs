@@ -5,6 +5,7 @@ using MinecraftClone.Core;
 using MinecraftClone.Management;
 using MinecraftClone.ScriptableObjects;
 using MinecraftClone.Player;
+using MinecraftClone.Items;
 
 namespace MinecraftClone.Mobs
 {
@@ -23,6 +24,13 @@ namespace MinecraftClone.Mobs
 
             var dirty = new HashSet<Vector2Int>();
 
+            var drops = new Dictionary<BlockType, List<Vector3Int>>();
+            void Record(BlockType t, Vector3Int p)
+            {
+                if (!drops.TryGetValue(t, out var l)) drops[t] = l = new List<Vector3Int>();
+                l.Add(p);
+            }
+
             for (int dx = -r; dx <= r; dx++)
                 for (int dy = -r; dy <= r; dy++)
                     for (int dz = -r; dz <= r; dz++)
@@ -39,14 +47,24 @@ namespace MinecraftClone.Mobs
                         if (wm.BlockDatabase != null && wm.BlockDatabase.TryGetValue(b, out BlockDataSO data)
                             && data != null && !data.IsBreakable) continue;
 
+                        Record(b, new Vector3Int(x, y, z));
+
                         wm.ApplyBlockChange(x, y, z, BlockType.Air, false, dirty);
 
-                        // цветок или саженец над сломанным блоком не должен висеть в воздухе
-                        if (y + 1 <= maxY && wm.GetBlockAtWorldPosition(x, y + 1, z).IsPlant())
-                            wm.ApplyBlockChange(x, y + 1, z, BlockType.Air, false, dirty);
+                        if (y + 1 <= maxY)
+                        {
+                            BlockType above = wm.GetBlockAtWorldPosition(x, y + 1, z);
+                            if (above.IsPlant())
+                            {
+                                wm.ApplyBlockChange(x, y + 1, z, BlockType.Air, false, dirty);
+                                Record(above, new Vector3Int(x, y + 1, z));
+                            }
+                        }
                     }
 
             foreach (var chunk in dirty) wm.RebuildChunkMesh(chunk);
+            if (ItemDropSystem.Instance != null)
+                foreach (var kv in drops) ItemDropSystem.Instance.ServerDropBatch(kv.Key, kv.Value, center);
         }
 
         // Урон игрокам от взрыва. Только сервер / одиночная игра.

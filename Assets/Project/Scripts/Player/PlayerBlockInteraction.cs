@@ -9,6 +9,7 @@ using MinecraftClone.UI;
 using MinecraftClone.Networking;
 using MinecraftClone.Mobs;
 using MinecraftClone.Rendering;
+using MinecraftClone.Items;
 
 namespace MinecraftClone.Player
 {
@@ -27,13 +28,19 @@ namespace MinecraftClone.Player
         // Креатив. false = выживание: инвентарь и хотбар пустые. Для возврата креатива поставить true.
         public static bool CreativeInventory = false;
 
-        // Старый набор креатива сохранён, он понадобится при возврате режима
-        private static readonly BlockType[] CreativeHotbar =
+        // Старый набор креатив-предметов через их ID
+        private static readonly int[] CreativeHotbar =
         {
-    BlockType.Stone, BlockType.Dirt, BlockType.Sponge,
-    BlockType.OakPlanks, BlockType.OakSapling, BlockType.OakLog,
-    BlockType.OakLeaves, BlockType.Glass, BlockType.Gravel
-};
+            ItemRegistry.IdForBlock(BlockType.Stone),
+            ItemRegistry.IdForBlock(BlockType.Dirt),
+            ItemRegistry.IdForBlock(BlockType.Sponge),
+            ItemRegistry.IdForBlock(BlockType.OakPlanks),
+            ItemRegistry.IdForBlock(BlockType.OakSapling),
+            ItemRegistry.IdForBlock(BlockType.OakLog),
+            ItemRegistry.IdForBlock(BlockType.OakLeaves),
+            ItemRegistry.IdForBlock(BlockType.Glass),
+            ItemRegistry.IdForBlock(BlockType.Gravel)
+        };
 
         // Хотбар статический и живёт между мирами, поэтому сбрасываем его при входе
         public static void ResetHotbar()
@@ -52,12 +59,11 @@ namespace MinecraftClone.Player
 
         private float _actionTimer = 0f; // Таймер для зажатия клавиш
 
-        public BlockType CurrentSelectedBlock => PlayerInventory.HotbarType(_selectedBlockIndex);
+        public BlockType CurrentSelectedBlock => PlayerInventory.HotbarDef(_selectedBlockIndex)?.Block ?? BlockType.Air;
         public int SelectedSlot => _selectedBlockIndex;
 
         private void Start()
         {
-            ResetHotbar();
             if (cameraTransform == null)
             {
                 Camera cam = GetComponentInChildren<Camera>();
@@ -212,22 +218,32 @@ namespace MinecraftClone.Player
                 }
             }
 
-            // ПКМ — Установка (работает при зажатии GetMouseButton)
+            // ПКМ — Установка / Еда (работает при зажатии GetMouseButton)
             if (Input.GetMouseButton(1))
             {
                 if (_actionTimer <= 0f)
                 {
-                    if (_netPlayer != null) _netPlayer.NotifySwing();
-
-                    TryPlaceBlock();
-                    _actionTimer = actionInterval; // Сброс таймера на 0.25 сек
+                    var def = PlayerInventory.HotbarDef(_selectedBlockIndex);
+                    if (def != null && def.FoodHeal > 0)
+                    {
+                        if (_netPlayer != null) _netPlayer.NotifySwing();
+                        PlayerHealth.Local.RequestEat(def.Id);
+                        _actionTimer = 0.8f;             // пауза между порциями
+                    }
+                    else
+                    {
+                        if (_netPlayer != null) _netPlayer.NotifySwing();
+                        TryPlaceBlock();
+                        _actionTimer = actionInterval;
+                    }
                 }
             }
         }
 
         private void TryPlaceBlock()
         {
-            if (CurrentSelectedBlock == BlockType.Air) return;   // пустой слот: ничего не ставим
+            var def = PlayerInventory.HotbarDef(_selectedBlockIndex);
+            if (def == null || def.Block == BlockType.Air) return;
             if (cameraTransform == null || _worldManager == null) return;
 
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
@@ -236,7 +252,7 @@ namespace MinecraftClone.Player
             Vector3Int placePos = hit + normal;
             BlockType target = _worldManager.GetBlockAtWorldPosition(placePos.x, placePos.y, placePos.z);
             if (target == BlockType.Air || target == BlockType.Water || target == BlockType.Lava)
-                PlaceBlock(placePos, normal);
+                PlaceBlock(placePos, normal, def.Block);
         }
 
         private void BreakBlock(Vector3Int blockPos)
@@ -252,28 +268,28 @@ namespace MinecraftClone.Player
             _worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, BlockType.Air);
         }
 
-        private void PlaceBlock(Vector3Int blockPos, Vector3Int normal)
-            {
-                BlockType selectedType = CurrentSelectedBlock;
-                // пока в этой клетке проходит падающий блок, ставить нельзя
-                if (GravityBlockSystem.Instance != null && GravityBlockSystem.Instance.IsOccupiedByFalling(blockPos)) return;
+        private void PlaceBlock(Vector3Int blockPos, Vector3Int normal, BlockType blockType)
+        {
+            BlockType selectedType = blockType;
+            // пока в этой клетке проходит падающий блок, ставить нельзя
+            if (GravityBlockSystem.Instance != null && GravityBlockSystem.Instance.IsOccupiedByFalling(blockPos)) return;
 
             if (selectedType.IsSign())
-                {
-                    if (normal.y < 0) return;   // на потолок нельзя
-                    if (_worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z) != BlockType.Air) return;
+            {
+                if (normal.y < 0) return;   // на потолок нельзя
+                if (_worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z) != BlockType.Air) return;
 
-                    if (normal.y > 0)
-                    {
-                        // на верхнюю грань: стоит на палке и смотрит на игрока, шаг 45°
-                        Vector3 toPlayer = cameraTransform.position - (blockPos + new Vector3(0.5f, 0.5f, 0.5f));
-                        float yaw = Mathf.Atan2(toPlayer.x, toPlayer.z) * Mathf.Rad2Deg;
-                        selectedType = BlockTypeUtil.StandingSignFromYaw(yaw);
-                    }
-                    else
-                    {
-                        selectedType = BlockTypeUtil.WallSignFromNormal(normal);   // на боковую грань
-                    }
+                if (normal.y > 0)
+                {
+                    // на верхнюю грань: стоит на палке и смотрит на игрока, шаг 45°
+                    Vector3 toPlayer = cameraTransform.position - (blockPos + new Vector3(0.5f, 0.5f, 0.5f));
+                    float yaw = Mathf.Atan2(toPlayer.x, toPlayer.z) * Mathf.Rad2Deg;
+                    selectedType = BlockTypeUtil.StandingSignFromYaw(yaw);
+                }
+                else
+                {
+                    selectedType = BlockTypeUtil.WallSignFromNormal(normal);   // на боковую грань
+                }
 
                 if (_worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType)) ConsumeSelected();
                 return;

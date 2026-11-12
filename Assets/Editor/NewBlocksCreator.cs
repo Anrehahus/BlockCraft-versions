@@ -75,8 +75,6 @@ public static class NewBlocksCreator
 
             so.Type = it.type;
             so.BlockName = it.name;
-            so.IsSolid = true;
-            so.IsOpaque = true;
             so.IsBreakable = true;
             so.Hardness = it.hardness;
             so.TopTexture = so.BottomTexture = so.SideTexture = tex;

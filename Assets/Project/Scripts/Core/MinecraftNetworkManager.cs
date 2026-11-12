@@ -32,10 +32,11 @@ namespace MinecraftClone.Networking
     public struct BlockChangeRequestMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct BlockChangeMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct FallingBlockMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
-    public struct ItemSpawnMessage : NetworkMessage { public int Id; public BlockType Type; public Vector3 Pos; public Vector3 Vel; }
+    public struct ItemSpawnMessage : NetworkMessage { public int Id; public int ItemId; public int Count; public Vector3 Pos; public Vector3 Vel; }
     public struct ItemRemoveMessage : NetworkMessage { public int Id; }
-    public struct ItemPickupRequestMessage : NetworkMessage { public int Id; }
-    public struct ItemPickupGrantMessage : NetworkMessage { public BlockType Type; }
+    public struct ItemPickupRequestMessage : NetworkMessage { public int Id; public int Room; }
+    public struct ItemPickupGrantMessage : NetworkMessage { public int ItemId; public int Count; }
+    public struct InventorySyncMessage : NetworkMessage { public int[] Ids; public int[] Counts; }
     public struct ChunkRequestMessage : NetworkMessage { public int X; public int Z; }
     public struct ChunkDataMessage : NetworkMessage { public int X; public int Z; public int[] Rle; }
     public struct ChatSendMessage : NetworkMessage { public string Text; }
@@ -51,7 +52,9 @@ namespace MinecraftClone.Networking
         [SerializeField] private string mainMenuSceneName = "MainMenu";
         public static bool ExpectedDisconnect;
         public static string LastError = "";
-
+        // склад каждого подключённого игрока на сервере (ключ: ник в нижнем регистре)
+        private readonly Dictionary<string, ItemStack[]> _serverInventories = new Dictionary<string, ItemStack[]>();
+        private static string NickKey(string nick) => nick.ToLowerInvariant();
         private readonly Dictionary<int, string> _connectedNicknames = new Dictionary<int, string>();
         private WorldManager _worldManager;
 
@@ -166,6 +169,7 @@ namespace MinecraftClone.Networking
             NetworkServer.RegisterHandler<ChunkRequestMessage>(OnServerChunkRequest);
             NetworkServer.RegisterHandler<ChatSendMessage>(OnServerChatSend);
             NetworkServer.RegisterHandler<ItemPickupRequestMessage>(OnServerItemPickup);
+            NetworkServer.RegisterHandler<InventorySyncMessage>(OnServerInventorySync);
         }
 
         public override void OnServerConnect(NetworkConnectionToClient conn)
@@ -185,6 +189,46 @@ namespace MinecraftClone.Networking
         public override void OnServerAddPlayer(NetworkConnectionToClient conn)
         {
             // Ручной спавн игроков управляется через OnServerReceivePlayerInfo
+        }
+
+        private void OnServerItemPickup(NetworkConnectionToClient conn, ItemPickupRequestMessage msg)
+        {
+            var sys = MinecraftClone.Items.ItemDropSystem.Instance;
+            if (conn.identity == null || sys == null) return;
+            var hp = conn.identity.GetComponent<PlayerHealth>();
+            if (hp != null && hp.IsDead) return;
+            if (sys.ServerTryPickup(msg.Id, conn.identity.transform.position, msg.Room, out int itemId, out int count))
+                conn.Send(new ItemPickupGrantMessage { ItemId = itemId, Count = count });
+        }
+
+        private void OnServerInventorySync(NetworkConnectionToClient conn, InventorySyncMessage msg)
+        {
+            if (conn.identity == null || !_connectedNicknames.TryGetValue(conn.connectionId, out string nick)) return;
+            var hp = conn.identity.GetComponent<PlayerHealth>();
+            if (hp != null && hp.IsDead) return;   // снимок, отправленный до смерти, не должен вернуть вещи
+            _serverInventories[NickKey(nick)] = PlayerInventory.Decode(msg.Ids, msg.Counts);
+        }
+
+        // Смерть удалённого игрока: забрать его склад с сервера и очистить у клиента
+        public List<ItemStack> ServerTakeInventory(NetworkConnectionToClient conn)
+        {
+            var list = new List<ItemStack>();
+            if (!_connectedNicknames.TryGetValue(conn.connectionId, out string nick)) return list;
+
+            string key = NickKey(nick);
+            if (_serverInventories.TryGetValue(key, out ItemStack[] inv))
+                foreach (var s in inv) if (!s.IsEmpty) list.Add(s);
+
+            var empty = new ItemStack[PlayerInventory.Size];
+            _serverInventories[key] = empty;
+            SendInventory(conn, empty);
+            return list;
+        }
+
+        private static void SendInventory(NetworkConnectionToClient conn, ItemStack[] inv)
+        {
+            PlayerInventory.Encode(inv, out int[] ids, out int[] counts);
+            conn.Send(new InventorySyncMessage { Ids = ids, Counts = counts });
         }
 
         private void OnServerBlockRequest(NetworkConnectionToClient conn, BlockChangeRequestMessage msg)
@@ -324,6 +368,7 @@ namespace MinecraftClone.Networking
 
             float savedVelY = 0f;
 
+            ItemStack[] loadedInventory = new ItemStack[PlayerInventory.Size];
             if (!isHostPlayer && File.Exists(playerFilePath))
             {
                 try
@@ -335,6 +380,7 @@ namespace MinecraftClone.Networking
                         spawnPosition = new Vector3(data.posX, data.posY, data.posZ);
                         spawnRotation = new Vector2(data.rotX, data.rotY);
                         savedVelY = data.velY;
+                        loadedInventory = PlayerInventory.Decode(data.invTypes, data.invCounts);
                     }
                 }
                 catch (System.Exception ex)
@@ -365,6 +411,11 @@ namespace MinecraftClone.Networking
             if (adoptedHost == null) playerNetwork?.ServerSetFallSpeed(savedVelY);
 
             NetworkServer.AddPlayerForConnection(conn, playerObj);
+            if (!isHostPlayer)
+            {
+                _serverInventories[NickKey(cleanNick)] = loadedInventory;
+                SendInventory(conn, loadedInventory);   // клиент получает склад и начинает слать изменения
+            }
         }
 
         public override void OnServerDisconnect(NetworkConnectionToClient conn)
@@ -378,6 +429,7 @@ namespace MinecraftClone.Networking
                 _connectedNicknames.Remove(conn.connectionId);
                 if (conn != NetworkServer.localConnection)
                     NetworkServer.SendToAll(new ChatMessage { Text = $"{nickname} покинул игру", Kind = 1 });
+                _serverInventories.Remove(NickKey(nickname));
             }
 
             base.OnServerDisconnect(conn);
@@ -405,6 +457,8 @@ namespace MinecraftClone.Networking
                 rotY = rot.y,
                 velY = velY
             };
+            if (_serverInventories.TryGetValue(NickKey(nickname), out ItemStack[] inv))
+                PlayerInventory.Encode(inv, out data.invTypes, out data.invCounts);
 
             string json = JsonUtility.ToJson(data, true);
             File.WriteAllText(Path.Combine(playerDataDir, $"{nickname}.json"), json);
@@ -424,7 +478,7 @@ namespace MinecraftClone.Networking
             yield return new WaitForSeconds(0.1f);
             conn.Disconnect();
         }
-        
+
         private void Reply(NetworkConnectionToClient conn, string text, byte kind = 0)
         {
             conn.Send(new ChatMessage { Text = text, Kind = kind });
@@ -755,8 +809,7 @@ namespace MinecraftClone.Networking
             NetworkClient.RegisterHandler<FallingBlockMessage>(OnClientFallingBlock);
             NetworkClient.RegisterHandler<ItemSpawnMessage>(OnClientItemSpawn);
             NetworkClient.RegisterHandler<ItemRemoveMessage>(OnClientItemRemove);
-            NetworkClient.RegisterHandler<ItemSpawnMessage>(OnClientItemSpawn);
-            NetworkClient.RegisterHandler<ItemRemoveMessage>(OnClientItemRemove);
+            NetworkClient.RegisterHandler<InventorySyncMessage>(OnClientInventory);
             NetworkClient.RegisterHandler<ItemPickupGrantMessage>(OnClientItemGrant);
         }
 
@@ -779,7 +832,12 @@ namespace MinecraftClone.Networking
             }
             yield return null; // даём отработать Start у WorldManager
 
-            if (!NetworkServer.active) WorldManager.Instance.ClearWorld();
+            if (!NetworkServer.active)
+            {
+                WorldManager.Instance.ClearWorld();
+                PlayerInventory.NetSynced = false;
+                PlayerBlockInteraction.ResetHotbar();   // чистый склад, пока сервер не пришлёт сохранённый
+            }
 
             string nick = LauncherArgs.HasNickname ? LauncherArgs.Nickname : PlayerPrefs.GetString("PlayerNickname", "Player");
             NetworkClient.Send(new NetworkPlayerMessage { Nickname = nick });
@@ -804,14 +862,6 @@ namespace MinecraftClone.Networking
 
             if (!expected && SceneManager.GetActiveScene().name != mainMenuSceneName)
                 SceneManager.LoadScene(mainMenuSceneName);
-        }
-
-        private void OnServerItemPickup(NetworkConnectionToClient conn, ItemPickupRequestMessage msg)
-        {
-            var sys = MinecraftClone.Items.ItemDropSystem.Instance;
-            if (conn.identity == null || sys == null) return;
-            if (sys.ServerTryPickup(msg.Id, conn.identity.transform.position, out BlockType type))
-                conn.Send(new ItemPickupGrantMessage { Type = type });
         }
 
         private void OnClientReceiveSeed(WorldSeedMessage msg)
@@ -859,7 +909,14 @@ namespace MinecraftClone.Networking
 
         private void OnClientItemGrant(ItemPickupGrantMessage msg)
         {
-            MinecraftClone.Player.PlayerInventory.Add(msg.Type, 1);
+            PlayerInventory.Add(msg.ItemId, msg.Count);
+        }
+
+        private void OnClientInventory(InventorySyncMessage msg)
+        {
+            if (NetworkServer.active) return;   // у хоста свой склад
+            PlayerInventory.LoadFrom(msg.Ids, msg.Counts);
+            PlayerInventory.NetSynced = true;   // теперь можно слать изменения серверу
         }
 
         private void OnClientChunkData(ChunkDataMessage msg)
@@ -882,11 +939,13 @@ namespace MinecraftClone.Networking
 
         public override void OnStopHost() { base.OnStopHost(); ResetWorldAndCursor(); }
         public override void OnStopClient() { base.OnStopClient(); ResetWorldAndCursor(); }
+
         public override void OnStopServer()
         {
             base.OnStopServer();
             _connectedNicknames.Clear();
             ResetWorldAndCursor();
+            _serverInventories.Clear();
         }
 
         private void ResetWorldAndCursor()
@@ -895,6 +954,7 @@ namespace MinecraftClone.Networking
             WorldManager.HostViewLimit = int.MaxValue;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+            PlayerInventory.NetSynced = false;
         }
     }
 }

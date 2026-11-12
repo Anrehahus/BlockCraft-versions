@@ -4,6 +4,8 @@ using Mirror;
 using MinecraftClone.Core;
 using MinecraftClone.Networking;
 using MinecraftClone.Management;
+using MinecraftClone.Items;
+using System.Collections.Generic;
 
 namespace MinecraftClone.Player
 {
@@ -108,7 +110,29 @@ namespace MinecraftClone.Player
             if (_deadLocal) return;
             _deadLocal = true;
             if (isServer) _deadSync = true;
+            DropInventory();
             Died?.Invoke();
+        }
+
+        private void DropInventory()
+        {
+            if (PlayerBlockInteraction.CreativeInventory) return;
+            var sys = MinecraftClone.Items.ItemDropSystem.Instance;
+            if (sys == null) return;
+
+            List<ItemStack> stacks;
+            bool remote = isServer && !isLocalPlayer && connectionToClient != null;
+            if (remote)
+            {
+                // игрок на удалённом клиенте: его склад хранит сервер
+                var mnm = NetworkManager.singleton as MinecraftNetworkManager;
+                stacks = mnm != null ? mnm.ServerTakeInventory(connectionToClient) : null;
+            }
+            else stacks = PlayerInventory.TakeAll();   // одиночная игра или хост
+
+            if (stacks == null) return;
+            Vector3 pos = transform.position + Vector3.up * 0.9f;
+            foreach (var st in stacks) sys.ServerDropStack(st.Id, st.Count, pos);
         }
 
         // ---------- Возрождение ----------
@@ -131,6 +155,8 @@ namespace MinecraftClone.Player
             Vector3 pos = GetRespawnPosition();
 
             _deadLocal = false;
+            _airTimer = 0f; _drownTimer = 0f;
+
             if (isServer) _deadSync = false;
             _scoreLocal = 0;
             if (isServer) _scoreSync = 0;
@@ -189,6 +215,85 @@ namespace MinecraftClone.Player
             // позицией управляет владелец, поэтому толчок отправляем ему
             if (isServer && !isLocalPlayer && connectionToClient != null) TargetKnockback(connectionToClient, kv);
             else ApplyKnockback(kv);   // хост или одиночная игра
+        }
+
+        // Еда: хост и одиночная игра лечат сами, чистый клиент просит сервер
+        public void RequestEat(int itemId)
+        {
+            float heal = ItemRegistry.FoodHealOf(itemId);
+            if (IsDead || heal <= 0f) return;
+            if (NetworkClient.active && !NetworkServer.active) CmdEat(itemId);
+            else if (RunsLogic) Heal(heal);
+        }
+
+        [Command]
+        private void CmdEat(int itemId)
+        {
+            float heal = ItemRegistry.FoodHealOf(itemId);
+            if (heal <= 0f) return;
+            Heal(heal);
+        }
+
+        // Урон среды (вода, лава): как TakeDamage, но без отбрасывания
+        public void TakeEnvironmentalDamage(float amount)
+        {
+            if (_deadLocal || !RunsLogic || amount <= 0f) return;
+            if (Time.time < _invulnerableUntil) return;
+
+            _invulnerableUntil = Time.time + invulnerableSeconds;
+            _hurtLocal++;
+            if (isServer) _hurtSync = _hurtLocal;
+            SetHealth(_healthLocal - amount);
+        }
+
+        // ---------- Вода и лава (считает только сервер или одиночная игра) ----------
+
+        private const float EyeHeight = 1.62f;
+        private const float DrownDelay = 7f;      // секунд с головой под водой до первого урона
+        private const float DrownDamage = 2f;     // 1 сердце
+        private const float DrownInterval = 1f;   // потом каждую секунду
+        private const float LavaDamage = 4f;      // 2 сердца за каждые 0.5 с
+        private float _airTimer;
+        private float _drownTimer;
+
+        private void Update()
+        {
+            if (!RunsLogic || _deadLocal) return;
+            var wm = WorldManager.Instance;
+            if (wm == null || !wm.IsWorldReady) return;
+
+            Vector3 p = transform.position;   // pivot у ног
+
+            // лава: достаточно, чтобы она была у ног, тела или головы
+            if (BlockAt(wm, p + Vector3.up * 0.1f) == BlockType.Lava ||
+                BlockAt(wm, p + Vector3.up * 0.9f) == BlockType.Lava ||
+                BlockAt(wm, p + Vector3.up * EyeHeight) == BlockType.Lava)
+                TakeEnvironmentalDamage(LavaDamage);
+
+            // вода: считается только с головой
+            if (BlockAt(wm, p + Vector3.up * EyeHeight) == BlockType.Water)
+            {
+                _airTimer += Time.deltaTime;
+                if (_airTimer >= DrownDelay)
+                {
+                    _drownTimer -= Time.deltaTime;
+                    if (_drownTimer <= 0f)
+                    {
+                        _drownTimer = DrownInterval;
+                        TakeEnvironmentalDamage(DrownDamage);
+                    }
+                }
+            }
+            else
+            {
+                _airTimer = Mathf.Max(0f, _airTimer - Time.deltaTime * 4f);   // воздух набирается быстрее, чем тратится
+                _drownTimer = 0f;
+            }
+        }
+
+        private static BlockType BlockAt(WorldManager wm, Vector3 p)
+        {
+            return wm.GetBlockAtWorldPosition(Mathf.FloorToInt(p.x), Mathf.FloorToInt(p.y), Mathf.FloorToInt(p.z));
         }
 
         [TargetRpc]

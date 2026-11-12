@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 using MinecraftClone.Core;
 using MinecraftClone.Management;
+using MinecraftClone.Items;
 using MinecraftClone.Player;
-using MinecraftClone.ScriptableObjects;
 
 namespace MinecraftClone.UI
 {
@@ -22,7 +22,7 @@ namespace MinecraftClone.UI
         private static int Rows => Creative ? 6 : PlayerInventory.MainSize / Cols;
         private static float PanelH => Pad + Rows * Cell + Gap + Cell + Pad;
 
-        private readonly List<BlockType> _blocks = new List<BlockType>();   // палитра креатива
+        private readonly List<int> _palette = new List<int>();   // палитра креатива: номера предметов
         private int _scrollRow;
         private ItemStack _cursor;                                           // стак «в руке» у курсора
         private GUIStyle _style;
@@ -54,7 +54,7 @@ namespace MinecraftClone.UI
 
             if (Creative)
             {
-                int maxScroll = Mathf.Max(0, Mathf.CeilToInt(_blocks.Count / (float)Cols) - Rows);
+                int maxScroll = Mathf.Max(0, Mathf.CeilToInt(_palette.Count / (float)Cols) - Rows);
                 float wheel = Input.GetAxis("Mouse ScrollWheel");
                 if (wheel > 0f) _scrollRow = Mathf.Max(0, _scrollRow - 1);
                 else if (wheel < 0f) _scrollRow = Mathf.Min(maxScroll, _scrollRow + 1);
@@ -63,16 +63,11 @@ namespace MinecraftClone.UI
 
         private void Open()
         {
-            _blocks.Clear();
+            _palette.Clear();
             if (Creative)
             {
-                var db = WorldManager.Instance.BlockDatabase;
-                foreach (BlockType t in System.Enum.GetValues(typeof(BlockType)))
-                {
-                    if (t == BlockType.Air || t == BlockType.Bedrock || t == BlockType.Water || t == BlockType.Lava) continue;
-                    if (t.IsSign() && t != BlockType.SignStanding0) continue;   // в инвентаре одна табличка, а не 12
-                    if (db != null && db.ContainsKey(t)) _blocks.Add(t);
-                }
+                // все предметы из реестра: блоки и остальные
+                foreach (ItemDef def in ItemRegistry.All) _palette.Add(def.Id);
             }
 
             _scrollRow = 0;
@@ -92,7 +87,7 @@ namespace MinecraftClone.UI
         // Стак из руки возвращается на склад (при закрытии инвентаря)
         private void ReturnCursor()
         {
-            if (!_cursor.IsEmpty && !Creative) PlayerInventory.Add(_cursor.Type, _cursor.Count);
+            if (!_cursor.IsEmpty && !Creative) PlayerInventory.Add(_cursor.Id, _cursor.Count);
             _cursor = default;
         }
 
@@ -122,9 +117,9 @@ namespace MinecraftClone.UI
                 PlayerInventory.Set(i, _cursor);               // положить
                 _cursor = default;
             }
-            else if (s.Type == _cursor.Type)
+            else if (s.Id == _cursor.Id)
             {
-                int move = Mathf.Min(_cursor.Count, PlayerInventory.MaxStack - s.Count);   // слить в стак
+                int move = Mathf.Min(_cursor.Count, ItemRegistry.MaxStackOf(s.Id) - s.Count);   // слить в стак
                 s.Count += move;
                 _cursor.Count -= move;
                 PlayerInventory.Set(i, s);
@@ -151,19 +146,19 @@ namespace MinecraftClone.UI
             {
                 if (s.IsEmpty) return;
                 int take = (s.Count + 1) / 2;                  // взять половину
-                _cursor = new ItemStack(s.Type, take);
+                _cursor = new ItemStack(s.Id, take);
                 s.Count -= take;
                 PlayerInventory.Set(i, s);
             }
             else if (s.IsEmpty)
             {
-                PlayerInventory.Set(i, new ItemStack(_cursor.Type, 1));   // положить один
+                PlayerInventory.Set(i, new ItemStack(_cursor.Id, 1));   // положить один
                 _cursor.Count--;
                 if (_cursor.Count <= 0) _cursor = default;
             }
-            else if (s.Type == _cursor.Type)
+            else if (s.Id == _cursor.Id)
             {
-                if (s.Count >= PlayerInventory.MaxStack) return;
+                if (s.Count >= ItemRegistry.MaxStackOf(s.Id)) return;
                 s.Count++;
                 PlayerInventory.Set(i, s);
                 _cursor.Count--;
@@ -225,7 +220,7 @@ namespace MinecraftClone.UI
                     if (Creative)
                     {
                         int idx = (r + _scrollRow) * Cols + c;
-                        if (idx < _blocks.Count) palette = idx;
+                        if (idx < _palette.Count) palette = idx;
                     }
                     else slot = PlayerInventory.HotbarSize + r * Cols + c;
                     return;
@@ -235,9 +230,9 @@ namespace MinecraftClone.UI
                 if (CellRect(x0, y0, s, c, hotbarY).Contains(m)) { slot = c; return; }
         }
 
-        private void DrawStack(PlayerHotbarUI hb, WorldManager wm, Rect cell, float s, BlockType type, int count)
+        private void DrawStack(PlayerHotbarUI hb, WorldManager wm, Rect cell, float s, int itemId, int count)
         {
-            Texture2D icon = hb.GetIcon(type, wm);
+            Texture2D icon = hb.GetItemIcon(itemId, wm);
             Rect ir = new Rect(cell.x + s, cell.y + s, 16f * s, 16f * s);
             if (icon != null) GUI.DrawTexture(ir, icon, ScaleMode.StretchToFill, true);
             PlayerHotbarUI.DrawStackCount(ir, count, s);
@@ -249,7 +244,7 @@ namespace MinecraftClone.UI
 
             var hb = PlayerHotbarUI.Instance;
             var wm = WorldManager.Instance;
-            if (hb == null || hb.Player == null || wm == null || wm.BlockDatabase == null) return;
+            if (hb == null || hb.Player == null || wm == null || !ItemRegistry.Ready) return;
 
             GUI.depth = 5;
             Event e = Event.current;
@@ -264,7 +259,7 @@ namespace MinecraftClone.UI
             {
                 FindHover(e.mousePosition, x0, y0, s, out int slot, out int palette);
 
-                if (palette >= 0 && e.button == 0) _cursor = new ItemStack(_blocks[palette], 1);
+                if (palette >= 0 && e.button == 0) _cursor = new ItemStack(_palette[palette], 1);
                 else if (slot >= 0)
                 {
                     if (e.button == 0) LeftClick(slot);
@@ -292,7 +287,7 @@ namespace MinecraftClone.UI
             Vector2 mouse = e.mousePosition;
             FindHover(mouse, x0, y0, s, out int hoverSlot, out int hoverPalette);
 
-            BlockType hoverType = BlockType.Air;
+            int hoverId = 0;
 
             // верхняя часть: склад (27 слотов) или палитра креатива
             for (int r = 0; r < Rows; r++)
@@ -301,29 +296,29 @@ namespace MinecraftClone.UI
                     Rect cell = CellRect(x0, y0, s, c, Pad + Cell * r);
                     DrawSlot(cell, s);
 
-                    BlockType type = BlockType.Air;
+                    int itemId = 0;
                     int count = 1;
                     bool hovered = false;
 
                     if (Creative)
                     {
                         int idx = (r + _scrollRow) * Cols + c;
-                        if (idx < _blocks.Count) { type = _blocks[idx]; hovered = hoverPalette == idx; }
+                        if (idx < _palette.Count) { itemId = _palette[idx]; hovered = hoverPalette == idx; }
                     }
                     else
                     {
                         int si = PlayerInventory.HotbarSize + r * Cols + c;
                         ItemStack st = PlayerInventory.Get(si);
-                        if (!st.IsEmpty) { type = st.Type; count = st.Count; }
+                        if (!st.IsEmpty) { itemId = st.Id; count = st.Count; }
                         hovered = hoverSlot == si;
                     }
 
-                    if (type != BlockType.Air) DrawStack(hb, wm, cell, s, type, count);
+                    if (itemId > 0) DrawStack(hb, wm, cell, s, itemId, count);
 
                     if (hovered)
                     {
                         Fill(new Rect(cell.x + s, cell.y + s, cell.width - 2 * s, cell.height - 2 * s), new Color(1f, 1f, 1f, 0.35f));
-                        if (type != BlockType.Air) hoverType = type;
+                        if (itemId > 0) hoverId = itemId;
                     }
                 }
 
@@ -334,19 +329,19 @@ namespace MinecraftClone.UI
                 DrawSlot(cell, s);
 
                 ItemStack st = PlayerInventory.Get(c);
-                if (!st.IsEmpty) DrawStack(hb, wm, cell, s, st.Type, st.Count);
+                if (!st.IsEmpty) DrawStack(hb, wm, cell, s, st.Id, st.Count);
 
                 if (hoverSlot == c)
                 {
                     Fill(new Rect(cell.x + s, cell.y + s, cell.width - 2 * s, cell.height - 2 * s), new Color(1f, 1f, 1f, 0.35f));
-                    if (!st.IsEmpty) hoverType = st.Type;
+                    if (!st.IsEmpty) hoverId = st.Id;
                 }
             }
 
             // стак у курсора
             if (!_cursor.IsEmpty)
             {
-                Texture2D icon = hb.GetIcon(_cursor.Type, wm);
+                Texture2D icon = hb.GetItemIcon(_cursor.Id, wm);
                 Rect ir = new Rect(mouse.x - 8f * s, mouse.y - 8f * s, 16f * s, 16f * s);
                 if (icon != null)
                 {
@@ -356,10 +351,10 @@ namespace MinecraftClone.UI
                 }
                 PlayerHotbarUI.DrawStackCount(ir, _cursor.Count, s);
             }
-            else if (hoverType != BlockType.Air && wm.BlockDatabase.TryGetValue(hoverType, out BlockDataSO d) && d != null)
+            else if (hoverId > 0 && ItemRegistry.Get(hoverId) != null)
             {
                 EnsureStyle();
-                string name = string.IsNullOrEmpty(d.BlockName) ? hoverType.ToString() : d.BlockName;
+                string name = ItemRegistry.Get(hoverId).Name;
                 Vector2 size = _style.CalcSize(new GUIContent(name));
                 Rect tip = new Rect(mouse.x + 14f, mouse.y - 8f, size.x + 12f, size.y + 6f);
                 Fill(tip, new Color(0.1f, 0f, 0.1f, 0.9f));

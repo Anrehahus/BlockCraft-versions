@@ -4,6 +4,7 @@ using MinecraftClone.Core;
 using MinecraftClone.Management;
 using MinecraftClone.Player;
 using MinecraftClone.ScriptableObjects;
+using MinecraftClone.Items;
 
 namespace MinecraftClone.UI
 {
@@ -85,7 +86,7 @@ namespace MinecraftClone.UI
             {
                 ItemStack st = PlayerInventory.Get(i);
                 if (st.IsEmpty) continue;
-                Texture2D icon = GetIcon(st.Type, wm);
+                Texture2D icon = GetItemIcon(st.Id, wm);
                 float cx = x0 + (3f + 20f * i + 8f) * k;
                 float cy = y0 + 11f * u;
                 float s = 16f * u;
@@ -122,6 +123,14 @@ namespace MinecraftClone.UI
         }
 
         // ---------- Иконки ----------
+
+        public Texture2D GetItemIcon(int itemId, WorldManager wm)
+        {
+            var def = ItemRegistry.Get(itemId);
+            if (def == null) return null;
+            if (def.Texture != null) return def.Texture;
+            return GetIcon(def.Block, wm);
+        }
 
         public Texture2D GetIcon(BlockType type, WorldManager wm)
         {

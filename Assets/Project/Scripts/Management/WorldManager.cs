@@ -223,6 +223,11 @@ namespace MinecraftClone.Management
                 new GameObject("[ItemDrops]").AddComponent<ItemDropSystem>();
             }
 
+            if (FindFirstObjectByType<InventoryNetSync>() == null)
+            {
+                new GameObject("[InventorySync]").AddComponent<InventoryNetSync>();
+            }
+
             if (FindFirstObjectByType<MusicPlayer>() == null)
             {
                 new GameObject("[Music]").AddComponent<MusicPlayer>();
@@ -256,6 +261,7 @@ namespace MinecraftClone.Management
             }
 
             InitializeBlockDatabase();
+            ItemRegistry.Build(BlockDatabase);
             BuildTextureAtlas();
         }
 
@@ -564,6 +570,8 @@ namespace MinecraftClone.Management
 
             if (NetworkClient.active && !NetworkServer.active) return; // подготовку области запустит NetworkPlayer
 
+            PlayerBlockInteraction.ResetHotbar();
+
             Vector2Int centerChunk = Vector2Int.zero;
 
             lastPlayerChunkPos = centerChunk;
@@ -584,6 +592,10 @@ namespace MinecraftClone.Management
             if (blocksData == null) return;
 
             ClearWorld();
+
+            PlayerBlockInteraction.ResetHotbar();
+            if (playerData != null && !PlayerBlockInteraction.CreativeInventory)
+                PlayerInventory.LoadFromSave(playerData.invKeys, playerData.invTypes, playerData.invCounts);
 
             worldConfig.Seed = blocksData.Seed;
 
@@ -1164,6 +1176,8 @@ namespace MinecraftClone.Management
                 if (block.BottomTexture != null) allTextures.Add(block.BottomTexture);
                 if (block.SideTexture != null) allTextures.Add(block.SideTexture);
             }
+
+            foreach (var tex in ItemRegistry.Textures) allTextures.Add(tex);
 
             if (allTextures.Count > 0)
             {

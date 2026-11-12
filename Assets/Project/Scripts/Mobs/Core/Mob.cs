@@ -4,6 +4,7 @@ using Mirror;
 using MinecraftClone.Management;
 using MinecraftClone.Networking;
 using MinecraftClone.Player;
+using MinecraftClone.Items;
 
 namespace MinecraftClone.Mobs
 {
@@ -359,6 +360,24 @@ namespace MinecraftClone.Mobs
                 Target = null;
                 ServerSetAttacking(false);
                 ServerSetChargeDir(-1);
+
+                if (_health <= 0f)
+                {
+                    if (attacker != null) attacker.AddKill(Data.Id);
+
+                    _dyingLocal = true;
+                    if (isServer) _dyingSync = true;
+                    _dyingTimer = DeathDuration;
+                    Target = null;
+                    ServerSetAttacking(false);
+                    ServerSetChargeDir(-1);
+
+                    // добыча: свинья роняет сырую свинину
+                    if (Data.Id == "pig" && ItemDropSystem.Instance != null)
+                        ItemDropSystem.Instance.ServerDropStack(
+                            ItemRegistry.RawPork, Random.Range(1, 4),
+                            transform.position + Vector3.up * 0.5f);
+                }
             }
         }
     }
