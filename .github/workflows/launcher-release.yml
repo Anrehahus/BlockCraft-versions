@@ -1,0 +1,54 @@
+# Сборка установщика лаунчера и публикация в релиз «Launcher» (оттуда лаунчеры берут обновления).
+#
+# Запуск:
+#   • вручную: GitHub → Actions → «Release launcher» → Run workflow (версия берётся из Launcher/package.json);
+#   • или тегом:  git tag launcher-v2.0.1 && git push origin launcher-v2.0.1  (версия берётся из тега).
+name: Release launcher
+
+on:
+  push:
+    tags: ['launcher-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Launcher
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: Launcher   # проект Unity (80+ МБ) для сборки лаунчера не нужен
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Версия из тега
+        if: startsWith(github.ref_name, 'launcher-v')
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#launcher-v}" --no-git-tag-version --allow-same-version
+
+      - run: npm install
+
+      - run: npx electron-builder --win --publish never
+
+      - name: Публикация в релиз Launcher
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          gh release view Launcher --repo "$REPO" >/dev/null 2>&1 || \
+            gh release create Launcher --repo "$REPO" --title "$VERSION" --latest=false \
+              --notes "Лаунчер BlockCraft. Скачайте установщик BlockCraft-Launcher-Setup-$VERSION.exe"
+          gh release upload Launcher --repo "$REPO" --clobber \
+            "dist/BlockCraft-Launcher-Setup-$VERSION.exe" \
+            "dist/BlockCraft-Launcher-Setup-$VERSION.exe.blockmap" \
+            dist/latest.yml
+          gh release edit Launcher --repo "$REPO" --title "$VERSION" --latest=false
