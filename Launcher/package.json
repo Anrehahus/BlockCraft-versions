@@ -1,7 +1,7 @@
 {
   "name": "blockcraft-launcher",
   "productName": "BlockCraft Launcher",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Лаунчер игры BlockCraft",
   "main": "main.js",
   "author": "Anrehahus",

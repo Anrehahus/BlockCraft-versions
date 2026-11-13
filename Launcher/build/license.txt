@@ -1,4 +1,4 @@
-BlockCraft Launcher
+﻿BlockCraft Launcher
 
 Эта программа устанавливает и запускает игру BlockCraft и обновляет её.
 
