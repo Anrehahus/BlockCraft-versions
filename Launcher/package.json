@@ -1,0 +1,87 @@
+{
+  "name": "blockcraft-launcher",
+  "productName": "BlockCraft Launcher",
+  "version": "2.0.0",
+  "description": "Лаунчер игры BlockCraft",
+  "main": "main.js",
+  "author": "Anrehahus",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never",
+    "dist:linux": "electron-builder --linux --publish never",
+    "dist:mac": "electron-builder --mac --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9",
+    "extract-zip": "^2.0.1"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.anrehahus.blockcraft.launcher",
+    "productName": "BlockCraft Launcher",
+    "artifactName": "BlockCraft-Launcher-Setup-${version}.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "launcher.config.json",
+      "build/icon.png",
+      "renderer/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "legalTrademarks": "BlockCraft"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "BlockCraft Launcher",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "language": "1049",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "installerHeader": "build/installerHeader.bmp",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "uninstallDisplayName": "BlockCraft Launcher",
+      "license": "build/license.txt"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.games"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Game"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://github.com/Anrehahus/BlockCraft-versions/releases/download/Launcher"
+      }
+    ]
+  }
+}

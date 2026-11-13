@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Launcher</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="bg"></canvas>
+  <canvas id="clouds"></canvas>
+  <div class="shade"></div>
+
+  <div class="app">
+    <header class="titlebar">
+      <div class="tb-title" id="tb-title">Launcher</div>
+      <div class="tb-btns">
+        <button class="tb-btn" id="tb-min" title="Свернуть"></button>
+        <button class="tb-btn" id="tb-max" title="Развернуть"></button>
+        <button class="tb-btn close" id="tb-close" title="Закрыть"></button>
+      </div>
+    </header>
+
+    <aside class="sidebar">
+      <div class="brand">
+        <canvas id="logo-small" width="96" height="96"></canvas>
+        <div>
+          <div class="brand-name" id="brand-name"></div>
+          <div class="brand-sub">LAUNCHER</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-page="play"><span class="ico" data-icon="play"></span><span>Играть</span></button>
+        <button class="nav-item" data-page="versions"><span class="ico" data-icon="box"></span><span>Версии</span></button>
+        <button class="nav-item" data-page="worlds"><span class="ico" data-icon="globe"></span><span>Миры</span></button>
+        <button class="nav-item" data-page="skins"><span class="ico" data-icon="shirt"></span><span>Скины</span></button>
+        <button class="nav-item" data-page="settings"><span class="ico" data-icon="gear"></span><span>Настройки</span></button>
+      </nav>
+
+      <div class="profile">
+        <canvas id="avatar" width="40" height="40"></canvas>
+        <div class="profile-text">
+          <div class="p-name" id="p-name">Player</div>
+          <div class="p-sub" id="p-sub"></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div id="banner"></div>
+      <section class="page active" id="page-play"></section>
+      <section class="page" id="page-versions"></section>
+      <section class="page" id="page-worlds"></section>
+      <section class="page" id="page-skins"></section>
+      <section class="page" id="page-settings"></section>
+    </main>
+  </div>
+
+  <div class="drop-overlay" id="drop-overlay"><div>Отпустите PNG-файл, чтобы добавить скин</div></div>
+  <div class="toast-wrap" id="toasts"></div>
+
+  <script src="mock.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

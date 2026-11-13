@@ -1,7 +1,4 @@
-bin/
-obj/
-.vs/
-*.user
-publish/
-*.zip
-*.exe
+node_modules/
+dist/
+.node/
+*.log

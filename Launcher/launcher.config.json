@@ -1,0 +1,14 @@
+{
+  "gameName": "BlockCraft",
+  "repo": {
+    "owner": "Anrehahus",
+    "name": "BlockCraft-versions"
+  },
+  "gameTagPrefix": "",
+  "launcherTag": "Launcher",
+  "gameExecutable": {
+    "win32": "BlockCraft.exe",
+    "linux": "BlockCraft.x86_64",
+    "darwin": "BlockCraft.app"
+  }
+}
