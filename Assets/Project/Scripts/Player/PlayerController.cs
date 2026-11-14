@@ -79,6 +79,7 @@ namespace MinecraftClone.Player
                 controller.height = 1.8f;
                 controller.center = new Vector3(0f, 0.9f, 0f);  // pivot игрока у ног
                 controller.skinWidth = 0.03f;                   // маленький «зазор», чтобы не было ложного отступа от стен
+                controller.stepOffset = 0.1f;
             }
         }
 
@@ -161,7 +162,12 @@ namespace MinecraftClone.Player
             return true;
         }
 
-        private bool IsSolidAt(Vector3 p) => IsSolidBlockType(GetBlockTypeAt(p));
+        private bool IsSolidAt(Vector3 p)
+        {
+            BlockType t = GetBlockTypeAt(p);
+            if (t == BlockType.StoneSlab && p.y - Mathf.Floor(p.y) >= 0.5f) return false;   // верхняя половина клетки пуста
+            return IsSolidBlockType(t);
+        }
 
         // есть ли место для игрока (2 блока высотой) с ногами в точке feet
         private bool HasClearance(Vector3 feet)

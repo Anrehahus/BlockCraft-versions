@@ -1387,7 +1387,8 @@ namespace MinecraftClone.Management
 
             if (newType != BlockType.Air)
             {
-                if (currentBlock != BlockType.Air && currentBlock != BlockType.Water && currentBlock != BlockType.Lava)
+                bool slabMerge = newType == BlockType.StoneSlabDouble && currentBlock == BlockType.StoneSlab;
+                if (!slabMerge && currentBlock != BlockType.Air && currentBlock != BlockType.Water && currentBlock != BlockType.Lava)
                     return false;
             }
 

@@ -47,6 +47,12 @@ namespace MinecraftClone.Core
         SignStanding0, SignStanding1, SignStanding2, SignStanding3,
         SignStanding4, SignStanding5, SignStanding6, SignStanding7,   // стоящая, поворот i*45°
         SignWallPosX, SignWallNegX, SignWallPosZ, SignWallNegZ,       // на стене, смотрит в сторону оси
+        StoneSlab, StoneSlabDouble,
+        IronBlock,
+        Tnt,
+        MossyCobblestone,
+        Bricks,
+        Bookshelf,
     }
 
     public static class BlockTypeUtil

@@ -72,7 +72,7 @@ namespace MinecraftClone.Items
 
             Vector3 pos = new Vector3(cell.x + 0.5f, cell.y + 0.5f, cell.z + 0.5f);
             Vector3 vel = new Vector3(Random.Range(-1.2f, 1.2f), Random.Range(3f, 4.5f), Random.Range(-1.2f, 1.2f));
-            ServerSpawn(itemId, 1, pos, vel);
+            ServerSpawn(itemId, broken == BlockType.StoneSlabDouble ? 2 : 1, pos, vel);
         }
 
         // Целый стак (смерть игрока)
@@ -321,6 +321,19 @@ namespace MinecraftClone.Items
                 AddFace(v, t, uv, col, o + new Vector3(0, 0, 0), o + new Vector3(0, 1, 0), o + new Vector3(1, 1, 0), o + new Vector3(1, 0, 0), side, FaceShade[3], false);
                 AddFace(v, t, uv, col, o + new Vector3(1, 0, 0), o + new Vector3(1, 1, 0), o + new Vector3(1, 1, 1), o + new Vector3(1, 0, 1), side, FaceShade[4], false);
                 AddFace(v, t, uv, col, o + new Vector3(0, 0, 1), o + new Vector3(0, 1, 1), o + new Vector3(0, 1, 0), o + new Vector3(0, 0, 0), side, FaceShade[5], false);
+
+                if (def.Block == BlockType.StoneSlab)
+                {
+                    for (int k = 0; k < v.Count; k++)
+                    {
+                        // бока (грани начиная с 3-й): берём нижнюю половину текстуры, чтобы она не сплющивалась
+                        if (k >= 8 && v[k].y > 0f)
+                            uv[k] = new Vector2(uv[k].x, side.yMin + side.height * 0.5f);
+
+                        // сплющиваем куб вдвое по высоте, остаёмся по центру
+                        v[k] = new Vector3(v[k].x, (v[k].y + 0.5f) * 0.5f - 0.25f, v[k].z);
+                    }
+                }
             }
 
             var mesh = new Mesh { name = "Item_" + def.Key };

@@ -333,6 +333,13 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 3ff45a5fe4d8ba345b20044ba9ed3dcc, type: 2}
   - {fileID: 11400000, guid: 15933592f24518a40babc8338f3febf1, type: 2}
   - {fileID: 11400000, guid: 8b81e43a2f6d76e46804cedbe0d7516b, type: 2}
+  - {fileID: 11400000, guid: 2505cdffccd557a43b2ce7042c1ac77e, type: 2}
+  - {fileID: 11400000, guid: cde2aa097995fbb43bbc1bc90d3d6248, type: 2}
+  - {fileID: 11400000, guid: 4b3a4db2cee8df047b56c099dc176f5e, type: 2}
+  - {fileID: 11400000, guid: 5629e29c03999a344a1c20666670f490, type: 2}
+  - {fileID: 11400000, guid: 0c6b8836257494a4c9029c8cd29122cd, type: 2}
+  - {fileID: 11400000, guid: a6eebf7a7042d524c95d9ada3443103c, type: 2}
+  - {fileID: 11400000, guid: 9afa236e5d5837e439c5204613aa6429, type: 2}
   waterAnimationStrip: {fileID: 2800000, guid: e2dc62552126b94448c061a9529dbaa7, type: 3}
   lavaAnimationStrip: {fileID: 2800000, guid: 41a055a500169704cad710f015e974cd, type: 3}
   collisionRadiusChunks: 3
@@ -363,7 +370,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f40f8f3a7fe68ce4f9665fdec47abe24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.UI.DebugInfoUI
-  gameVersion: 0.0.24a_SURVIVAL_TEST
+  gameVersion: 0.0.25a_SURVIVAL_TEST
   customFont: {fileID: 12800000, guid: 137924745e2665348887e144f9cefb97, type: 3}
   fontSize: 24
   textColor: {r: 1, g: 1, b: 1, a: 1}

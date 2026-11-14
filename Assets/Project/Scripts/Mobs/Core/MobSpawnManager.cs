@@ -25,7 +25,7 @@ namespace MinecraftClone.Mobs
         [SerializeField] private int maxPassivePerPlayer = 8;
 
         [Header("Для проверки")]
-        [SerializeField] private string testMobId = "creeper";
+        [SerializeField] private string testMobId = "pig";
 
         private float _timer;
         // true на сервере и в одиночной игре без Mirror, false у чистого клиента

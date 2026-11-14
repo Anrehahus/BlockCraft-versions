@@ -249,6 +249,14 @@ namespace MinecraftClone.Player
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
             if (!VoxelRaycast(ray, reachDistance, true, out Vector3Int hit, out Vector3Int normal)) return;
 
+            if (def.Block == BlockType.StoneSlab && normal.y > 0
+                && _worldManager.GetBlockAtWorldPosition(hit.x, hit.y, hit.z) == BlockType.StoneSlab)
+            {
+                if (NetworkPlayer.IsBlockOverlappingAnyPlayer(hit)) return;
+                if (_worldManager.SetBlockAtWorldPosition(hit.x, hit.y, hit.z, BlockType.StoneSlabDouble)) ConsumeSelected();
+                return;
+            }
+
             Vector3Int placePos = hit + normal;
             BlockType target = _worldManager.GetBlockAtWorldPosition(placePos.x, placePos.y, placePos.z);
             if (target == BlockType.Air || target == BlockType.Water || target == BlockType.Lava)

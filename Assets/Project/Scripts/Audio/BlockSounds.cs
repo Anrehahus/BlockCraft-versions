@@ -37,6 +37,7 @@ namespace MinecraftClone.Audio
                 case BlockType.GreenWool:
                 case BlockType.RedWool:
                 case BlockType.BlackWool:
+                case BlockType.Tnt:
                     return SoundType.Grass;
 
                 case BlockType.Gravel:
@@ -49,14 +50,20 @@ namespace MinecraftClone.Audio
                 case BlockType.GoldOre:
                 case BlockType.CoalOre:
                 case BlockType.Bedrock:
+                case BlockType.StoneSlab:
+                case BlockType.StoneSlabDouble:
+                case BlockType.MossyCobblestone:
+                case BlockType.Bricks:
                     return SoundType.Stone;
 
                 case BlockType.Glass:
                 case BlockType.GoldBlock:
+                case BlockType.IronBlock:
                     return SoundType.HighStone;
 
                 case BlockType.OakPlanks:
                 case BlockType.OakLog:
+                case BlockType.Bookshelf:
                     return SoundType.Wood;
 
                 default: // воздух, вода, лава, саженец, цветы, грибы: без звука

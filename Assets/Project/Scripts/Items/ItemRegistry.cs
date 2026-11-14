@@ -51,6 +51,8 @@ namespace MinecraftClone.Items
                     if (d == null || t == BlockType.Air || t == BlockType.Bedrock || t == BlockType.Water || t == BlockType.Lava) continue;
                     if (t.IsSign() && t != BlockType.SignStanding0) continue;   // табличка одна, а не 12
 
+                    if (t == BlockType.StoneSlabDouble) continue;
+
                     Add(new ItemDef
                     {
                         Id = (int)t,
@@ -113,6 +115,7 @@ namespace MinecraftClone.Items
         // Что выпадает из сломанного блока (0 = ничего)
         public static int IdForBlock(BlockType broken)
         {
+            if (broken == BlockType.StoneSlabDouble) broken = BlockType.StoneSlab;
             if (broken.IsSign()) broken = BlockType.SignStanding0;
             return _byBlock.TryGetValue(broken, out ItemDef d) ? d.Id : 0;
         }

@@ -230,7 +230,8 @@ namespace MinecraftClone.Rendering
                 }
 
                 bool drawFace = ShouldRenderFace(type, neighborType)
-                || (isFluid && i == 0 && fluidTop < 1f && !IsFluidType(neighborType));    // поверхность под блоком над водой
+                    || (isFluid && i == 0 && fluidTop < 1f && !IsFluidType(neighborType))
+                    || (type == BlockType.StoneSlab && (i == 0 || (i == 1 && neighborType == BlockType.StoneSlab)));
 
                 if (drawFace)
                 {
@@ -271,7 +272,8 @@ namespace MinecraftClone.Rendering
 
             if (neighbor == BlockType.Glass) return current != BlockType.Glass;
 
-            return seeThrough || neighbor == BlockType.Water || neighbor == BlockType.Lava;
+            return seeThrough || neighbor == BlockType.Water || neighbor == BlockType.Lava
+                || (neighbor == BlockType.StoneSlab && current != BlockType.StoneSlab);
         }
 
         private void AddFaceData(
@@ -297,6 +299,8 @@ namespace MinecraftClone.Rendering
                     if (fv.y > 0.5f) fv.y = topY;               // верх опускается до 0.8
                     else if (faceIndex >= 2) fv.y = bottomY;      // у боковой грани-«заплатки» низ поднят до уровня соседа
                 }
+                else if (type == BlockType.StoneSlab && fv.y > 0.5f) fv.y = 0.5f;
+
                 Vertices.Add(blockPos + fv);
                 Normals.Add(faceNormal);
                 Colors.Add(faceColor);
@@ -341,6 +345,9 @@ namespace MinecraftClone.Rendering
             }
 
             Rect uvRect = ChunkUV.Get(type, faceIndex);
+            if (type == BlockType.StoneSlab && faceIndex >= 2)    // бока: нижняя половина текстуры
+                uvRect = new Rect(uvRect.x, uvRect.y, uvRect.width, uvRect.height * 0.5f);
+
             Uvs.Add(new Vector2(uvRect.xMin, uvRect.yMin));
             Uvs.Add(new Vector2(uvRect.xMin, uvRect.yMax));
             Uvs.Add(new Vector2(uvRect.xMax, uvRect.yMax));

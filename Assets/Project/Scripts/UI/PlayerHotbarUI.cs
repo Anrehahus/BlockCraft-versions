@@ -27,7 +27,7 @@ namespace MinecraftClone.UI
         private void Awake()
         {
             Instance = this;
-            gameObject.AddComponent<MinecraftClone.UI.PlayerHealthUI>();   // сердечки над хотбаром   // сердечки над хотбаром
+            gameObject.AddComponent<MinecraftClone.UI.PlayerHealthUI>();   // сердечки над хотбаром
             gameObject.AddComponent<MinecraftClone.UI.DeathScreenUI>();
 
             _bar = Resources.Load<Texture2D>("UI/hotbar");
@@ -73,7 +73,7 @@ namespace MinecraftClone.UI
 
             if (_bar == null || _sel == null) return; // нет текстур в Resources/UI
 
-            float u = Scale;                                // один "пиксель" оригинала на экране
+            float u = Scale;                        // один "пиксель" оригинала на экране
             float barH = 22f * u;
             float barW = barH * _bar.width / _bar.height;      // ширина берётся из пропорций вашей текстуры
             float k = barW / 182f;                           // горизонтальный шаг
@@ -162,7 +162,7 @@ namespace MinecraftClone.UI
 
             if (type.IsSign()) DrawSign(px, side);
             else if (type.IsPlant()) DrawFlat(px, top);
-            else DrawCube(px, top, side);
+            else DrawCube(px, top, side, type == BlockType.StoneSlab ? 0.5f : 1f);
 
             Texture2D tex = new Texture2D(IconSize, IconSize, TextureFormat.RGBA32, false);
             tex.filterMode = FilterMode.Bilinear;
@@ -227,13 +227,14 @@ namespace MinecraftClone.UI
                 }
         }
 
-        private static void DrawCube(Color32[] px, Texture2D top, Texture2D side)
+        private static void DrawCube(Color32[] px, Texture2D top, Texture2D side, float hs = 1f)
         {
             Color32[] tp = top.GetPixels32();
             Color32[] sp = side.GetPixels32();
 
-            const float H = 1.059f;  // высота куба при ширине 1: вертикальное ребро равно ребру ромба
-            const float k = 0.82f;    // размер куба относительно ячейки
+            const float H = 1.059f;
+            const float k = 0.82f;
+            float dT = (1f - hs) * 0.559f;   // на сколько опускается верх при половинной высоте
 
             for (int y = 0; y < IconSize; y++)
             {
@@ -244,12 +245,12 @@ namespace MinecraftClone.UI
                     float u, v;
                     Color32 c;
 
-                    if (Hit(cx, cy, 0f, H - 0.25f, 0.5f, 0.25f, 0.5f, -0.25f, out u, out v))
-                        c = Sample(tp, top.width, top.height, u, v, 1.0f);       // верх
-                    else if (Hit(cx, cy, 0f, H - 0.25f, 0.5f, -0.25f, 0f, -0.559f, out u, out v))
-                        c = Sample(sp, side.width, side.height, u, v, 0.8f);      // левая грань
-                    else if (Hit(cx, cy, 0.5f, H - 0.5f, 0.5f, 0.25f, 0f, -0.559f, out u, out v))
-                        c = Sample(sp, side.width, side.height, u, v, 0.6f);      // правая грань
+                    if (Hit(cx, cy, 0f, H - 0.25f - dT, 0.5f, 0.25f, 0.5f, -0.25f, out u, out v))
+                        c = Sample(tp, top.width, top.height, u, v, 1.0f);
+                    else if (Hit(cx, cy, 0f, H - 0.25f - dT, 0.5f, -0.25f, 0f, -0.559f * hs, out u, out v))
+                        c = Sample(sp, side.width, side.height, u, 1f - hs + hs * v, 0.8f);
+                    else if (Hit(cx, cy, 0.5f, H - 0.5f - dT, 0.5f, 0.25f, 0f, -0.559f * hs, out u, out v))
+                        c = Sample(sp, side.width, side.height, u, 1f - hs + hs * v, 0.6f);
                     else continue;
 
                     if (c.a >= 128) px[y * IconSize + x] = c;
@@ -259,7 +260,7 @@ namespace MinecraftClone.UI
 
         // точка P = A + u*e1 + v*e2, возвращает u,v и попадание в параллелограмм
         private static bool Hit(float px, float py, float ax, float ay, float e1x, float e1y, float e2x, float e2y,
-                                out float u, out float v)
+                              out float u, out float v)
         {
             float dx = px - ax, dy = py - ay;
             float det = e1x * e2y - e1y * e2x;

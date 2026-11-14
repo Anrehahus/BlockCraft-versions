@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -154,7 +155,7 @@ namespace MinecraftClone.Networking
         public override void Start()
         {
             base.Start();
-            _worldManager = WorldManager.Instance != null ? WorldManager.Instance : Object.FindFirstObjectByType<WorldManager>();
+            _worldManager = WorldManager.Instance != null ? WorldManager.Instance : UnityEngine.Object.FindFirstObjectByType<WorldManager>();
         }
 
         // --- ЛОГИКА СЕРВЕРА ---
@@ -299,7 +300,7 @@ namespace MinecraftClone.Networking
                 return;
             }
 
-            if (_worldManager == null) _worldManager = WorldManager.Instance != null ? WorldManager.Instance : Object.FindFirstObjectByType<WorldManager>();
+            if (_worldManager == null) _worldManager = WorldManager.Instance != null ? WorldManager.Instance : UnityEngine.Object.FindFirstObjectByType<WorldManager>();
 
             // Если это локальный хост (игрок уже существует на сервере)
             if (conn.identity != null)
@@ -677,7 +678,7 @@ namespace MinecraftClone.Networking
                 {
                     Reply(conn, "Только для хоста: /kick <ник> [причина]    /ban <ник> [причина]    /banip <ник или ip>");
                     Reply(conn, "Только для хоста: /unban <ник>    /unbanip <ip>    /banlist");
-                    Reply(conn, "Только для хоста: /setspawn    /tp <цель>    /tp <ник> <цель>");
+                    Reply(conn, "Только для хоста: /give <блок> [кол-во]    /setspawn    /tp <цель>    /tp <ник> <цель>");
                     Reply(conn, "Только для хоста: /tp <x> <y> <z>    /tp <ник> <x> <y> <z>    (~ = относительные координаты)");
                 }
                 return;
@@ -777,6 +778,28 @@ namespace MinecraftClone.Networking
                         return;
                     }
 
+                case "give":
+                    {
+                        if (arg1 == "") { Reply(conn, "Использование: /give <блок> [кол-во]. Пример: /give StoneSlab 64", 2); return; }
+
+                        MinecraftClone.Items.ItemDef found = null;
+                        foreach (var d in MinecraftClone.Items.ItemRegistry.All)
+                            if (string.Equals(d.Key, arg1, StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(d.Key, "block/" + arg1, StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(d.Name, arg1, StringComparison.OrdinalIgnoreCase))
+                            { found = d; break; }
+
+                        if (found == null) { Reply(conn, $"Предмет «{arg1}» не найден", 2); return; }
+
+                        int count = 1;
+                        if (rest != "") int.TryParse(rest, out count);
+                        count = Mathf.Clamp(count, 1, 999);
+
+                        int left = MinecraftClone.Player.PlayerInventory.Add(found.Id, count);
+                        Reply(conn, $"Выдано: {found.Name} x{count - left}");
+                        return;
+                    }
+
                 case "setspawn":
                     HandleSetSpawn(conn);
                     return;
@@ -868,7 +891,7 @@ namespace MinecraftClone.Networking
         {
             if (NetworkServer.active) return; // Хост уже сгенерировал свой мир
 
-            if (_worldManager == null) _worldManager = WorldManager.Instance != null ? WorldManager.Instance : Object.FindFirstObjectByType<WorldManager>();
+            if (_worldManager == null) _worldManager = WorldManager.Instance != null ? WorldManager.Instance : UnityEngine.Object.FindFirstObjectByType<WorldManager>();
             if (_worldManager != null)
             {
                 _worldManager.GenerateNewWorld(msg.Seed);
