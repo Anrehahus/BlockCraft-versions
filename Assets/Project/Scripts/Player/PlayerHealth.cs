@@ -187,11 +187,11 @@ namespace MinecraftClone.Player
         {
             switch (mobId)
             {
-                case "zombie": return 100;
-                case "skeleton": return 100;
-                case "creeper": return 250;
+                case "zombie": return 80;
+                case "skeleton": return 120;
+                case "creeper": return 200;
                 case "pig": return 10;
-                case "spider": return 10;
+                case "spider": return 105;
                 default: return 0;
             }
         }
