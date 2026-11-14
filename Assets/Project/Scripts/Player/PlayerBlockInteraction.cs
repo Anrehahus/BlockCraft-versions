@@ -56,6 +56,7 @@ namespace MinecraftClone.Player
         private PauseMenuUI _pauseMenu;
         private NetworkPlayer _netPlayer;
         private PlayerHealth _health;
+        private bool _lmbFresh;   // true, пока не использован текущий клик ЛКМ
 
         private float _actionTimer = 0f; // Таймер для зажатия клавиш
 
@@ -197,6 +198,8 @@ namespace MinecraftClone.Player
 
         private void HandleInput()
         {
+            if (Input.GetMouseButtonDown(0)) _lmbFresh = true;
+            if (!Input.GetMouseButton(0)) _lmbFresh = false;
             // Мгновенно сбрасываем таймер при отпускании кнопок, чтобы одиночные клики не задерживались
             if (Input.GetMouseButtonUp(0) || Input.GetMouseButtonUp(1))
             {
@@ -268,6 +271,16 @@ namespace MinecraftClone.Player
             BlockType brokenBlockType = _worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z);
             if (brokenBlockType == BlockType.Air) return;
 
+            if (brokenBlockType == BlockType.Tnt)
+            {
+                if (_lmbFresh)
+                {
+                    _lmbFresh = false;
+                    MinecraftClone.Physics.TntSystem.RequestIgnite(blockPos);
+                }
+                return;   // ТНТ не ломается как обычный блок
+            }
+
             if (_worldManager.BlockDatabase != null && _worldManager.BlockDatabase.TryGetValue(brokenBlockType, out BlockDataSO blockData))
             {
                 if (!blockData.IsBreakable) return;
@@ -332,6 +345,18 @@ namespace MinecraftClone.Player
                 if (c.transform.IsChildOf(transform)) continue;   // свои коллайдеры
 
                 Mob mob = c.GetComponentInParent<Mob>();
+
+                var tnt = c.GetComponentInParent<MinecraftClone.Physics.PrimedTntEntity>();
+                if (tnt != null)
+                {
+                    if (_lmbFresh)
+                    {
+                        _lmbFresh = false;
+                        MinecraftClone.Physics.TntSystem.RequestDefuse(tnt.Id);
+                    }
+                    return true;
+                }
+
                 if (mob != null)
                 {
                     if (_netPlayer != null) _netPlayer.AttackMob(mob);
