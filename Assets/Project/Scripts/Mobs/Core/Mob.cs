@@ -17,8 +17,8 @@ namespace MinecraftClone.Mobs
 
         [SyncVar] private string _mobId;
         [SyncVar] private int _chargeDirSync;        // что видят клиенты: +1 заряжается, -1 (или 0) разряжается
-        private int _chargeDirLocal;                 // что знает тот, кто управляет мобом (сервер или одиночная игра)
-        private bool _offline;                      // одиночная игра без Mirror: моб сам себе сервер
+        private int _chargeDirLocal;                  // что знает тот, кто управляет мобом (сервер или одиночная игра)
+        private bool _offline;                        // одиночная игра без Mirror: моб сам себе сервер
 
         [SyncVar] private bool _attackingSync;      // для клиентов: моб сейчас атакует (анимация рук)
         private bool _attackingLocal;
@@ -69,6 +69,10 @@ namespace MinecraftClone.Mobs
         private const float DeathDuration = 1f;      // сколько тело лежит до исчезновения
 
         public bool IsDying => RunsLogic ? _dyingLocal : _dyingSync;
+
+        [SyncVar] private bool _shearedSync;
+        private bool _shearedLocal;
+        public bool IsSheared => RunsLogic ? _shearedLocal : _shearedSync;
 
         // ---------- Кэш игроков ----------
 
@@ -355,6 +359,18 @@ namespace MinecraftClone.Mobs
             _health -= amount;
             _hurtCountLocal++;
             if (isServer) _hurtCountSync = _hurtCountLocal;
+
+            // овца: при первом уроне роняет 1-3 белой шерсти и лысеет
+            if (Data.Id == "sheep" && !_shearedLocal)
+            {
+                _shearedLocal = true;
+                if (isServer) _shearedSync = true;
+
+                int wool = ItemRegistry.IdForBlock(MinecraftClone.Core.BlockType.WhiteWool);
+                if (wool != 0 && ItemDropSystem.Instance != null)
+                    ItemDropSystem.Instance.ServerDropStack(wool, Random.Range(1, 4),
+                        transform.position + Vector3.up * 0.5f);
+            }
 
             // толчок от атакующего и небольшой прыжок
             Vector3 dir = transform.position - sourcePos;

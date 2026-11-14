@@ -25,6 +25,8 @@ namespace MinecraftClone.Mobs
         [Tooltip("При прицеливании (IsAttacking) принимать позу attackPitch. Руки скелета")] public bool poseWhenAttacking;
         [Tooltip("Поза покоя: наклон по X в градусах (-90 = рука вытянута вперёд)")] public float restPitch;
         [Tooltip("Для паучьих ног: 0 = задняя пара ... 3 = передняя")] public int legIndex;
+        [Tooltip("0 = тело, 1 = подшёрсток (undercoat), 2 = шерсть (скрывается после урона)")] public int layer;
+        [Tooltip("Раздутие коробки в пикселях (для слоёв шерсти)")] public float inflate;
     }
 
     [Serializable]
@@ -67,6 +69,8 @@ namespace MinecraftClone.Mobs
 
         [Header("Модель")]
         public Texture2D Texture;
+        public Texture2D UndercoatTexture;
+        public Texture2D WoolTexture;
         public float PixelSize = 1f / 16f;
         public List<ModelPartDef> ModelParts = new List<ModelPartDef>();
 
@@ -152,6 +156,46 @@ namespace MinecraftClone.Mobs
             UnityEditor.EditorUtility.SetDirty(this);
         }
 
+        [ContextMenu("Preset: Sheep")]
+        private void PresetSheep()
+        {
+            Id = "sheep"; DisplayName = "Sheep";
+            Temperament = Temperament.Passive; MaxHealth = 8f;
+            Width = 0.9f; Height = 1.3f; JumpHeight = 1.25f;
+            Targeting = TargetMode.None; FollowRange = 16f;
+            ChargeTime = 0f; ChargeEffect = ChargeEffect.None;
+            PixelSize = 1f / 16f;
+            Spawn = new SpawnRule { onSurface = true, underground = false, weight = 100, groupMin = 2, groupMax = 4, onlyOnGrass = true };
+
+            var baseParts = new List<ModelPartDef>
+            {
+                Part("Head", 0, 18, 8,   0, 0,   6, 6, 8,   -3, -2, -2, PartAnim.None),
+                Part("Body", 0, 19, -2,  28, 8,  8, 16, 6,  -4, -6, 1,  PartAnim.SwingA, 0f, false, false, 90f),
+                Part("LegRearLeft",    -3, 12, -7,  0, 16, 4, 12, 4,  -2, -12, -2, PartAnim.SwingA),
+                Part("LegRearRight",    3, 12, -7,  0, 16, 4, 12, 4,  -2, -12, -2, PartAnim.SwingB),
+                Part("LegFrontLeft",   -3, 12,  5,  0, 16, 4, 12, 4,  -2, -12, -2, PartAnim.SwingB),
+                Part("LegFrontRight",   3, 12,  5,  0, 16, 4, 12, 4,  -2, -12, -2, PartAnim.SwingA),
+            };
+            ModelParts = new List<ModelPartDef>(baseParts);
+
+            // подшёрсток: копия тела чуть крупнее, чтобы не мерцало
+            foreach (var p in baseParts)
+            {
+                var c = JsonUtility.FromJson<ModelPartDef>(JsonUtility.ToJson(p));
+                c.name = "Under" + p.name; c.layer = 1; c.inflate = 0.1f;
+                ModelParts.Add(c);
+            }
+
+            // шерсть (как в Minecraft: голова 6x6x6, тело раздуто, ноги короткие)
+            ModelParts.Add(Part("WoolHead", 0, 18, 8,  0, 0,  6, 6, 6,  -3, -2, -2, PartAnim.None, 1.4f, false, false, 0f, false, 2, 0.6f));
+            ModelParts.Add(Part("WoolBody", 0, 19, -2, 28, 8, 8, 16, 6, -4, -6, 1,  PartAnim.SwingA, 0f, false, false, 90f, false, 2, 1.75f));
+            ModelParts.Add(Part("WoolLegRL", -3, 12, -7, 0, 16, 4, 6, 4, -2, -6, -2, PartAnim.SwingA, 1.4f, false, false, 0f, false, 2, 0.5f));
+            ModelParts.Add(Part("WoolLegRR",  3, 12, -7, 0, 16, 4, 6, 4, -2, -6, -2, PartAnim.SwingB, 1.4f, false, false, 0f, false, 2, 0.5f));
+            ModelParts.Add(Part("WoolLegFL", -3, 12,  5, 0, 16, 4, 6, 4, -2, -6, -2, PartAnim.SwingB, 1.4f, false, false, 0f, false, 2, 0.5f));
+            ModelParts.Add(Part("WoolLegFR",  3, 12,  5, 0, 16, 4, 6, 4, -2, -6, -2, PartAnim.SwingA, 1.4f, false, false, 0f, false, 2, 0.5f));
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+
         [ContextMenu("Preset: Skeleton")]
         private void PresetSkeleton()
         {
@@ -212,16 +256,16 @@ namespace MinecraftClone.Mobs
         }
 
         private static ModelPartDef Part(string n, float px, float py, float pz, int u, int v,
-                                       int w, int h, int d, float mx, float my, float mz, PartAnim a,
-                                       float amp = 1.4f, bool mirror = false, bool wave = false, float rest = 0f,
-                                       bool pose = false)
+                                     int w, int h, int d, float mx, float my, float mz, PartAnim a,
+                                     float amp = 1.4f, bool mirror = false, bool wave = false, float rest = 0f,
+                                     bool pose = false, int layer = 0, float inflate = 0f)
         {
             return new ModelPartDef
             {
                 name = n, pivotPx = new Vector3(px, py, pz), uv = new Vector2Int(u, v),
                 size = new Vector3Int(w, h, d), minPx = new Vector3(mx, my, mz), anim = a,
                 swingAmplitude = amp, mirror = mirror, waveWhenAttacking = wave, restPitch = rest,
-                poseWhenAttacking = pose
+                poseWhenAttacking = pose, layer = layer, inflate = inflate
             };
         }
 #endif

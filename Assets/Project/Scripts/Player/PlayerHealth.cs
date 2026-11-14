@@ -192,6 +192,7 @@ namespace MinecraftClone.Player
                 case "creeper": return 200;
                 case "pig": return 10;
                 case "spider": return 105;
+                case "sheep": return 10;
                 default: return 0;
             }
         }

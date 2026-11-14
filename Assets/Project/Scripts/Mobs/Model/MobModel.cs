@@ -41,7 +41,11 @@ namespace MinecraftClone.Mobs
         private int _lastHitCount;
         private float _hitSwing;                       // добавка к углу рук во время удара, градусы
         private float _attackBlend;   // плавный переход в боевую позу (0..1)
-        private bool _mirror;                // зеркалить текстуру текущей части
+        private bool _mirror;                      // зеркалить текстуру текущей части
+
+        private Material _underMat, _woolMat, _underHurtMat, _woolHurtMat;
+        private readonly List<Renderer> _underR = new List<Renderer>();
+        private readonly List<Renderer> _woolR = new List<Renderer>();
 
         public void Build(Mob mob)
         {
@@ -56,13 +60,21 @@ namespace MinecraftClone.Mobs
             foreach (var p in _data.ModelParts)
             {
                 Transform t = MakePart(_root, p);
+                Renderer pr = t.GetComponent<Renderer>();
+                if (p.layer == 1) _underR.Add(pr);
+                else if (p.layer == 2) _woolR.Add(pr);
+
                 if (p.anim == PartAnim.SwingA) _swingA.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch, Pose = p.poseWhenAttacking, AttackPitch = p.attackPitch });
                 else if (p.anim == PartAnim.SwingB) _swingB.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch, Pose = p.poseWhenAttacking, AttackPitch = p.attackPitch });
                 else if (p.anim == PartAnim.SpiderLeg)
                     _legs.Add(new Leg { T = t, Index = p.legIndex, Side = p.pivotPx.x >= 0f ? 1f : -1f });
             }
 
-            _renderers = _root.GetComponentsInChildren<Renderer>();
+            var baseR = new List<Renderer>();
+            foreach (var r in _root.GetComponentsInChildren<Renderer>())
+                if (!_underR.Contains(r) && !_woolR.Contains(r)) baseR.Add(r);
+            _renderers = baseR.ToArray();
+
             _lastPos = transform.position;
             _lastHitCount = mob.HitCount;
             _lastHurtCount = mob.HurtCount;
@@ -74,6 +86,10 @@ namespace MinecraftClone.Mobs
             if (_normalMat != null) Destroy(_normalMat);
             if (_flashMat != null) Destroy(_flashMat);
             if (_flashTex != null) Destroy(_flashTex);
+            if (_underMat != null) Destroy(_underMat);
+            if (_woolMat != null) Destroy(_woolMat);
+            if (_underHurtMat != null) Destroy(_underHurtMat);
+            if (_woolHurtMat != null) Destroy(_woolHurtMat);
         }
 
         // ---------- Материалы ----------
@@ -104,6 +120,9 @@ namespace MinecraftClone.Mobs
             _hurtMat = new Material(_normalMat);
             _hurtMat.color = new Color(1f, 0.3f, 0.3f);
 
+            _underMat = MakeOverlayMat(sh, _data.UndercoatTexture, out _underHurtMat);
+            _woolMat = MakeOverlayMat(sh, _data.WoolTexture, out _woolHurtMat);
+
             if (_data.ChargeEffect == ChargeEffect.None) return;
 
             // Белая копия текстуры для вспышки. Умножением цвета не обойтись:
@@ -132,6 +151,18 @@ namespace MinecraftClone.Mobs
             }
         }
 
+        private static Material MakeOverlayMat(Shader sh, Texture2D tex, out Material hurt)
+        {
+            hurt = null;
+            if (tex == null) return null;
+            tex.filterMode = FilterMode.Point;
+            var m = new Material(sh);
+            m.SetFloat("_Cutoff", 0.5f);
+            m.mainTexture = tex;
+            hurt = new Material(m) { color = new Color(1f, 0.3f, 0.3f) };
+            return m;
+        }
+
         // ---------- Сборка части ----------
 
         private Rect UV(int px, int py, int w, int h)
@@ -150,8 +181,9 @@ namespace MinecraftClone.Mobs
             go.transform.SetParent(parent, false);
             go.transform.localPosition = p.pivotPx * PX;
 
-            Vector3 a = p.minPx * PX;
-            Vector3 b = (p.minPx + new Vector3(w, h, d)) * PX;
+            float inf = p.inflate;
+            Vector3 a = (p.minPx - Vector3.one * inf) * PX;
+            Vector3 b = (p.minPx + new Vector3(w, h, d) + Vector3.one * inf) * PX;
             float x0 = a.x, y0 = a.y, z0 = a.z, x1 = b.x, y1 = b.y, z1 = b.z;
 
             // раскладка граней как в Minecraft
@@ -192,7 +224,7 @@ namespace MinecraftClone.Mobs
         }
 
         private void Quad(List<Vector3> v, List<Vector2> t, List<int> tr,
-                             Vector3 bl, Vector3 br, Vector3 trg, Vector3 tl, Rect uv)
+                            Vector3 bl, Vector3 br, Vector3 trg, Vector3 tl, Rect uv)
         {
             int i = v.Count;
             v.Add(bl); v.Add(tl); v.Add(trg); v.Add(br);
@@ -278,8 +310,12 @@ namespace MinecraftClone.Mobs
             int hurts = _mob.HurtCount;
             if (hurts != _lastHurtCount) { _lastHurtCount = hurts; _hurtUntil = Time.time + HurtFlashTime; }
 
-            Material want = (_mob.IsDying || Time.time < _hurtUntil) ? _hurtMat
-                        : (_flashing && _flashMat != null ? _flashMat : _normalMat);
+            bool hurtNow = _mob.IsDying || Time.time < _hurtUntil;
+            SetLayer(_underR, hurtNow ? _underHurtMat : _underMat, true);
+            SetLayer(_woolR, hurtNow ? _woolHurtMat : _woolMat, !_mob.IsSheared);
+
+            Material want = hurtNow ? _hurtMat
+                    : (_flashing && _flashMat != null ? _flashMat : _normalMat);
             if (want == _shown) return;
 
             _shown = want;
@@ -287,11 +323,21 @@ namespace MinecraftClone.Mobs
                 if (r != null) r.sharedMaterial = want;
         }
 
+        private static void SetLayer(List<Renderer> list, Material m, bool on)
+        {
+            foreach (var r in list)
+            {
+                if (r == null) continue;
+                r.enabled = on && m != null;
+                if (m != null) r.sharedMaterial = m;
+            }
+        }
+
         private float PartPitch(Swing sw, float swing)
         {
-            float pitch = sw.Rest + swing * sw.Amp;                            // поза покоя + ходьба
+            float pitch = sw.Rest + swing * sw.Amp;                     // поза покоя + ходьба
             if (sw.Pose) pitch = Mathf.Lerp(pitch, sw.AttackPitch, _attackBlend);        // стойка прицеливания
-            if (sw.Wave) pitch += _hitSwing;                                             // взмах при ударе
+            if (sw.Wave) pitch += _hitSwing;                                            // взмах при ударе
             return pitch;
         }
 
