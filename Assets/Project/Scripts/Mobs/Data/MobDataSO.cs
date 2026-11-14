@@ -6,7 +6,7 @@ namespace MinecraftClone.Mobs
 {
     public enum Temperament { Passive, Neutral, Hostile }
     public enum TargetMode { None, NearestPlayer, Retaliate }
-    public enum PartAnim { None, SwingA, SwingB }                 // A и B качаются в противофазе
+    public enum PartAnim { None, SwingA, SwingB, SpiderLeg }         // Добавлен SpiderLeg
     public enum ChargeEffect { None, SwellAndFlash }
 
     [Serializable]
@@ -24,6 +24,7 @@ namespace MinecraftClone.Mobs
         [Tooltip("Угол поднятой руки при атаке, градусы (-90 = вперёд)")] public float attackPitch = -90f;
         [Tooltip("При прицеливании (IsAttacking) принимать позу attackPitch. Руки скелета")] public bool poseWhenAttacking;
         [Tooltip("Поза покоя: наклон по X в градусах (-90 = рука вытянута вперёд)")] public float restPitch;
+        [Tooltip("Для паучьих ног: 0 = задняя пара ... 3 = передняя")] public int legIndex;
     }
 
     [Serializable]
@@ -50,6 +51,8 @@ namespace MinecraftClone.Mobs
         public float Width = 0.6f;
         public float Height = 1.7f;
         public float JumpHeight = 1.25f;
+        [Tooltip("Лазит по стенам (паук)")] public bool CanClimbWalls = false;
+        [Tooltip("Скорость подъёма по стене, блоков/с")] public float ClimbSpeed = 4f;
 
         [Header("Цель")]
         public TargetMode Targeting = TargetMode.None;
@@ -71,13 +74,13 @@ namespace MinecraftClone.Mobs
         public SpawnRule Spawn = new SpawnRule();
 
 #if UNITY_EDITOR
-        // Правый клик по заголовку ассета в Inspector -> "Preset: ..."
         [ContextMenu("Preset: Creeper")]
         private void PresetCreeper()
         {
             Id = "creeper"; DisplayName = "Creeper";
             Temperament = Temperament.Hostile; MaxHealth = 20f;
             Width = 0.6f; Height = 1.7f; JumpHeight = 1.25f;
+            CanClimbWalls = false; ClimbSpeed = 4f;
             Targeting = TargetMode.NearestPlayer; FollowRange = 16f;
             ChargeTime = 1.5f; ChargeEffect = ChargeEffect.SwellAndFlash;
             PixelSize = 1f / 16f;
@@ -85,8 +88,8 @@ namespace MinecraftClone.Mobs
 
             ModelParts = new List<ModelPartDef>
             {
-                Part("Head", 0, 18, 0,   0, 0,   8, 8, 8,   -4, 0, -4, PartAnim.None),
-                Part("Body", 0, 6, 0,    16, 16, 8, 12, 4,  -4, 0, -2, PartAnim.None),
+                Part("Head", 0, 18, 0,  0, 0,  8, 8, 8,  -4, 0, -4, PartAnim.None),
+                Part("Body", 0, 6, 0,   16, 16, 8, 12, 4,  -4, 0, -2, PartAnim.None),
                 Part("Leg0", -2, 6, 4,   0, 16,  4, 6, 4,   -2, -6, -2, PartAnim.SwingA),
                 Part("Leg1", 2, 6, 4,    0, 16,  4, 6, 4,   -2, -6, -2, PartAnim.SwingB),
                 Part("Leg2", -2, 6, -4,  0, 16,  4, 6, 4,   -2, -6, -2, PartAnim.SwingB),
@@ -106,6 +109,7 @@ namespace MinecraftClone.Mobs
             Id = "zombie"; DisplayName = "Zombie";
             Temperament = Temperament.Hostile; MaxHealth = 20f;
             Width = 0.6f; Height = 1.95f; JumpHeight = 1.25f;
+            CanClimbWalls = false; ClimbSpeed = 4f;
             Targeting = TargetMode.NearestPlayer; FollowRange = 35f;
             ChargeTime = 0f; ChargeEffect = ChargeEffect.None;
             PixelSize = 1.95f / 32f;
@@ -123,12 +127,13 @@ namespace MinecraftClone.Mobs
             UnityEditor.EditorUtility.SetDirty(this);
         }
 
-                [ContextMenu("Preset: Pig")]
+        [ContextMenu("Preset: Pig")]
         private void PresetPig()
         {
             Id = "pig"; DisplayName = "Pig";
             Temperament = Temperament.Passive; MaxHealth = 10f;
             Width = 0.9f; Height = 0.9f; JumpHeight = 1.25f;
+            CanClimbWalls = false; ClimbSpeed = 4f;
             Targeting = TargetMode.None; FollowRange = 16f;
             ChargeTime = 0f; ChargeEffect = ChargeEffect.None;
             PixelSize = 1f / 16f;
@@ -136,24 +141,24 @@ namespace MinecraftClone.Mobs
 
             ModelParts = new List<ModelPartDef>
             {
-                Part("Head",  0, 12, 6,   0, 0,   8, 8, 8,    -4, -4, 0, PartAnim.None),
+                Part("Head",  0, 12, 6,   0, 0,    8, 8, 8,    -4, -4, 0, PartAnim.None),
                 Part("Snout", 0, 12, 6,   16, 16, 4, 3, 1,    -2, -3, 8, PartAnim.None),
-                // в оригинале коробка тела повёрнута на 90°, поэтому у неё поза покоя 90 градусов
                 Part("Body",  0, 13, -2,  28, 8,  10, 16, 8,  -5, -6, -1, PartAnim.SwingA, 0f, false, false, 90f),
-                Part("LegRearLeft",   -3, 6, -7,  0, 16, 4, 6, 4,  -2, -6, -2, PartAnim.SwingA),
-                Part("LegRearRight",   3, 6, -7,  0, 16, 4, 6, 4,  -2, -6, -2, PartAnim.SwingB),
-                Part("LegFrontLeft",  -3, 6,  5,  0, 16, 4, 6, 4,  -2, -6, -2, PartAnim.SwingB),
-                Part("LegFrontRight",  3, 6,  5,  0, 16, 4, 6, 4,  -2, -6, -2, PartAnim.SwingA),
+                Part("LegRearLeft",    -3, 6, -7,  0, 16, 4, 6, 4,   -2, -6, -2, PartAnim.SwingA),
+                Part("LegRearRight",    3, 6, -7,  0, 16, 4, 6, 4,   -2, -6, -2, PartAnim.SwingB),
+                Part("LegFrontLeft",   -3, 6,  5,  0, 16, 4, 6, 4,   -2, -6, -2, PartAnim.SwingB),
+                Part("LegFrontRight",   3, 6,  5,  0, 16, 4, 6, 4,   -2, -6, -2, PartAnim.SwingA),
             };
             UnityEditor.EditorUtility.SetDirty(this);
-        }   
+        }
 
-                [ContextMenu("Preset: Skeleton")]
+        [ContextMenu("Preset: Skeleton")]
         private void PresetSkeleton()
         {
             Id = "skeleton"; DisplayName = "Skeleton";
             Temperament = Temperament.Hostile; MaxHealth = 20f;
             Width = 0.6f; Height = 1.99f; JumpHeight = 1.25f;
+            CanClimbWalls = false; ClimbSpeed = 4f;
             Targeting = TargetMode.NearestPlayer; FollowRange = 20f;
             ChargeTime = 0f; ChargeEffect = ChargeEffect.None;
             PixelSize = 1.99f / 32f;
@@ -171,10 +176,45 @@ namespace MinecraftClone.Mobs
             UnityEditor.EditorUtility.SetDirty(this);
         }
 
-                private static ModelPartDef Part(string n, float px, float py, float pz, int u, int v,
-                                         int w, int h, int d, float mx, float my, float mz, PartAnim a,
-                                         float amp = 1.4f, bool mirror = false, bool wave = false, float rest = 0f,
-                                         bool pose = false)
+        [ContextMenu("Preset: Spider")]
+        private void PresetSpider()
+        {
+            Id = "spider"; DisplayName = "Spider";
+            Temperament = Temperament.Hostile; MaxHealth = 16f;
+            Width = 1.4f; Height = 0.9f; JumpHeight = 1.25f;
+            CanClimbWalls = true; ClimbSpeed = 4f;
+            Targeting = TargetMode.NearestPlayer; FollowRange = 16f;
+            ChargeTime = 0f; ChargeEffect = ChargeEffect.None;
+            PixelSize = 1f / 16f;
+            Spawn = new SpawnRule { onSurface = true, underground = true, weight = 100, groupMin = 1, groupMax = 1 };
+
+            ModelParts = new List<ModelPartDef>
+            {
+                Part("Head", 0, 9, 3,   32, 4,  8, 8, 8,    -4, -4, 0,  PartAnim.None),
+                Part("Neck", 0, 9, 0,   0, 0,   6, 6, 6,    -3, -3, -3, PartAnim.None),
+                Part("Body", 0, 9, -9,  0, 12,  10, 8, 12,  -5, -4, -6, PartAnim.None),
+                SpiderLeg("LegR0",  1, -2, 0), SpiderLeg("LegL0", -1, -2, 0),
+                SpiderLeg("LegR1",  1, -1, 1), SpiderLeg("LegL1", -1, -1, 1),
+                SpiderLeg("LegR2",  1,  0, 2), SpiderLeg("LegL2", -1,  0, 2),
+                SpiderLeg("LegR3",  1,  1, 3), SpiderLeg("LegL3", -1,  1, 3),
+            };
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+
+        private static ModelPartDef SpiderLeg(string n, float side, float z, int index)
+        {
+            return new ModelPartDef
+            {
+                name = n, pivotPx = new Vector3(4f * side, 9f, z), uv = new Vector2Int(18, 0),
+                size = new Vector3Int(16, 2, 2), minPx = new Vector3(side > 0 ? -1f : -15f, -1f, -1f),
+                anim = PartAnim.SpiderLeg, legIndex = index, mirror = side < 0
+            };
+        }
+
+        private static ModelPartDef Part(string n, float px, float py, float pz, int u, int v,
+                                       int w, int h, int d, float mx, float my, float mz, PartAnim a,
+                                       float amp = 1.4f, bool mirror = false, bool wave = false, float rest = 0f,
+                                       bool pose = false)
         {
             return new ModelPartDef
             {

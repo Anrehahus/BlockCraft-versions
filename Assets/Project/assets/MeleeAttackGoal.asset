@@ -15,4 +15,5 @@ MonoBehaviour:
   priority: 2
   attackRange: 2
   cooldown: 3
-  damage: 3
+  damageMin: 1
+  damageMax: 7

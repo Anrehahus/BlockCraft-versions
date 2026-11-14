@@ -16,8 +16,10 @@ namespace MinecraftClone.Mobs
         private const float WaterUpAcceleration = 25f;
         private const float MaxSwimUp = 3.2f;
         private const float MaxSwimDown = -2.5f;
-       
+
         private readonly float _halfWidth, _height, _jumpHeight;
+        private readonly bool _climb;
+        private readonly float _climbSpeed;
         private float _vy;
 
         public bool Grounded { get; private set; }
@@ -31,6 +33,8 @@ namespace MinecraftClone.Mobs
             _halfWidth = data.Width * 0.5f;
             _height = data.Height;
             _jumpHeight = data.JumpHeight;
+            _climb = data.CanClimbWalls;
+            _climbSpeed = data.ClimbSpeed;
         }
 
         // pos = точка у ног, wishVel = желаемая горизонтальная скорость
@@ -54,8 +58,15 @@ namespace MinecraftClone.Mobs
             }
             else
             {
-                _vy += Gravity * dt;
-                if (Grounded && HitHoriz && moving) _vy = Mathf.Sqrt(_jumpHeight * -2f * Gravity);
+                if (_climb && HitHoriz && moving)
+                {
+                    _vy = _climbSpeed;   // упёрся в стену и идёт к ней: лезет вверх
+                }
+                else
+                {
+                    _vy += Gravity * dt;
+                    if (Grounded && HitHoriz && moving) _vy = Mathf.Sqrt(_jumpHeight * -2f * Gravity);
+                }
             }
 
             Vector3 delta = new Vector3(vel.x, _vy, vel.z) * dt;

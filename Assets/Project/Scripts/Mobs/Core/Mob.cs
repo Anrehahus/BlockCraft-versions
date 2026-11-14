@@ -16,8 +16,8 @@ namespace MinecraftClone.Mobs
         public static readonly List<Mob> All = new List<Mob>();
 
         [SyncVar] private string _mobId;
-        [SyncVar] private int _chargeDirSync;       // что видят клиенты: +1 заряжается, -1 (или 0) разряжается
-        private int _chargeDirLocal;                // что знает тот, кто управляет мобом (сервер или одиночная игра)
+        [SyncVar] private int _chargeDirSync;        // что видят клиенты: +1 заряжается, -1 (или 0) разряжается
+        private int _chargeDirLocal;                 // что знает тот, кто управляет мобом (сервер или одиночная игра)
         private bool _offline;                      // одиночная игра без Mirror: моб сам себе сервер
 
         [SyncVar] private bool _attackingSync;      // для клиентов: моб сейчас атакует (анимация рук)
@@ -56,6 +56,8 @@ namespace MinecraftClone.Mobs
         private float _health;
         private float _hurtImmuneUntil;
         private Vector3 _knock;
+        private Vector3 _leapVel;
+        private float _leapTime;
         [SyncVar] private int _hurtCountSync;
         private int _hurtCountLocal;
 
@@ -215,9 +217,15 @@ namespace MinecraftClone.Mobs
             _goals.Tick(dt);
             if (_dead) return;
 
-            Vector3 move = _wishDir * _wishSpeed + _knock;
+            Vector3 move = _wishDir * _wishSpeed + _knock + _leapVel;
             _knock = Vector3.MoveTowards(_knock, Vector3.zero, KnockbackDecay * dt);
             transform.position = Motor.Move(transform.position, move, dt);
+
+            if (_leapVel != Vector3.zero)
+            {
+                _leapTime += dt;
+                if (_leapTime > 0.1f && (Motor.Grounded || Motor.HitHoriz)) _leapVel = Vector3.zero;   // приземлился или врезался
+            }
 
             Vector3 face = _faceDir.sqrMagnitude > 0.001f ? _faceDir : _wishDir;
             if (face.sqrMagnitude > 0.001f)
@@ -304,6 +312,15 @@ namespace MinecraftClone.Mobs
             if (isServer) _hitCountSync = _hitCountLocal;
         }
 
+        public void ServerLeap(Vector3 dir, float speed, float up)
+        {
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 1e-4f || Motor == null) return;
+            _leapVel = dir.normalized * speed;
+            _leapTime = 0f;
+            Motor.Hop(up);
+        }
+
         // Выстрел: сервер (или одиночная игра) создаёт настоящий снаряд, а клиентам рассылает визуальную копию
         public void ServerFireProjectile(ProjectileDataSO data, Vector3 pos, Vector3 velocity, float damage)
         {
@@ -361,23 +378,11 @@ namespace MinecraftClone.Mobs
                 ServerSetAttacking(false);
                 ServerSetChargeDir(-1);
 
-                if (_health <= 0f)
-                {
-                    if (attacker != null) attacker.AddKill(Data.Id);
-
-                    _dyingLocal = true;
-                    if (isServer) _dyingSync = true;
-                    _dyingTimer = DeathDuration;
-                    Target = null;
-                    ServerSetAttacking(false);
-                    ServerSetChargeDir(-1);
-
-                    // добыча: свинья роняет сырую свинину
-                    if (Data.Id == "pig" && ItemDropSystem.Instance != null)
-                        ItemDropSystem.Instance.ServerDropStack(
-                            ItemRegistry.RawPork, Random.Range(1, 4),
-                            transform.position + Vector3.up * 0.5f);
-                }
+                // добыча: свинья роняет сырую свинину
+                if (Data.Id == "pig" && ItemDropSystem.Instance != null)
+                    ItemDropSystem.Instance.ServerDropStack(
+                        ItemRegistry.RawPork, Random.Range(1, 4),
+                        transform.position + Vector3.up * 0.5f);
             }
         }
     }

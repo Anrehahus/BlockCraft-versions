@@ -27,6 +27,12 @@ namespace MinecraftClone.Mobs
         private readonly List<Swing> _swingA = new List<Swing>();
         private readonly List<Swing> _swingB = new List<Swing>();
 
+        private struct Leg { public Transform T; public int Index; public float Side; }
+        private readonly List<Leg> _legs = new List<Leg>();
+        private static readonly float[] LegRestYaw = { 45f, 22.5f, -22.5f, -45f };
+        private static readonly float[] LegRestRoll = { -45f, -33.3f, -33.3f, -45f };
+        private static readonly float[] LegPhase = { 0f, Mathf.PI, Mathf.PI * 0.5f, Mathf.PI * 1.5f };
+
         private Vector3 _lastPos;
         private float _phase, _amount;
 
@@ -52,6 +58,8 @@ namespace MinecraftClone.Mobs
                 Transform t = MakePart(_root, p);
                 if (p.anim == PartAnim.SwingA) _swingA.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch, Pose = p.poseWhenAttacking, AttackPitch = p.attackPitch });
                 else if (p.anim == PartAnim.SwingB) _swingB.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch, Pose = p.poseWhenAttacking, AttackPitch = p.attackPitch });
+                else if (p.anim == PartAnim.SpiderLeg)
+                    _legs.Add(new Leg { T = t, Index = p.legIndex, Side = p.pivotPx.x >= 0f ? 1f : -1f });
             }
 
             _renderers = _root.GetComponentsInChildren<Renderer>();
@@ -184,7 +192,7 @@ namespace MinecraftClone.Mobs
         }
 
         private void Quad(List<Vector3> v, List<Vector2> t, List<int> tr,
-                                 Vector3 bl, Vector3 br, Vector3 trg, Vector3 tl, Rect uv)
+                             Vector3 bl, Vector3 br, Vector3 trg, Vector3 tl, Rect uv)
         {
             int i = v.Count;
             v.Add(bl); v.Add(tl); v.Add(trg); v.Add(br);
@@ -212,7 +220,7 @@ namespace MinecraftClone.Mobs
                 float f = Mathf.Min(1f, Mathf.Sqrt(_deathTimer / DeathFallTime));
                 _root.localRotation = Quaternion.Euler(0f, 0f, -90f * f);   // ложится на бок
                 UpdateMaterial();
-                return;                                                       // ходьбу больше не анимируем
+                return;                                                     // ходьбу больше не анимируем
             }
 
             float dt = Time.deltaTime;
@@ -251,6 +259,15 @@ namespace MinecraftClone.Mobs
 
             foreach (var sw in _swingB) sw.T.localRotation = Quaternion.Euler(PartPitch(sw, -s), 0f, 0f);
 
+            foreach (var lg in _legs)
+            {
+                float yawAnim = -(Mathf.Cos(_phase * 0.6662f * 2f + LegPhase[lg.Index]) * 0.4f) * _amount * Mathf.Rad2Deg;
+                float rollAnim = Mathf.Abs(Mathf.Sin(_phase * 0.6662f + LegPhase[lg.Index]) * 0.4f) * _amount * Mathf.Rad2Deg;
+                float yaw = lg.Side * (LegRestYaw[lg.Index] + yawAnim);
+                float roll = lg.Side * (LegRestRoll[lg.Index] + rollAnim);
+                lg.T.localRotation = Quaternion.AngleAxis(roll, Vector3.forward) * Quaternion.AngleAxis(yaw, Vector3.up);
+            }
+
             if (_data.ChargeEffect == ChargeEffect.SwellAndFlash) UpdateSwell();
 
             UpdateMaterial();
@@ -262,7 +279,7 @@ namespace MinecraftClone.Mobs
             if (hurts != _lastHurtCount) { _lastHurtCount = hurts; _hurtUntil = Time.time + HurtFlashTime; }
 
             Material want = (_mob.IsDying || Time.time < _hurtUntil) ? _hurtMat
-                          : (_flashing && _flashMat != null ? _flashMat : _normalMat);
+                        : (_flashing && _flashMat != null ? _flashMat : _normalMat);
             if (want == _shown) return;
 
             _shown = want;
@@ -272,7 +289,7 @@ namespace MinecraftClone.Mobs
 
         private float PartPitch(Swing sw, float swing)
         {
-            float pitch = sw.Rest + swing * sw.Amp;                                      // поза покоя + ходьба
+            float pitch = sw.Rest + swing * sw.Amp;                            // поза покоя + ходьба
             if (sw.Pose) pitch = Mathf.Lerp(pitch, sw.AttackPitch, _attackBlend);        // стойка прицеливания
             if (sw.Wave) pitch += _hitSwing;                                             // взмах при ударе
             return pitch;

@@ -1,0 +1,185 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1a015a31510bed844a50906d60842da8, type: 3}
+  m_Name: Spider
+  m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Mobs.MobDataSO
+  Id: spider
+  DisplayName: Spider
+  Temperament: 2
+  MaxHealth: 16
+  Width: 1.4
+  Height: 0.9
+  JumpHeight: 1.25
+  CanClimbWalls: 1
+  ClimbSpeed: 4
+  Targeting: 1
+  FollowRange: 16
+  Goals:
+  - {fileID: 11400000, guid: 3ac902fa6f77a9d46b89c943cad51251, type: 2}
+  - {fileID: 11400000, guid: 704cef09188794549b6a0199db9d8d36, type: 2}
+  - {fileID: 11400000, guid: 05c6da9ea45b8bb479d22a2f0a81a605, type: 2}
+  - {fileID: 11400000, guid: 333780ba6ad007d44956ace8b5dda118, type: 2}
+  ChargeTime: 0
+  ChargeEffect: 0
+  Texture: {fileID: 2800000, guid: da87aba803d62ec4e906457e3d463f7d, type: 3}
+  PixelSize: 0.0625
+  ModelParts:
+  - name: Head
+    pivotPx: {x: 0, y: 9, z: 3}
+    uv: {x: 32, y: 4}
+    size: {x: 8, y: 8, z: 8}
+    minPx: {x: -4, y: -4, z: 0}
+    anim: 0
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 0
+  - name: Neck
+    pivotPx: {x: 0, y: 9, z: 0}
+    uv: {x: 0, y: 0}
+    size: {x: 6, y: 6, z: 6}
+    minPx: {x: -3, y: -3, z: -3}
+    anim: 0
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 0
+  - name: Body
+    pivotPx: {x: 0, y: 9, z: -9}
+    uv: {x: 0, y: 12}
+    size: {x: 10, y: 8, z: 12}
+    minPx: {x: -5, y: -4, z: -6}
+    anim: 0
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 0
+  - name: LegR0
+    pivotPx: {x: 4, y: 9, z: -2}
+    uv: {x: 18, y: 0}
+    size: {x: 16, y: 2, z: 2}
+    minPx: {x: -1, y: -1, z: -1}
+    anim: 3
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 0
+  - name: LegL0
+    pivotPx: {x: -4, y: 9, z: -2}
+    uv: {x: 18, y: 0}
+    size: {x: 16, y: 2, z: 2}
+    minPx: {x: -15, y: -1, z: -1}
+    anim: 3
+    swingAmplitude: 1.4
+    mirror: 1
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 0
+  - name: LegR1
+    pivotPx: {x: 4, y: 9, z: -1}
+    uv: {x: 18, y: 0}
+    size: {x: 16, y: 2, z: 2}
+    minPx: {x: -1, y: -1, z: -1}
+    anim: 3
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 1
+  - name: LegL1
+    pivotPx: {x: -4, y: 9, z: -1}
+    uv: {x: 18, y: 0}
+    size: {x: 16, y: 2, z: 2}
+    minPx: {x: -15, y: -1, z: -1}
+    anim: 3
+    swingAmplitude: 1.4
+    mirror: 1
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 1
+  - name: LegR2
+    pivotPx: {x: 4, y: 9, z: 0}
+    uv: {x: 18, y: 0}
+    size: {x: 16, y: 2, z: 2}
+    minPx: {x: -1, y: -1, z: -1}
+    anim: 3
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 2
+  - name: LegL2
+    pivotPx: {x: -4, y: 9, z: 0}
+    uv: {x: 18, y: 0}
+    size: {x: 16, y: 2, z: 2}
+    minPx: {x: -15, y: -1, z: -1}
+    anim: 3
+    swingAmplitude: 1.4
+    mirror: 1
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 2
+  - name: LegR3
+    pivotPx: {x: 4, y: 9, z: 1}
+    uv: {x: 18, y: 0}
+    size: {x: 16, y: 2, z: 2}
+    minPx: {x: -1, y: -1, z: -1}
+    anim: 3
+    swingAmplitude: 1.4
+    mirror: 0
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 3
+  - name: LegL3
+    pivotPx: {x: -4, y: 9, z: 1}
+    uv: {x: 18, y: 0}
+    size: {x: 16, y: 2, z: 2}
+    minPx: {x: -15, y: -1, z: -1}
+    anim: 3
+    swingAmplitude: 1.4
+    mirror: 1
+    waveWhenAttacking: 0
+    attackPitch: -90
+    poseWhenAttacking: 0
+    restPitch: 0
+    legIndex: 3
+  Spawn:
+    onSurface: 0
+    underground: 1
+    weight: 100
+    onlyOnGrass: 0
+    groupMin: 1
+    groupMax: 1
