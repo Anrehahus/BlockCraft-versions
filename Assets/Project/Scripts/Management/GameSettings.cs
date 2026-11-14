@@ -25,6 +25,11 @@ namespace MinecraftClone.Management
         public static float Sensitivity { get; private set; } = 1f; // множитель: 0.25 .. 3
         public static bool ViewBobbing { get; private set; } = true;
 
+        public const int FpsStep = 10;
+        public const int FpsMax = 250;                     // верхний шаг перед «Без лимита»
+        public static int FpsSteps => FpsMax / FpsStep + 2;  // Авто + 10..250 + Без лимита
+        public static int FpsIndex { get; private set; } = 0;
+
         private static KeyCode[] _keys = (KeyCode[])Defaults.Clone();
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -41,6 +46,9 @@ namespace MinecraftClone.Management
                 _keys[i] = (KeyCode)PlayerPrefs.GetInt("Key_" + i, (int)Defaults[i]);
 
             AudioListener.volume = Master;
+
+            FpsIndex = Mathf.Clamp(PlayerPrefs.GetInt("FpsIndex", 0), 0, FpsSteps - 1);
+            ApplyFps();
         }
 
         public static void SetViewBobbing(bool v) { ViewBobbing = v; PlayerPrefs.SetInt("ViewBobbing", v ? 1 : 0); }
@@ -100,6 +108,23 @@ namespace MinecraftClone.Management
             {
                 Mirror.NetworkServer.SendToAll(new MinecraftClone.Networking.ViewDistanceMessage { Chunks = ViewDistance });
             }
+        }
+
+        public static string FpsText(int i)
+            => i == 0 ? "Авто" : i >= FpsSteps - 1 ? "Без лимита" : (i * FpsStep) + " FPS";
+
+        public static void SetFpsIndex(int i)
+        {
+            FpsIndex = Mathf.Clamp(i, 0, FpsSteps - 1);
+            PlayerPrefs.SetInt("FpsIndex", FpsIndex);
+            ApplyFps();
+        }
+
+        public static void ApplyFps()
+        {
+            if (FpsIndex == 0) { QualitySettings.vSyncCount = 1; Application.targetFrameRate = -1; }         // Авто = частота монитора
+            else if (FpsIndex >= FpsSteps - 1) { QualitySettings.vSyncCount = 0; Application.targetFrameRate = -1; } // без лимита
+            else { QualitySettings.vSyncCount = 0; Application.targetFrameRate = FpsIndex * FpsStep; }
         }
 
         public static void SetMaster(float v)

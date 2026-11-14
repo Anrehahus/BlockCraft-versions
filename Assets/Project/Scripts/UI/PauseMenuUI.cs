@@ -30,7 +30,6 @@ namespace MinecraftClone.UI
 
         [Header("Настройки FPS")]
         [SerializeField] private int pauseTargetFrameRate = 60;
-        private int _defaultTargetFrameRate = -1;
 
         [Header("Сетевое обнаружение")]
         [SerializeField] private LanDiscovery lanDiscovery;
@@ -88,7 +87,6 @@ namespace MinecraftClone.UI
         private void Start()
         {
             _worldManager = WorldManager.Instance != null ? WorldManager.Instance : FindFirstObjectByType<WorldManager>();
-            _defaultTargetFrameRate = Application.targetFrameRate;
 
             if (customFont == null)
             {
@@ -307,6 +305,7 @@ namespace MinecraftClone.UI
                 Time.timeScale = 0f;
             }
 
+            QualitySettings.vSyncCount = 0;   // при включённом vSync targetFrameRate игнорируется
             Application.targetFrameRate = pauseTargetFrameRate;
 
             Cursor.lockState = CursorLockMode.None;
@@ -318,7 +317,7 @@ namespace MinecraftClone.UI
             _isPaused = false;
             SwitchMenuState(MenuState.Main);
             Time.timeScale = 1f;
-            Application.targetFrameRate = _defaultTargetFrameRate;
+            GameSettings.ApplyFps();
 
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -581,7 +580,7 @@ namespace MinecraftClone.UI
             _isPaused = false;
             _networkStatusMessage = "";
             Time.timeScale = 1f;
-            Application.targetFrameRate = _defaultTargetFrameRate;
+            GameSettings.ApplyFps();
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
 

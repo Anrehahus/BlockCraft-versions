@@ -55,6 +55,7 @@ namespace MinecraftClone.Items
         // Сюда же потом можно добавить особые правила: из камня булыжник, из листвы саженец и т.п.
         public static int DropItemFor(BlockType broken)
         {
+            if (broken == BlockType.Stone) broken = BlockType.Cobblestone;
             return ItemRegistry.IdForBlock(broken);
         }
 

@@ -18,7 +18,7 @@ namespace MinecraftClone.Physics
     public class TntSystem : MonoBehaviour
     {
         public const float FuseSeconds = 4f;        // время до взрыва (в оригинале 80 тиков = 4 с)
-        private const float ExplosionRadius = 4f;   // радиус разрушения блоков
+        private const float ExplosionRadius = 3.5f;   // радиус разрушения блоков
         private const float DamageRadius = 8f;      // радиус урона игрокам и мобам
         private const float MinDamage = 1f;
         private const float MaxDamage = 20f;

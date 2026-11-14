@@ -155,9 +155,17 @@ namespace MinecraftClone.Player
                     }
                     if (ok)
                     {
-                        hit = new Vector3Int(x, y, z);
-                        normal = -last;
-                        return true;
+                        Vector3Int n = -last;
+                        if (BlockHitbox.TryGetBounds(b, out Vector3 bmin, out Vector3 bmax))
+                        {
+                            Vector3 cell = new Vector3(x, y, z);
+                            if (RayAabb(o, d, cell + bmin, cell + bmax, out float te, out Vector3Int an) && te <= maxDist)
+                            {
+                                if (an != Vector3Int.zero) n = an;
+                            }
+                            else ok = false;   // луч прошёл мимо коробки: идём дальше по клеткам
+                        }
+                        if (ok) { hit = new Vector3Int(x, y, z); normal = n; return true; }
                     }
                 }
 
@@ -166,6 +174,29 @@ namespace MinecraftClone.Player
                 else { z += sz; t = tmz; tmz += tdz; last = new Vector3Int(0, 0, sz); }
             }
             return false;
+        }
+
+        private static bool RayAabb(Vector3 o, Vector3 d, Vector3 bmin, Vector3 bmax, out float tEnter, out Vector3Int normal)
+        {
+            tEnter = 0f; normal = Vector3Int.zero;
+            float t0 = 0f, t1 = float.MaxValue;
+            for (int i = 0; i < 3; i++)
+            {
+                float oi = o[i], di = d[i];
+                if (Mathf.Abs(di) < 1e-8f)
+                {
+                    if (oi < bmin[i] || oi > bmax[i]) return false;
+                    continue;
+                }
+                float inv = 1f / di;
+                float ta = (bmin[i] - oi) * inv, tb = (bmax[i] - oi) * inv;
+                if (ta > tb) { float s = ta; ta = tb; tb = s; }
+                if (ta > t0) { t0 = ta; normal = Vector3Int.zero; normal[i] = di > 0 ? -1 : 1; }
+                if (tb < t1) t1 = tb;
+                if (t0 > t1) return false;
+            }
+            tEnter = t0;
+            return true;
         }
 
         private void UpdateTargetBlock()
@@ -177,7 +208,7 @@ namespace MinecraftClone.Player
             if (camBlock != BlockType.Air && camBlock != BlockType.Water && camBlock != BlockType.Lava
                 && !camBlock.IsPlant() && !camBlock.IsSign())
             {
-                _selectedBlockPos = camCell;     // камера внутри блока: целимся именно в него
+                _selectedBlockPos = camCell;      // камера внутри блока: целимся именно в него
                 _hasTargetBlock = true;
                 if (outlineRenderer != null) outlineRenderer.Hide();
                 return;
@@ -188,7 +219,14 @@ namespace MinecraftClone.Player
             {
                 _selectedBlockPos = hit;
                 _hasTargetBlock = true;
-                if (outlineRenderer != null) outlineRenderer.Show(hit);
+                if (outlineRenderer != null)
+                {
+                    BlockType tb = WorldManager.Instance.GetBlockAtWorldPosition(hit.x, hit.y, hit.z);
+                    if (BlockHitbox.TryGetBounds(tb, out Vector3 bmin, out Vector3 bmax))
+                        outlineRenderer.Show(hit, bmin, bmax);
+                    else
+                        outlineRenderer.Show(hit);
+                }
                 return;
             }
 
@@ -231,7 +269,8 @@ namespace MinecraftClone.Player
                     {
                         if (_netPlayer != null) _netPlayer.NotifySwing();
                         PlayerHealth.Local.RequestEat(def.Id);
-                        _actionTimer = 0.8f;             // пауза между порциями
+                        if (!CreativeInventory) PlayerInventory.ConsumeFromHotbar(_selectedBlockIndex, 1);
+                        _actionTimer = 0.8f;               // пауза между порциями
                     }
                     else
                     {

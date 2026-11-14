@@ -141,7 +141,7 @@ namespace MinecraftClone.UI
 
             float over = Mathf.Max(2f, Mathf.Round(r.height * 0.18f));   // на сколько ползунок выступает сверху и снизу
             float hh = r.height + over * 2f;                       // высота ползунка
-            float hw = Mathf.Round(hh * 8f / 20f);                 // ширина с пропорциями текстуры 8x20
+            float hw = Mathf.Round(hh * 8f / 20f);                   // ширина с пропорциями текстуры 8x20
             Rect hit = new Rect(r.x, r.y - over, r.width, hh);
             float Calc() => Mathf.Clamp01((e.mousePosition.x - r.x - hw / 2f) / (r.width - hw));
 
@@ -211,6 +211,15 @@ namespace MinecraftClone.UI
                     string vt = "Дальность прорисовки: " + GameSettings.ViewNames[GameSettings.ViewPreset];
                     if (Btn(Row(), vt))
                         GameSettings.SetViewPreset((GameSettings.ViewPreset + 1) % GameSettings.ViewNames.Length);
+
+                    GUI.Label(new Rect(cx - bw * 0.35f, y, bw * 0.7f, bh * 0.7f),
+                        "Лимит кадров: " + GameSettings.FpsText(GameSettings.FpsIndex), _label);
+                    y += bh * 0.7f;
+                    float fv = GameSettings.FpsIndex / (float)(GameSettings.FpsSteps - 1);
+                    float fn = Slider(SliderRect(cx, bw, y, k), fv, k);
+                    int fi = Mathf.RoundToInt(fn * (GameSettings.FpsSteps - 1));
+                    if (fi != GameSettings.FpsIndex) GameSettings.SetFpsIndex(fi);
+                    y += 24f * k + gap * 2.5f;
 
                     if (Btn(Row(), "Покачивание камеры: " + (GameSettings.ViewBobbing ? "Вкл" : "Выкл")))
                         GameSettings.SetViewBobbing(!GameSettings.ViewBobbing);

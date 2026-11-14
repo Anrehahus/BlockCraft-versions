@@ -62,12 +62,15 @@ namespace MinecraftClone.Player
         private bool _headInBlock;
         private BlockType _headBlockType;
 
-        private const float McGravity = 32f;        // 0.08 бл/тик² * 20²
-        private const float McDrag = 0.98f;         // сопротивление за тик (20 тиков/с)
+        private const float McGravity = 32f;         // 0.08 бл/тик² * 20²
+        private const float McDrag = 0.98f;          // сопротивление за тик (20 тиков/с)
         private const float McJumpVelocity = 8.4f;  // 0.42 бл/тик * 20
         private const float McTerminal = -78.4f;    // предельная скорость падения
         private float _pendingVelY;
         public float VerticalVelocity => velocity.y;
+
+        private float _stepLeft;
+        private const float StepUpSpeed = 4f;   // блоков/с; меньше = плавнее, больше = резче
 
         private void Awake()
         {
@@ -75,10 +78,10 @@ namespace MinecraftClone.Player
             playerCamera = GetComponentInChildren<Camera>();
             if (controller != null)
             {
-                controller.radius = 0.3f;                       // ширина 0.6
+                controller.radius = 0.3f;                    // ширина 0.6
                 controller.height = 1.8f;
                 controller.center = new Vector3(0f, 0.9f, 0f);  // pivot игрока у ног
-                controller.skinWidth = 0.03f;                   // маленький «зазор», чтобы не было ложного отступа от стен
+                controller.skinWidth = 0.03f;                    // маленький «зазор», чтобы не было ложного отступа от стен
                 controller.stepOffset = 0.1f;
             }
         }
@@ -232,7 +235,7 @@ namespace MinecraftClone.Player
             {
                 int cy = fy + d.y;
                 Vector3 target = (d.x == 0 && d.z == 0)
-                    ? new Vector3(pos.x, cy + 0.02f, pos.z)                       // вверх/вниз: X и Z не меняем
+                    ? new Vector3(pos.x, cy + 0.02f, pos.z)                        // вверх/вниз: X и Z не меняем
                     : new Vector3(fx + d.x + 0.5f, cy + 0.02f, fz + d.z + 0.5f);  // в сторону: центр соседней клетки
 
                 if (!HasClearance(target)) continue;
@@ -266,7 +269,7 @@ namespace MinecraftClone.Player
             }
             if (tex == null) tex = Texture2D.blackTexture;
 
-            GUI.depth = 100;                                   // позади интерфейса
+            GUI.depth = 100;                            // позади интерфейса
             GUI.color = new Color(0.08f, 0.08f, 0.08f, 1f);    // «очень-очень тёмная» текстура
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), tex, ScaleMode.StretchToFill);
             GUI.color = Color.white;
@@ -378,6 +381,12 @@ namespace MinecraftClone.Player
                 finalMoveDirection = horizontalVelocity + Vector3.up * velocity.y;
             }
 
+            if (!inWater && !inLava)
+            {
+                float stepV = StepUpVelocity(moveInput);
+                if (stepV > 0f) { finalMoveDirection.y = stepV; velocity.y = 0f; }
+            }
+
             finalMoveDirection += _knock;
             _knock = Vector3.MoveTowards(_knock, Vector3.zero, KnockDecay * Time.deltaTime);
             MoveSubstepped(finalMoveDirection * Time.deltaTime);
@@ -394,6 +403,42 @@ namespace MinecraftClone.Player
                 if ((f & CollisionFlags.Above) != 0 && velocity.y > 0f) velocity.y = 0f;
                 if ((f & (CollisionFlags.Above | CollisionFlags.Below)) != 0) break;
             }
+        }
+
+        // Вертикальная скорость подъёма на ступеньку до 0.5 блока (плита, полублок -> блок). 0 = подъёма нет.
+        private float StepUpVelocity(Vector3 dir)
+        {
+            if (_stepLeft > 0f)   // уже поднимаемся: продолжаем
+            {
+                float v = Mathf.Min(StepUpSpeed, _stepLeft / Mathf.Max(Time.deltaTime, 0.0001f));
+                _stepLeft -= v * Time.deltaTime;
+                if (_stepLeft < 0.001f) _stepLeft = 0f;
+                return v;
+            }
+
+            if (!isGrounded || dir.sqrMagnitude < 0.01f) return 0f;
+
+            Vector3 feet = transform.position;
+            int y = Mathf.FloorToInt(feet.y + 0.01f);
+            Vector3 ahead = feet + dir.normalized * (controller.radius + 0.15f);
+            Vector3 probe = new Vector3(ahead.x, y + 0.1f, ahead.z);
+
+            float top;
+            if (GetBlockTypeAt(probe) == BlockType.StoneSlab) top = y + 0.5f;
+            else if (IsSolidAt(probe)) top = y + 1f;
+            else return 0f;
+
+            float rise = top - feet.y;
+            if (rise < 0.05f || rise > 0.55f) return 0f;   // ступеньки нет или она выше полблока (нужен прыжок)
+
+            // место над ступенькой для роста 1.8: впереди и над самим игроком
+            if (IsSolidAt(new Vector3(ahead.x, top + 0.1f, ahead.z))) return 0f;
+            if (IsSolidAt(new Vector3(ahead.x, top + 1.0f, ahead.z))) return 0f;
+            if (IsSolidAt(new Vector3(ahead.x, top + 1.7f, ahead.z))) return 0f;
+            if (IsSolidAt(new Vector3(feet.x, feet.y + rise + 1.75f, feet.z))) return 0f;
+
+            _stepLeft = rise;
+            return StepUpVelocity(dir);
         }
 
         private Vector3 CalculateFluidPhysics(

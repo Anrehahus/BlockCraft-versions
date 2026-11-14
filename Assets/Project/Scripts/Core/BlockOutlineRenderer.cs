@@ -64,6 +64,14 @@ namespace MinecraftClone.Core
         public void Show(Vector3Int blockWorldPos)
         {
             transform.position = blockWorldPos;
+            transform.localScale = Vector3.one; // Сбрасываем масштаб на стандартный целый блок
+            _meshRenderer.enabled = true;
+        }
+
+        public void Show(Vector3Int pos, Vector3 min, Vector3 max)
+        {
+            transform.position = (Vector3)pos + min;
+            transform.localScale = max - min;
             _meshRenderer.enabled = true;
         }
 

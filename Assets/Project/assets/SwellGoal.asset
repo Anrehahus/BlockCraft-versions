@@ -15,4 +15,7 @@ MonoBehaviour:
   priority: 1
   igniteDistance: 3
   cancelDistance: 7
-  explosionRadius: 4
+  explosionRadius: 3.5
+  damageRadius: 4
+  minDamage: 2
+  maxDamage: 6
