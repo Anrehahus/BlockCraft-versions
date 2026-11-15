@@ -27,6 +27,9 @@ namespace MinecraftClone.Rendering
         private bool _solidBound;    // solidCollisionMesh сейчас назначен коллайдеру
         private bool _solidDirty;    // содержимое collision-меша изменилось, коллайдер надо перезапечь
 
+        private byte[] _lightGrid;
+        private int _lightW;
+
         // Номер сборки: меняется при каждой новой сборке и при очистке чанка.
         // По нему отбрасываются устаревшие результаты фоновых потоков.
         public int BuildTicket { get; private set; }
@@ -79,6 +82,16 @@ namespace MinecraftClone.Rendering
             }
         }
 
+        public int GetLight(int lx, int y, int lz)
+        {
+            if (_lightGrid == null) return 9;
+            int w = _lightW, h = _lightGrid.Length / (w * w);
+            if (y >= h) return 9;
+            if (y < 0) y = 0;
+            lx = Mathf.Clamp(lx, 0, w - 1); lz = Mathf.Clamp(lz, 0, w - 1);
+            return _lightGrid[(y * w + lz) * w + lx];
+        }
+
         // ---------- Сборка ----------
 
         // Синхронная сборка на основном потоке (старт мира, правка блоков).
@@ -115,6 +128,13 @@ namespace MinecraftClone.Rendering
             Material lavaMaterial,
             bool collision)
         {
+            if (g.ChunkLight != null)
+            {
+                if (_lightGrid == null || _lightGrid.Length != g.ChunkLight.Length) _lightGrid = new byte[g.ChunkLight.Length];
+                System.Buffer.BlockCopy(g.ChunkLight, 0, _lightGrid, 0, g.ChunkLight.Length);
+                _lightW = g.LightWidth;
+            }
+
             SyncSignLabels(g.SignsNow);
 
             chunkMesh.Clear();
@@ -236,6 +256,7 @@ namespace MinecraftClone.Rendering
             _solidBound = false;
             _solidDirty = false;
             CollisionEnabled = false;
+            _lightGrid = null;
             DestroyAllLabels();
             if (chunkMesh != null) chunkMesh.Clear();
             if (solidCollisionMesh != null) solidCollisionMesh.Clear();

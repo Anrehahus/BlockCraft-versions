@@ -1376,6 +1376,16 @@ namespace MinecraftClone.Management
             return BlockType.Air;
         }
 
+        public int GetLightAtWorldPosition(Vector3 p)
+        {
+            if (worldConfig == null) return 9;
+            int size = worldConfig.ChunkWidth;
+            int x = Mathf.FloorToInt(p.x), y = Mathf.FloorToInt(p.y), z = Mathf.FloorToInt(p.z);
+            var cp = new Vector2Int(Mathf.FloorToInt((float)x / size), Mathf.FloorToInt((float)z / size));
+            if (!chunkRenderers.TryGetValue(cp, out ChunkRenderer r) || r == null) return 9;
+            return r.GetLight(GetLocalCoord(x, size), y, GetLocalCoord(z, size));
+        }
+
         public bool SetBlockAtWorldPosition(int worldX, int worldY, int worldZ, BlockType newType)
         {
             if (worldConfig == null) return false;

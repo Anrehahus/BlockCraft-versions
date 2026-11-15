@@ -111,7 +111,7 @@ namespace MinecraftClone.Rendering
         public readonly List<Vector2> Uvs = new List<Vector2>();
         public readonly List<Vector3> Normals = new List<Vector3>();
         public readonly List<Color32> Colors = new List<Color32>();    // «освещение» граней как в Майнкрафте
-        public readonly List<int> SolidTriangles = new List<int>();       // непрозрачные блоки (без alpha clip)
+        public readonly List<int> SolidTriangles = new List<int>();        // непрозрачные блоки (без alpha clip)
         public readonly List<int> CutoutTriangles = new List<int>();      // листья, стекло, растения, таблички (с alpha clip)
         public readonly List<int> CollisionTriangles = new List<int>();   // только твёрдая физика
         public readonly List<int> PlantTriangles = new List<int>();       // хитбокс саженцев для клика
@@ -119,6 +119,119 @@ namespace MinecraftClone.Rendering
         public readonly List<int> LavaTriangles = new List<int>();
         public readonly Dictionary<Vector3Int, BlockType> SignsNow = new Dictionary<Vector3Int, BlockType>();
         public ulong SolidHash, PlantHash;
+
+        public byte[] ChunkLight;      // свет клеток самого чанка, индекс (y*w+z)*w+x
+        public int LightWidth;
+
+        // ---------- Освещение (уровни 0..9) ----------
+        private const int LightReach = 9;    // свет проходит максимум 9 блоков
+        // яркость по уровнь: 0 = почти чёрный, 9 = как раньше. Подгоняется под вкус
+        public static readonly float[] LightBrightness =
+            { 0.22f, 0.27f, 0.33f, 0.40f, 0.48f, 0.57f, 0.67f, 0.78f, 0.89f, 1f };
+
+        private byte[] _opac, _light;        // непрозрачность и уровень света региона (чанк + 9 блоков вокруг)
+        private int[] _top;                  // верхний блок, перекрывающий небо, по колонкам региона (-1 = открыто)
+        private readonly List<int> _lightQueue = new List<int>();
+        private int _rw, _rh, _rx0, _rz0, _ox, _oz;
+        private float _curLight = 1f;
+
+        // 0 = пропускает свет без потерь, 1 = гасит на 1 дополнительно, 2 = не пропускает
+        private static byte Opacity(BlockType t)
+        {
+            if (t == BlockType.Air || t == BlockType.Glass || t.IsPlant() || t.IsSign()) return 0;
+            if (t == BlockType.Water || t == BlockType.Lava || t == BlockType.OakLeaves || t == BlockType.StoneSlab) return 1;
+            return 2;
+        }
+
+        private byte OpacAt(int rx, int y, int rz, IBlockReader world)
+        {
+            int i = (y * _rw + rz) * _rw + rx;
+            byte o = _opac[i];
+            if (o == 255)
+            {
+                o = Opacity(world.GetBlockAtWorldPosition(_rx0 + rx, y, _rz0 + rz));
+                _opac[i] = o;
+            }
+            return o;
+        }
+
+        private void ComputeLight(ChunkData cd, IBlockReader world)
+        {
+            int w = cd.Width, h = cd.Height;
+            _rw = w + LightReach * 2; _rh = h;
+            _rx0 = cd.Position.x * w - LightReach;
+            _rz0 = cd.Position.y * w - LightReach;
+            int cols = _rw * _rw, total = cols * h;
+
+            if (_opac == null || _opac.Length != total)
+            {
+                _opac = new byte[total]; _light = new byte[total]; _top = new int[cols];
+            }
+            for (int i = 0; i < total; i++) { _opac[i] = 255; _light[i] = 0; }
+
+            // 1. высота «потолка» каждой колонки: выше неё небо, уровень 9
+            for (int rz = 0; rz < _rw; rz++)
+                for (int rx = 0; rx < _rw; rx++)
+                {
+                    int y = h - 1;
+                    while (y >= 0 && OpacAt(rx, y, rz, world) == 0) y--;
+                    _top[rz * _rw + rx] = y;
+                }
+
+            // 2. затравка: освещённые ячейки рядом с затенёнными
+            _lightQueue.Clear();
+            for (int rz = 0; rz < _rw; rz++)
+                for (int rx = 0; rx < _rw; rx++)
+                {
+                    int t = _top[rz * _rw + rx], maxN = t;
+                    if (rx > 0) maxN = Mathf.Max(maxN, _top[rz * _rw + rx - 1]);
+                    if (rx < _rw - 1) maxN = Mathf.Max(maxN, _top[rz * _rw + rx + 1]);
+                    if (rz > 0) maxN = Mathf.Max(maxN, _top[(rz - 1) * _rw + rx]);
+                    if (rz < _rw - 1) maxN = Mathf.Max(maxN, _top[(rz + 1) * _rw + rx]);
+                    int yEnd = Mathf.Min(h - 1, Mathf.Max(maxN, t + 1));
+                    for (int y = t + 1; y <= yEnd; y++) _lightQueue.Add((y * _rw + rz) * _rw + rx);
+                }
+
+            // 3. растекание: -1 за каждый блок
+            for (int head = 0; head < _lightQueue.Count; head++)
+            {
+                int i = _lightQueue[head];
+                int rx = i % _rw, rz = (i / _rw) % _rw, y = i / cols;
+                int L = y > _top[rz * _rw + rx] ? 9 : _light[i];
+                if (L <= 1) continue;
+
+                for (int d = 0; d < 6; d++)
+                {
+                    int nx = rx + Directions[d].x, ny = y + Directions[d].y, nz = rz + Directions[d].z;
+                    if (nx < 0 || nx >= _rw || nz < 0 || nz >= _rw || ny < 0 || ny >= h) continue;
+                    if (ny > _top[nz * _rw + nx]) continue;          // небо, там и так 9
+                    byte o = OpacAt(nx, ny, nz, world);
+                    if (o == 2) continue;
+                    int nl = L - 1 - o;
+                    int ni = (ny * _rw + nz) * _rw + nx;
+                    if (nl > _light[ni]) { _light[ni] = (byte)nl; _lightQueue.Add(ni); }
+                }
+            }
+
+            int len = w * h * w;
+            if (ChunkLight == null || ChunkLight.Length != len) ChunkLight = new byte[len];
+            LightWidth = w;
+            for (int y = 0; y < h; y++)
+                for (int z = 0; z < w; z++)
+                    for (int x = 0; x < w; x++)
+                        ChunkLight[(y * w + z) * w + x] = (byte)LightAt(_ox + x, y, _oz + z);
+        }
+
+        // уровень света клетки в мировых координатах
+        private int LightAt(int wx, int y, int wz)
+        {
+            if (y >= _rh) return 9;
+            if (y < 0) return 0;
+            int rx = wx - _rx0, rz = wz - _rz0;
+            if (rx < 0 || rz < 0 || rx >= _rw || rz >= _rw) return 9;
+            if (y > _top[rz * _rw + rx]) return 9;
+            return _light[(y * _rw + rz) * _rw + rx];
+        }
 
         public void Build(ChunkData chunkData, IBlockReader world)
         {
@@ -130,6 +243,10 @@ namespace MinecraftClone.Rendering
             int width = chunkData.Width;
             int height = chunkData.Height;
             var blocks = chunkData.Blocks;
+
+            _ox = chunkData.Position.x * width;
+            _oz = chunkData.Position.y * width;
+            ComputeLight(chunkData, world);
 
             for (int x = 0; x < width; x++)
                 for (int y = 0; y < height; y++)
@@ -286,7 +403,11 @@ namespace MinecraftClone.Rendering
             int vCount = Vertices.Count;
             Vector3 blockPos = new Vector3(x, y, z);
 
-            byte shade = (type == BlockType.Water || type == BlockType.Lava) ? (byte)255 : FaceShade[faceIndex];
+            Vector3Int fd = Directions[faceIndex];
+            float lb = LightBrightness[LightAt(_ox + x + fd.x, y + fd.y, _oz + z + fd.z)];
+            float baseShade = (type == BlockType.Water || type == BlockType.Lava) ? 255f : FaceShade[faceIndex];
+            if (type == BlockType.Lava) lb = 1f;                        // лава светится сама
+            byte shade = (byte)(baseShade * lb + 0.5f);
             Color32 faceColor = new Color32(shade, shade, shade, 255);
             Vector3 faceNormal = FaceNormals[faceIndex];
 
@@ -296,7 +417,7 @@ namespace MinecraftClone.Rendering
                 Vector3 fv = faceVerts[i];
                 if (type == BlockType.Water || type == BlockType.Lava)
                 {
-                    if (fv.y > 0.5f) fv.y = topY;               // верх опускается до 0.8
+                    if (fv.y > 0.5f) fv.y = topY;                // верх опускается до 0.8
                     else if (faceIndex >= 2) fv.y = bottomY;      // у боковой грани-«заплатки» низ поднят до уровня соседа
                 }
                 else if (type == BlockType.StoneSlab && fv.y > 0.5f) fv.y = 0.5f;
@@ -363,17 +484,20 @@ namespace MinecraftClone.Rendering
             Vector3 blockPos = new Vector3(x, y, z);
             Rect uvRect = ChunkUV.Get(type, 0);
 
+            byte pb = (byte)(255f * LightBrightness[LightAt(_ox + x, y, _oz + z)] + 0.5f);
+            Color32 pcol = new Color32(pb, pb, pb, 255);
+
             // Визуальный X-образный меш (двусторонний с ровными текстурами)
             // Диагональ 1
-            AddQuad(blockPos, new Vector3(0, 0, 0), new Vector3(1, 1, 1), new Vector3(1, 0, 1), new Vector3(0, 1, 0), uvRect);
-            AddQuad(blockPos, new Vector3(1, 0, 1), new Vector3(0, 1, 0), new Vector3(0, 0, 0), new Vector3(1, 1, 1), uvRect);
+            AddQuad(blockPos, new Vector3(0, 0, 0), new Vector3(1, 1, 1), new Vector3(1, 0, 1), new Vector3(0, 1, 0), uvRect, pcol);
+            AddQuad(blockPos, new Vector3(1, 0, 1), new Vector3(0, 1, 0), new Vector3(0, 0, 0), new Vector3(1, 1, 1), uvRect, pcol);
 
             // Диагональ 2
-            AddQuad(blockPos, new Vector3(0, 0, 1), new Vector3(1, 1, 0), new Vector3(1, 0, 0), new Vector3(0, 1, 1), uvRect);
-            AddQuad(blockPos, new Vector3(1, 0, 0), new Vector3(0, 1, 1), new Vector3(0, 0, 1), new Vector3(1, 1, 0), uvRect);
+            AddQuad(blockPos, new Vector3(0, 0, 1), new Vector3(1, 1, 0), new Vector3(1, 0, 0), new Vector3(0, 1, 1), uvRect, pcol);
+            AddQuad(blockPos, new Vector3(1, 0, 0), new Vector3(0, 1, 1), new Vector3(0, 0, 1), new Vector3(1, 1, 0), uvRect, pcol);
         }
 
-        private void AddQuad(Vector3 offset, Vector3 v0, Vector3 v1, Vector3 v2, Vector3 v3, Rect uvRect)
+        private void AddQuad(Vector3 offset, Vector3 v0, Vector3 v1, Vector3 v2, Vector3 v3, Rect uvRect, Color32 col)
         {
             int vCount = Vertices.Count;
 
@@ -385,7 +509,7 @@ namespace MinecraftClone.Rendering
             for (int k = 0; k < 4; k++)
             {
                 Normals.Add(Vector3.up);
-                Colors.Add(White);
+                Colors.Add(col);
             }
 
             CutoutTriangles.Add(vCount);
@@ -407,6 +531,7 @@ namespace MinecraftClone.Rendering
         private void AddSignData(int x, int y, int z, BlockType type)
         {
             SignsNow[new Vector3Int(x, y, z)] = type;
+            _curLight = LightBrightness[LightAt(_ox + x, y, _oz + z)];
 
             Rect tex = ChunkUV.Get(type, 4);          // SideTexture блока-таблички
             Rect front = SubRect(tex, 2, 2, 24, 12);            // лицо доски: 24x12 пикселей
@@ -456,7 +581,9 @@ namespace MinecraftClone.Rendering
             Vertices.Add(center + right * halfRight + upAxis * halfUp);   // правый верхний
             Vertices.Add(center + right * halfRight - upAxis * halfUp);   // правый нижний
 
-            Color32 signColor = ShadeFromNormal(normal);
+            Color32 sc = ShadeFromNormal(normal);
+            byte sb = (byte)(sc.r * _curLight + 0.5f);
+            Color32 signColor = new Color32(sb, sb, sb, 255);
             for (int k = 0; k < 4; k++)
             {
                 Normals.Add(normal);
@@ -494,6 +621,44 @@ namespace MinecraftClone.Rendering
             }
 
             return 0.8f;   // сверху воздух, цветок или блок над уровнем воды
+        }
+    }
+
+    public static class LightTint
+    {
+        private static readonly HashSet<string> _warned = new HashSet<string>();
+
+        // яркость 0..1 в точке мира
+        public static float Sample(Vector3 pos)
+        {
+            var wm = MinecraftClone.Management.WorldManager.Instance;
+            if (wm == null) return 1f;
+            return ChunkMeshGenerator.LightBrightness[wm.GetLightAtWorldPosition(pos)];
+        }
+
+        // яркость 0..1 для эффектов в только что освободившейся клетке: максимум по клетке и её соседям
+        public static float SampleOpen(Vector3 pos)
+        {
+            var wm = MinecraftClone.Management.WorldManager.Instance;
+            if (wm == null) return 1f;
+            int best = wm.GetLightAtWorldPosition(pos);
+            best = Mathf.Max(best, wm.GetLightAtWorldPosition(pos + Vector3.up));
+            best = Mathf.Max(best, wm.GetLightAtWorldPosition(pos + Vector3.down));
+            best = Mathf.Max(best, wm.GetLightAtWorldPosition(pos + Vector3.left));
+            best = Mathf.Max(best, wm.GetLightAtWorldPosition(pos + Vector3.right));
+            best = Mathf.Max(best, wm.GetLightAtWorldPosition(pos + Vector3.forward));
+            best = Mathf.Max(best, wm.GetLightAtWorldPosition(pos + Vector3.back));
+            return ChunkMeshGenerator.LightBrightness[best];
+        }
+
+        public static void SetColor(Material m, Color c)
+        {
+            if (m == null) return;
+            bool ok = false;
+            if (m.HasProperty("_BaseColor")) { m.SetColor("_BaseColor", c); ok = true; }
+            if (m.HasProperty("_Color")) { m.SetColor("_Color", c); ok = true; }
+            if (!ok && _warned.Add(m.shader.name))
+                Debug.LogWarning("[LightTint] У шейдера " + m.shader.name + " нет _Color/_BaseColor: затемнение не сработает");
         }
     }
 }

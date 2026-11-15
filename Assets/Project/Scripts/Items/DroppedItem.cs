@@ -1,6 +1,7 @@
 using UnityEngine;
 using MinecraftClone.Core;
 using MinecraftClone.Management;
+using MinecraftClone.Rendering;
 
 namespace MinecraftClone.Items
 {
@@ -17,7 +18,7 @@ namespace MinecraftClone.Items
         public int Id { get; private set; }
         public int ItemId { get; private set; }
         public bool Authoritative { get; private set; }   // true на сервере и в одиночной игре
-        public int Count { get; set; } = 1;               // сколько предметов в этой сущности (при смерти выпадает целый стак)
+        public int Count { get; set; } = 1;                     // сколько предметов в этой сущности (при смерти выпадает целый стак)
         public Vector3 Position => _pos;
         public float Age => _age;
 
@@ -34,6 +35,10 @@ namespace MinecraftClone.Items
         private Vector3 _pos, _vel;
         private float _age, _phase, _claimedUntil;
         private bool _onGround;
+
+        private Mesh _litMesh;
+        private Color32[] _baseCols, _tmpCols;
+        private float _lit = -1f, _litApplied = -1f;
 
         public void Init(ItemDropSystem sys, int id, int itemId, int count, Vector3 pos, Vector3 vel, bool authoritative)
         {
@@ -58,9 +63,34 @@ namespace MinecraftClone.Items
         // Предмет мог прийти по сети раньше, чем мир подготовил атлас текстур: добираем меш позже
         private void TryBindVisual()
         {
-            if (_mf.sharedMesh == null) _mf.sharedMesh = _sys.GetMesh(ItemId);
+            if (_mf.sharedMesh == null)
+            {
+                Mesh src = _sys.GetMesh(ItemId);
+                if (src != null)
+                {
+                    _litMesh = Instantiate(src);
+                    _baseCols = src.colors32;
+                    _tmpCols = new Color32[_baseCols.Length];
+                    _mf.sharedMesh = _litMesh;
+                }
+            }
             if (_mr.sharedMaterial == null && WorldManager.Instance != null)
                 _mr.sharedMaterial = WorldManager.Instance.BlocksMaterial;
+        }
+
+        private void UpdateLight(float dt)
+        {
+            if (_litMesh == null || _baseCols == null) return;
+            float target = LightTint.Sample(_pos);
+            _lit = _lit < 0f ? target : Mathf.MoveTowards(_lit, target, 4f * dt);
+            if (Mathf.Abs(_lit - _litApplied) < 0.01f) return;
+            _litApplied = _lit;
+            for (int i = 0; i < _baseCols.Length; i++)
+            {
+                Color32 b = _baseCols[i];
+                _tmpCols[i] = new Color32((byte)(b.r * _lit + 0.5f), (byte)(b.g * _lit + 0.5f), (byte)(b.b * _lit + 0.5f), 255);
+            }
+            _litMesh.colors32 = _tmpCols;
         }
 
         private void Update()
@@ -72,7 +102,7 @@ namespace MinecraftClone.Items
 
             if (_age > Lifetime)
             {
-                if (Authoritative) _sys.ServerRemove(Id);               // сервер убирает у всех
+                if (Authoritative) _sys.ServerRemove(Id);                // сервер убирает у всех
                 else if (_age > Lifetime + 10f) Destroy(gameObject);    // страховка, если сообщение потерялось
                 return;
             }
@@ -90,6 +120,7 @@ namespace MinecraftClone.Items
             transform.position = _pos;
             _visual.localPosition = new Vector3(0f, 0.12f + Mathf.Sin(_age * 2.5f + _phase) * 0.04f, 0f);
             _visual.localRotation = Quaternion.Euler(0f, _age * 60f + _phase * Mathf.Rad2Deg, 0f);
+            UpdateLight(dt);
         }
 
         private bool Solid(float x, float y, float z)
@@ -150,6 +181,7 @@ namespace MinecraftClone.Items
         private void OnDestroy()
         {
             if (_sys != null) _sys.Unregister(Id);
+            if (_litMesh != null) Destroy(_litMesh);
         }
     }
 }

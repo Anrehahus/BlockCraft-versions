@@ -5,6 +5,7 @@ using MinecraftClone.Networking;
 using MinecraftClone.Management;
 using MinecraftClone.Audio;
 using MinecraftClone.Core;
+using MinecraftClone.Rendering;
 
 namespace MinecraftClone.Player
 {
@@ -41,11 +42,13 @@ namespace MinecraftClone.Player
         public Transform RightArm => _rightArm;
         public Texture2D Skin => skin;
 
+        private float _lightShown = 1f;
+        private bool _lightDirty = true;
+
         public void Swing() { _swingTimer = 0f; }
 
         public void SetSkin(Texture2D tex)
         {
-
             Debug.Log("[Skin] SetSkin, tex=" + (tex != null) + ", modelBuilt=" + (_head != null));
             if (tex == null) return;
             skin = tex;
@@ -106,6 +109,7 @@ namespace MinecraftClone.Player
             {
                 _tinted = false;
             }
+            _lightDirty = true;
         }
 
         // ---------- Сборка модели ----------
@@ -119,7 +123,7 @@ namespace MinecraftClone.Player
 
             bool oldFormat = skin != null && skin.height == 32;
 
-            //                          имя        pivot (px)            u0  v0   w  h  d   min (px от pivot)
+            //                         имя        pivot (px)            u0  v0   w  h  d   min (px от pivot)
             _head = MakePart(root, "Head", new Vector3(0, 24, 0), 0, 0, 8, 8, 8, new Vector3(-4, 0, -4), false);
             MakePart(root, "Body", new Vector3(0, 24, 0), 16, 16, 8, 12, 4, new Vector3(-4, -12, -2), false);
             _rightArm = MakePart(root, "RightArm", new Vector3(6, 22, 0), 40, 16, 4, 12, 4, new Vector3(-2, -10, -2), false);
@@ -190,7 +194,7 @@ namespace MinecraftClone.Player
         }
 
         private static void Quad(List<Vector3> v, List<Vector2> t, List<int> tr,
-                                 Vector3 bl, Vector3 br, Vector3 trg, Vector3 tl, Rect uv, bool flip)
+                                  Vector3 bl, Vector3 br, Vector3 trg, Vector3 tl, Rect uv, bool flip)
         {
             int i = v.Count;
             v.Add(bl); v.Add(tl); v.Add(trg); v.Add(br);
@@ -215,11 +219,17 @@ namespace MinecraftClone.Player
             }
 
             bool red = (_health != null && _health.IsDead) || Time.time < _hurtUntil;
-            if (red == _tinted) return;
 
-            _tinted = red;
-            if (_material != null) _material.color = red ? new Color(1f, 0.3f, 0.3f) : Color.white;
+            float target = LightTint.Sample(transform.position + Vector3.up * 1f);
+            float l = _lightDirty ? target : Mathf.MoveTowards(_lightShown, target, 4f * Time.deltaTime);
+
+            if (red == _tinted && !_lightDirty && Mathf.Abs(l - _lightShown) < 0.005f) return;
+
+            _tinted = red; _lightShown = l; _lightDirty = false;
+            Color c = red ? new Color(1f, 0.3f, 0.3f) : Color.white;
+            if (_material != null) LightTint.SetColor(_material, new Color(c.r * l, c.g * l, c.b * l, 1f));
         }
+
         // ---------- Анимация ----------
 
         private void LateUpdate()
@@ -336,7 +346,7 @@ namespace MinecraftClone.Player
 
             if (_modelRoot != null) _modelRoot.localRotation = Quaternion.Euler(0f, 0f, -90f * f);
 
-            if (IsOwn && _playerCamera != null)                                        // свою модель мы не видим, заваливаем камеру
+            if (IsOwn && _playerCamera != null)                                     // свою модель мы не видим, заваливаем камеру
             {
                 float px = Mathf.DeltaAngle(0f, _playerCamera.transform.localEulerAngles.x);
                 _playerCamera.transform.localRotation = Quaternion.Euler(px, 0f, -90f * f);
@@ -363,6 +373,5 @@ namespace MinecraftClone.Player
             }
             _visible = !_visible;   // заставить UpdateVisibility заново применить видимость
         }
-
     }
 }

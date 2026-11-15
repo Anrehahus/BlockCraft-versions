@@ -1,6 +1,7 @@
 using UnityEngine;
 using Mirror;
 using MinecraftClone.Management;
+using MinecraftClone.Rendering;
 
 namespace MinecraftClone.Player
 {
@@ -16,7 +17,7 @@ namespace MinecraftClone.Player
         [Header("Покачивание при ходьбе")]
         [SerializeField] private float cameraBobX = 0.02f;
         [SerializeField] private float cameraBobY = 0.025f;
-        [SerializeField] private float cameraRoll = 0.5f;      // градусы
+        [SerializeField] private float cameraRoll = 0.5f;     // градусы
         [SerializeField] private float armBobX = 0.02f;
         [SerializeField] private float armBobY = 0.025f;
 
@@ -39,6 +40,8 @@ namespace MinecraftClone.Player
         private Vector3 _lastPos;
         private float _phase, _amount;
         private float _swing = -1f;
+
+        private float _handLight = -1f, _handApplied = -1f;
 
         public void Swing() { _swing = 0f; }
 
@@ -101,6 +104,14 @@ namespace MinecraftClone.Player
             if (_holder == null) return;
             _holder.gameObject.SetActive(!dead);
 
+            float lightTarget = LightTint.Sample(_cam.transform.position);
+            _handLight = _handLight < 0f ? lightTarget : Mathf.MoveTowards(_handLight, lightTarget, 4f * dt);
+            if (_mat != null && Mathf.Abs(_handLight - _handApplied) > 0.005f)
+            {
+                _handApplied = _handLight;
+                LightTint.SetColor(_mat, new Color(_handLight, _handLight, _handLight, 1f));
+            }
+
             Vector3 pos = armPosition + new Vector3(s * armBobX, -Mathf.Abs(c) * armBobY, 0f) * _amount;
             Vector3 rot = armRotation;
 
@@ -112,8 +123,8 @@ namespace MinecraftClone.Player
                 else
                 {
                     float k = Mathf.Sin(p * Mathf.PI);
-                    rot.x += k * 50f;                                          // рука подаётся вперёд, как удар
-                    pos += new Vector3(-0.06f * k, -0.04f * k, 0.12f * k);     // и немного вниз-влево
+                    rot.x += k * 50f;                                     // рука подаётся вперёд, как удар
+                    pos += new Vector3(-0.06f * k, -0.04f * k, 0.12f * k);      // и немного вниз-влево
                 }
             }
 
@@ -145,6 +156,7 @@ namespace MinecraftClone.Player
             }
 
             _mat = new Material(sh);
+            _handApplied = -1f;
             Texture2D skin = _model.Skin;
             if (skin != null) { skin.filterMode = FilterMode.Point; _mat.mainTexture = skin; }
 

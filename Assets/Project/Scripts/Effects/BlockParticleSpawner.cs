@@ -1,4 +1,5 @@
 using UnityEngine;
+using MinecraftClone.Rendering;
 
 namespace MinecraftClone.Effects
 {
@@ -12,6 +13,9 @@ namespace MinecraftClone.Effects
             float texWidth = texture.width;
             float texHeight = texture.height;
             float sliceSize = Mathf.Min(texWidth, texHeight) * 0.5f;
+
+            float light = LightTint.SampleOpen(worldPosition);
+            Color tint = new Color(light, light, light, 1f);
 
             for (int i = 0; i < particleCount; i++)
             {
@@ -27,6 +31,7 @@ namespace MinecraftClone.Effects
                 particle.transform.localScale = Vector3.one * 0.5f;
 
                 SpriteRenderer sr = particle.AddComponent<SpriteRenderer>();
+                sr.color = tint;
 
                 float randomX = Random.Range(0f, texWidth - sliceSize);
                 float randomY = Random.Range(0f, texHeight - sliceSize);

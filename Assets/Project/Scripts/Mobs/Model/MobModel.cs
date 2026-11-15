@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using MinecraftClone.Rendering;
 
 namespace MinecraftClone.Mobs
 {
@@ -26,6 +27,7 @@ namespace MinecraftClone.Mobs
         private const float DeathFallTime = 0.6f;
         private readonly List<Swing> _swingA = new List<Swing>();
         private readonly List<Swing> _swingB = new List<Swing>();
+        private float _lightShown = -1f;
 
         private struct Leg { public Transform T; public int Index; public float Side; }
         private readonly List<Leg> _legs = new List<Leg>();
@@ -100,6 +102,27 @@ namespace MinecraftClone.Mobs
             if (_underHurtMat != null) Destroy(_underHurtMat);
             if (_woolHurtMat != null) Destroy(_woolHurtMat);
         }
+
+        private void UpdateLight()
+        {
+            float target = LightTint.Sample(transform.position + Vector3.up * 0.5f);
+            float l = _lightShown < 0f ? target : Mathf.MoveTowards(_lightShown, target, 4f * Time.deltaTime);
+            if (_lightShown >= 0f && Mathf.Abs(l - _lightShown) < 0.005f) return;
+            _lightShown = l;
+
+            Color white = new Color(l, l, l, 1f);
+            Color red = new Color(l, 0.3f * l, 0.3f * l, 1f);
+
+            SetCol(_normalMat, _data.Texture != null ? white : new Color(0.7f * l, 0.3f * l, 0.7f * l, 1f));
+            SetCol(_hurtMat, red);
+            SetCol(_underMat, white);
+            SetCol(_woolMat, white);
+            SetCol(_underHurtMat, red);
+            SetCol(_woolHurtMat, red);
+            SetCol(_flashMat, _flashTex != null ? white : new Color(3f * l, 3f * l, 3f * l, 1f));   // вспышка крипера
+        }
+
+        private static void SetCol(Material m, Color c) { if (m != null) m.color = c; }
 
         // ---------- Материалы ----------
 
@@ -254,6 +277,7 @@ namespace MinecraftClone.Mobs
         private void LateUpdate()
         {
             if (_root == null) return;
+            UpdateLight();
 
             if (_mob.IsDying)
             {
