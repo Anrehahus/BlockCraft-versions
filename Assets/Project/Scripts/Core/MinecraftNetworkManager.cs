@@ -28,12 +28,14 @@ namespace MinecraftClone.Networking
         public int Seed;
     }
 
+    public struct ItemDropRequestMessage : NetworkMessage { public int ItemId; public int Count; public Vector3 Pos; public Vector3 Vel; }
+
     public struct ViewDistanceMessage : NetworkMessage { public int Chunks; }
 
     public struct BlockChangeRequestMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct BlockChangeMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
     public struct FallingBlockMessage : NetworkMessage { public Vector3Int Pos; public BlockType Type; }
-    public struct ItemSpawnMessage : NetworkMessage { public int Id; public int ItemId; public int Count; public Vector3 Pos; public Vector3 Vel; }
+    public struct ItemSpawnMessage : NetworkMessage { public int Id; public int ItemId; public int Count; public Vector3 Pos; public Vector3 Vel; public float Delay; }
     public struct ItemRemoveMessage : NetworkMessage { public int Id; }
     public struct ItemPickupRequestMessage : NetworkMessage { public int Id; public int Room; }
     public struct ItemPickupGrantMessage : NetworkMessage { public int ItemId; public int Count; }
@@ -171,6 +173,7 @@ namespace MinecraftClone.Networking
             NetworkServer.RegisterHandler<ChunkRequestMessage>(OnServerChunkRequest);
             NetworkServer.RegisterHandler<ChatSendMessage>(OnServerChatSend);
             NetworkServer.RegisterHandler<ItemPickupRequestMessage>(OnServerItemPickup);
+            NetworkServer.RegisterHandler<ItemDropRequestMessage>(OnServerItemDrop);
             NetworkServer.RegisterHandler<InventorySyncMessage>(OnServerInventorySync);
         }
 
@@ -201,6 +204,20 @@ namespace MinecraftClone.Networking
             if (hp != null && hp.IsDead) return;
             if (sys.ServerTryPickup(msg.Id, conn.identity.transform.position, msg.Room, out int itemId, out int count))
                 conn.Send(new ItemPickupGrantMessage { ItemId = itemId, Count = count });
+        }
+
+        private void OnServerItemDrop(NetworkConnectionToClient conn, ItemDropRequestMessage msg)
+        {
+            var sys = MinecraftClone.Items.ItemDropSystem.Instance;
+            if (conn.identity == null || sys == null) return;
+
+            var hp = conn.identity.GetComponent<PlayerHealth>();
+            if (hp != null && hp.IsDead) return;
+
+            if (msg.Count < 1 || msg.Count > 64) return;
+            if ((msg.Pos - conn.identity.transform.position).sqrMagnitude > 36f) return;   // дальше 6 блоков от игрока не бросаем
+
+            sys.ServerDropThrown(msg.ItemId, msg.Count, msg.Pos, Vector3.ClampMagnitude(msg.Vel, 10f));
         }
 
         private void OnServerInventorySync(NetworkConnectionToClient conn, InventorySyncMessage msg)

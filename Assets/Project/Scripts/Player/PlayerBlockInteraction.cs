@@ -107,6 +107,7 @@ namespace MinecraftClone.Player
             }
 
             HandleScrollWheel();
+            if (GameSettings.Pressed(GameSettings.Bind.Drop)) DropHeldItem();
             UpdateTargetBlock();
             HandleInput();
         }
@@ -417,6 +418,24 @@ namespace MinecraftClone.Player
                 return false;   // сначала упёрлись в стену
             }
             return false;
+        }
+
+        private void DropHeldItem()
+        {
+            if (cameraTransform == null || ItemDropSystem.Instance == null) return;
+
+            int itemId = PlayerInventory.HotbarItem(_selectedBlockIndex);
+            if (itemId <= 0) return;
+
+            // в креативе предметы бесконечные, в выживании забираем один из слота
+            if (!CreativeInventory && !PlayerInventory.ConsumeFromHotbar(_selectedBlockIndex, 1)) return;
+
+            Vector3 fwd = cameraTransform.forward;
+            Vector3 pos = cameraTransform.position + fwd * 0.3f + Vector3.down * 0.2f;
+            Vector3 vel = fwd * 4.5f + Vector3.up * 2f;
+
+            if (_netPlayer != null) _netPlayer.NotifySwing();
+            ItemDropSystem.Instance.RequestDrop(itemId, 1, pos, vel);
         }
     }
 }

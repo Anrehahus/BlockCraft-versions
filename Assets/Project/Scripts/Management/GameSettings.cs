@@ -4,13 +4,13 @@ namespace MinecraftClone.Management
 {
     public static class GameSettings
     {
-        public enum Bind { Forward, Back, Left, Right, Jump, Inventory }
+        public enum Bind { Forward, Back, Left, Right, Jump, Inventory, Drop }
 
         public static readonly string[] BindNames =
-            { "Вперёд", "Назад", "Влево", "Вправо", "Прыжок", "Инвентарь" };
+            { "Вперёд", "Назад", "Влево", "Вправо", "Прыжок", "Инвентарь", "Выброить предмет" };
 
         private static readonly KeyCode[] Defaults =
-            { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.B };
+            { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.B, KeyCode.Q };
 
         // Дальняя / Средняя / Близкая / Очень близкая (в чанках)
         public static readonly string[] ViewNames = { "Дальняя", "Средняя", "Близкая", "Очень близкая" };

@@ -13,7 +13,10 @@ namespace MinecraftClone.Items
         private const float Gravity = 20f;
         private const float MaxFall = 40f;
         private const float Lifetime = 300f;     // 5 минут, потом исчезает
-        public const float PickupDelay = 0.6f;   // сразу после выпадения подобрать нельзя
+        public const float PickupDelay = 0.5f;   // выпало из сломанного блока (10 тиков)
+        public const float ThrownDelay = 2f;     // выброшено игроком (40 тиков)
+        private float _pickupDelay = PickupDelay;
+        public float PickupDelaySeconds => _pickupDelay;
 
         public int Id { get; private set; }
         public int ItemId { get; private set; }
@@ -23,7 +26,7 @@ namespace MinecraftClone.Items
         public float Age => _age;
 
         // клиент не шлёт повторный запрос на подбор, пока ждёт ответ сервера
-        public bool CanBePickedUp => _age >= PickupDelay && Time.time >= _claimedUntil;
+        public bool CanBePickedUp => _age >= _pickupDelay && Time.time >= _claimedUntil;
         public void MarkClaimed() { _claimedUntil = Time.time + 1f; }
 
         public void GetState(out Vector3 pos, out Vector3 vel) { pos = _pos; vel = _vel; }
@@ -40,8 +43,9 @@ namespace MinecraftClone.Items
         private Color32[] _baseCols, _tmpCols;
         private float _lit = -1f, _litApplied = -1f;
 
-        public void Init(ItemDropSystem sys, int id, int itemId, int count, Vector3 pos, Vector3 vel, bool authoritative)
+        public void Init(ItemDropSystem sys, int id, int itemId, int count, Vector3 pos, Vector3 vel, bool authoritative, float pickupDelay)
         {
+            _pickupDelay = pickupDelay > 0f ? pickupDelay : PickupDelay;
             _sys = sys; Id = id; ItemId = itemId; Count = Mathf.Max(1, count); Authoritative = authoritative;
             _pos = pos; _vel = vel;
             _phase = Random.value * Mathf.PI * 2f;

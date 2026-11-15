@@ -38,7 +38,7 @@ namespace MinecraftClone.Items
             }
             Instance = this;
 
-            foreach (var m in _pendingSpawns) SpawnEntity(m.Id, m.ItemId, m.Count, m.Pos, m.Vel, false);
+            foreach (var m in _pendingSpawns) SpawnEntity(m.Id, m.ItemId, m.Count, m.Pos, m.Vel, false, m.Delay);
             _pendingSpawns.Clear();
         }
 
@@ -109,13 +109,29 @@ namespace MinecraftClone.Items
             }
         }
 
-        private void ServerSpawn(int itemId, int count, Vector3 pos, Vector3 vel)
+        private void ServerSpawn(int itemId, int count, Vector3 pos, Vector3 vel, float delay = DroppedItem.PickupDelay)
         {
             int id = _nextId++;
-            SpawnEntity(id, itemId, count, pos, vel, true);
+            SpawnEntity(id, itemId, count, pos, vel, true, delay);
 
             if (NetworkServer.active)
-                NetworkServer.SendToAll(new ItemSpawnMessage { Id = id, ItemId = itemId, Count = count, Pos = pos, Vel = vel });
+                NetworkServer.SendToAll(new ItemSpawnMessage { Id = id, ItemId = itemId, Count = count, Pos = pos, Vel = vel, Delay = delay });
+        }
+
+        // Игрок выбросил предмет из руки. Сервер и одиночная игра создают сразу, клиент просит сервер.
+        public void RequestDrop(int itemId, int count, Vector3 pos, Vector3 vel)
+        {
+            if (count <= 0 || ItemRegistry.Get(itemId) == null) return;
+
+            if (IsPureClient) NetworkClient.Send(new ItemDropRequestMessage { ItemId = itemId, Count = count, Pos = pos, Vel = vel });
+            else ServerSpawn(itemId, count, pos, vel, DroppedItem.ThrownDelay);
+        }
+
+        // Сервер: запрос клиента уже проверен в MinecraftNetworkManager
+        public void ServerDropThrown(int itemId, int count, Vector3 pos, Vector3 vel)
+        {
+            if (IsPureClient || count <= 0 || ItemRegistry.Get(itemId) == null) return;
+            ServerSpawn(itemId, count, pos, vel, DroppedItem.ThrownDelay);
         }
 
         public void ServerRemove(int id)
@@ -131,7 +147,7 @@ namespace MinecraftClone.Items
             {
                 if (it == null || !it.Authoritative) continue;
                 it.GetState(out Vector3 pos, out Vector3 vel);
-                conn.Send(new ItemSpawnMessage { Id = it.Id, ItemId = it.ItemId, Count = it.Count, Pos = pos, Vel = vel });
+                conn.Send(new ItemSpawnMessage { Id = it.Id, ItemId = it.ItemId, Count = it.Count, Pos = pos, Vel = vel, Delay = it.PickupDelaySeconds });
             }
         }
 
@@ -143,7 +159,7 @@ namespace MinecraftClone.Items
             count = 0;
             if (room <= 0) return false;
             if (!_items.TryGetValue(id, out DroppedItem it) || it == null || !it.Authoritative) return false;
-            if (it.Age < DroppedItem.PickupDelay - 0.2f) return false;
+            if (it.Age < it.PickupDelaySeconds - 0.2f) return false;
 
             Vector3 d = it.Position - playerPos;
             float dy = d.y;
@@ -163,7 +179,7 @@ namespace MinecraftClone.Items
         // Точки входа для сетевых обработчиков (работают, даже если системы ещё нет)
         public static void HandleSpawn(ItemSpawnMessage m)
         {
-            if (Instance != null) Instance.SpawnEntity(m.Id, m.ItemId, m.Count, m.Pos, m.Vel, false);
+            if (Instance != null) Instance.SpawnEntity(m.Id, m.ItemId, m.Count, m.Pos, m.Vel, false, m.Delay);
             else _pendingSpawns.Add(m);
         }
 
@@ -175,7 +191,7 @@ namespace MinecraftClone.Items
 
         // ---------- Общее ----------
 
-        private void SpawnEntity(int id, int itemId, int count, Vector3 pos, Vector3 vel, bool authoritative)
+        private void SpawnEntity(int id, int itemId, int count, Vector3 pos, Vector3 vel, bool authoritative, float delay)
         {
             if (_items.ContainsKey(id)) return;
             if (ItemRegistry.Get(itemId) == null) return;   // неизвестный предмет (другая версия игры)
@@ -183,7 +199,7 @@ namespace MinecraftClone.Items
             var go = new GameObject("Item_" + ItemRegistry.KeyOf(itemId));
             go.transform.SetParent(transform, false);
             var e = go.AddComponent<DroppedItem>();
-            e.Init(this, id, itemId, count, pos, vel, authoritative);
+            e.Init(this, id, itemId, count, pos, vel, authoritative, delay);
             _items[id] = e;
         }
 
