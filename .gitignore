@@ -78,4 +78,8 @@ crashlytics-build.properties
 !/Launcher/**/*.csproj
 !/Launcher/**/*.sln
 
-# End of https://www.toptal.com/developers/gitignore/api/unitysaves/
+# End of https://www.toptal.com/developers/gitignore/api/unity
+
+# Game worlds (slots 1-5)
+saves/world_[1-5]/
+saves/world_[1-5].meta
