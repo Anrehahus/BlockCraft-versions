@@ -13,6 +13,7 @@ namespace MinecraftClone.Mobs
         private const int Radius = 16;
         private const int VerticalRange = 8;
         private const float SpreadChance = 0.3f;   // шанс на каждую подходящую выборку
+        private const int MinLightToSpread = 4;   // уровень света 0..9: при меньшем трава не распространяется
 
         private static GrassSpreadSystem _instance;
         private float _timer;
@@ -65,6 +66,7 @@ namespace MinecraftClone.Mobs
             }
             if (y < 0) return;
             if (wm.GetBlockAtWorldPosition(x, y + 1, z) != BlockType.Air) return;
+            if (wm.GetLightAtWorldPosition(new Vector3(x + 0.5f, y + 1.5f, z + 0.5f)) < MinLightToSpread) return;
             if (Random.value > SpreadChance) return;
             if (!HasGrassNeighbour(wm, x, y, z)) return;
 
