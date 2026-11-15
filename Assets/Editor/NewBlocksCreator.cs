@@ -38,6 +38,7 @@ public static class NewBlocksCreator
         (BlockType.MossyCobblestone,"mossy_cobblestone",   "mossy_cobblestone",   "mossy_cobblestone",       "Mossy Cobblestone",2f),
         (BlockType.Bricks,          "bricks",              "bricks",              "bricks",                  "Bricks",           2f),
         (BlockType.Bookshelf,       "oak_planks",          "oak_planks",          "bookshelf",               "Bookshelf",        1.5f),
+        (BlockType.Obsidian, "obsidian", "obsidian", "obsidian", "Obsidian", 50f),
     };
 
     [MenuItem("Minecraft/Create Gold Block And Wool")]

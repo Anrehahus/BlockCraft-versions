@@ -53,6 +53,7 @@ namespace MinecraftClone.Core
         MossyCobblestone,
         Bricks,
         Bookshelf,
+        Obsidian,
     }
 
     public static class BlockTypeUtil

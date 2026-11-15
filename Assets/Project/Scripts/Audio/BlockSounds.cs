@@ -54,6 +54,7 @@ namespace MinecraftClone.Audio
                 case BlockType.StoneSlabDouble:
                 case BlockType.MossyCobblestone:
                 case BlockType.Bricks:
+                case BlockType.Obsidian:
                     return SoundType.Stone;
 
                 case BlockType.Glass:

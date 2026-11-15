@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: IronBlock
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.ScriptableObjects.BlockDataSO
   Type: 54
-  BlockName: Iron Block
+  BlockName: Block of Iron
   IsSolid: 1
   IsOpaque: 1
   IsGravityAffected: 0
