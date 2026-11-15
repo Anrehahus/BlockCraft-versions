@@ -6,7 +6,7 @@ namespace MinecraftClone.Mobs
 {
     public enum Temperament { Passive, Neutral, Hostile }
     public enum TargetMode { None, NearestPlayer, Retaliate }
-    public enum PartAnim { None, SwingA, SwingB, SpiderLeg }         // Добавлен SpiderLeg
+    public enum PartAnim { None, SwingA, SwingB, SpiderLeg, EatHead }         // Добавлен EatHead
     public enum ChargeEffect { None, SwellAndFlash }
 
     [Serializable]
@@ -169,7 +169,7 @@ namespace MinecraftClone.Mobs
 
             var baseParts = new List<ModelPartDef>
             {
-                Part("Head", 0, 18, 8,   0, 0,   6, 6, 8,   -3, -2, -2, PartAnim.None),
+                Part("Head", 0, 18, 8,   0, 0,   6, 6, 8,   -3, -2, -2, PartAnim.EatHead),
                 Part("Body", 0, 19, -2,  28, 8,  8, 16, 6,  -4, -6, 1,  PartAnim.SwingA, 0f, false, false, 90f),
                 Part("LegRearLeft",    -3, 12, -7,  0, 16, 4, 12, 4,  -2, -12, -2, PartAnim.SwingA),
                 Part("LegRearRight",    3, 12, -7,  0, 16, 4, 12, 4,  -2, -12, -2, PartAnim.SwingB),
@@ -187,7 +187,7 @@ namespace MinecraftClone.Mobs
             }
 
             // шерсть (как в Minecraft: голова 6x6x6, тело раздуто, ноги короткие)
-            ModelParts.Add(Part("WoolHead", 0, 18, 8,  0, 0,  6, 6, 6,  -3, -2, -2, PartAnim.None, 1.4f, false, false, 0f, false, 2, 0.6f));
+            ModelParts.Add(Part("WoolHead", 0, 18, 8,  0, 0,  6, 6, 6,  -3, -2, -2, PartAnim.EatHead, 1.4f, false, false, 0f, false, 2, 0.6f));
             ModelParts.Add(Part("WoolBody", 0, 19, -2, 28, 8, 8, 16, 6, -4, -6, 1,  PartAnim.SwingA, 0f, false, false, 90f, false, 2, 1.75f));
             ModelParts.Add(Part("WoolLegRL", -3, 12, -7, 0, 16, 4, 6, 4, -2, -6, -2, PartAnim.SwingA, 1.4f, false, false, 0f, false, 2, 0.5f));
             ModelParts.Add(Part("WoolLegRR",  3, 12, -7, 0, 16, 4, 6, 4, -2, -6, -2, PartAnim.SwingB, 1.4f, false, false, 0f, false, 2, 0.5f));

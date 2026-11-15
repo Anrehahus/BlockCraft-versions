@@ -74,6 +74,10 @@ namespace MinecraftClone.Mobs
         private bool _shearedLocal;
         public bool IsSheared => RunsLogic ? _shearedLocal : _shearedSync;
 
+        [SyncVar] private bool _eatingSync;
+        private bool _eatingLocal;
+        public bool IsEating => RunsLogic ? _eatingLocal : _eatingSync;
+
         // ---------- Кэш игроков ----------
 
         private static NetworkPlayer[] _players = new NetworkPlayer[0];
@@ -310,6 +314,18 @@ namespace MinecraftClone.Mobs
             if (isServer) _attackingSync = value;
         }
 
+        public void ServerSetEating(bool value)
+        {
+            _eatingLocal = value;
+            if (isServer) _eatingSync = value;
+        }
+
+        public void ServerRegrowWool()
+        {
+            _shearedLocal = false;
+            if (isServer) _shearedSync = false;
+        }
+
         public void ServerRegisterHit()
         {
             _hitCountLocal++;
@@ -392,6 +408,7 @@ namespace MinecraftClone.Mobs
                 _dyingTimer = DeathDuration;
                 Target = null;
                 ServerSetAttacking(false);
+                ServerSetEating(false);
                 ServerSetChargeDir(-1);
 
                 // добыча: свинья роняет сырую свинину

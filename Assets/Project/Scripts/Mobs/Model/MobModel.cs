@@ -47,6 +47,10 @@ namespace MinecraftClone.Mobs
         private readonly List<Renderer> _underR = new List<Renderer>();
         private readonly List<Renderer> _woolR = new List<Renderer>();
 
+        private readonly List<Transform> _eatHeads = new List<Transform>();
+        private readonly List<Vector3> _eatHeadBase = new List<Vector3>();
+        private float _eatBlend;
+
         public void Build(Mob mob)
         {
             _mob = mob;
@@ -68,6 +72,11 @@ namespace MinecraftClone.Mobs
                 else if (p.anim == PartAnim.SwingB) _swingB.Add(new Swing { T = t, Amp = p.swingAmplitude, Wave = p.waveWhenAttacking, Rest = p.restPitch, Pose = p.poseWhenAttacking, AttackPitch = p.attackPitch });
                 else if (p.anim == PartAnim.SpiderLeg)
                     _legs.Add(new Leg { T = t, Index = p.legIndex, Side = p.pivotPx.x >= 0f ? 1f : -1f });
+                else if (p.anim == PartAnim.EatHead || (_data.Id == "sheep" && p.name.EndsWith("Head")))
+                {
+                    _eatHeads.Add(t);
+                    _eatHeadBase.Add(t.localPosition);   // исходная точка вращения головы
+                }
             }
 
             var baseR = new List<Renderer>();
@@ -298,6 +307,17 @@ namespace MinecraftClone.Mobs
                 float yaw = lg.Side * (LegRestYaw[lg.Index] + yawAnim);
                 float roll = lg.Side * (LegRestRoll[lg.Index] + rollAnim);
                 lg.T.localRotation = Quaternion.AngleAxis(roll, Vector3.forward) * Quaternion.AngleAxis(yaw, Vector3.up);
+            }
+
+            // как в Minecraft: голова уходит вниз на 9 пикселей и наклоняется на ~36°,
+            // потом рывки вверх-вниз (±12.6°, ~3 Гц), в конце возвращается назад
+            _eatBlend = Mathf.MoveTowards(_eatBlend, _mob.IsEating ? 1f : 0f, 5f * dt);   // 0.2 с вниз и вверх
+            float eatPitch = _eatBlend * (36f + 12.6f * Mathf.Sin(Time.time * 18f));
+            Vector3 dip = Vector3.down * (9f * _data.PixelSize * _eatBlend);
+            for (int i = 0; i < _eatHeads.Count; i++)
+            {
+                _eatHeads[i].localPosition = _eatHeadBase[i] + dip;
+                _eatHeads[i].localRotation = Quaternion.Euler(eatPitch, 0f, 0f);
             }
 
             if (_data.ChargeEffect == ChargeEffect.SwellAndFlash) UpdateSwell();
