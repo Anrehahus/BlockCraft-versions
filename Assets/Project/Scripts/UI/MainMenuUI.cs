@@ -111,7 +111,6 @@ namespace MinecraftClone.UI
             if (backFromMultiplayerBtn != null) backFromMultiplayerBtn.onClick.AddListener(ShowMainMenu);
             if (connectButton != null) connectButton.onClick.AddListener(StartMultiplayerClient);
             if (optionsBtn == null) optionsBtn = FindButtonByNameContains("options", "настройки");
-                    Debug.Log("[Menu] optionsBtn = " + (optionsBtn != null ? optionsBtn.name + " / interactable=" + optionsBtn.interactable : "NULL")); ;
             if (optionsBtn != null) { optionsBtn.interactable = true; optionsBtn.onClick.AddListener(OpenSettings); }
 
             for (int i = 0; i < worldSlotButtons.Length; i++)
@@ -148,7 +147,7 @@ namespace MinecraftClone.UI
             Button[] allButtons = Resources.FindObjectsOfTypeAll<Button>();
             foreach (var btn in allButtons)
             {
-                if (btn == null || !btn.gameObject.scene.IsValid()) continue;   // пропускаем префабы и ассеты
+                if (btn == null || !btn.gameObject.scene.IsValid()) continue;
                 string objName = btn.gameObject.name.ToLower();
                 TMP_Text tmp = btn.GetComponentInChildren<TMP_Text>();
                 Text txt = btn.GetComponentInChildren<Text>();
@@ -396,91 +395,6 @@ namespace MinecraftClone.UI
             RuntimeLoadingScreen.LoadGameScene(gameSceneName);
         }
 
-        private IEnumerator LoadSceneAndGenerateWorld()
-        {
-            GameObject canvasRoot = null;
-
-            if (loadingScreenPanel != null)
-            {
-                loadingScreenPanel.SetActive(true);
-                canvasRoot = loadingScreenPanel.transform.root.gameObject;
-                DontDestroyOnLoad(canvasRoot);
-            }
-
-            if (worldSelectPanel != null) worldSelectPanel.SetActive(false);
-
-            SetProgressBarImmediate(0f, "Загрузка ресурсов...");
-
-            // 1. Асинхронная загрузка сцены (0% -> 25%)
-            AsyncOperation op = SceneManager.LoadSceneAsync(gameSceneName);
-            float visualProgress = 0f;
-
-            if (op != null)
-            {
-                while (!op.isDone)
-                {
-                    float target = Mathf.Clamp01(op.progress / 0.9f) * 0.25f;
-                    visualProgress = Mathf.MoveTowards(visualProgress, target, Time.deltaTime * 0.8f);
-                    SetProgressBarImmediate(visualProgress, "Загрузка уровня...");
-                    yield return null;
-                }
-            }
-
-            // 2. Ожидаем появления и готовности WorldManager (25% -> 95%)
-            while (WorldManager.Instance == null)
-            {
-                yield return null;
-            }
-
-            while (!WorldManager.Instance.IsWorldReady)
-            {
-                float target = 0.25f + (WorldManager.GenerationProgress * 0.70f);
-                visualProgress = Mathf.MoveTowards(visualProgress, target, Time.deltaTime * 1.5f);
-
-                string status = WorldManager.GenerationStatusText;
-                if (string.IsNullOrEmpty(status)) status = "Строим территорию...";
-
-                int percent = Mathf.RoundToInt(visualProgress * 100f);
-                SetProgressBarImmediate(visualProgress, $"{status} {percent}%");
-
-                yield return null;
-            }
-
-            // 3. Ждем инициализации и включения камеры игрока (95% -> 100%)
-            SetProgressBarImmediate(0.98f, "Поиск камеры и разморозка...");
-
-            while (Camera.main == null || !Camera.main.isActiveAndEnabled)
-            {
-                yield return null;
-            }
-
-            SetProgressBarImmediate(1f, "Готово! 100%");
-
-            // 4. Даем Unity отрисовать один полный кадр с активной камерой перед уничтожением UI
-            yield return new WaitForEndOfFrame();
-
-            // 5. Очищаем экран загрузки
-            if (canvasRoot != null)
-            {
-                Destroy(canvasRoot);
-            }
-        }
-
-        private void SetProgressBarImmediate(float progress, string text)
-        {
-            if (progressBarFillRect != null)
-            {
-                Vector2 size = progressBarFillRect.sizeDelta;
-                size.x = Mathf.Clamp01(progress) * maxBarWidth;
-                progressBarFillRect.sizeDelta = size;
-            }
-
-            if (loadingProgressText != null)
-            {
-                loadingProgressText.text = text;
-            }
-        }
-
         public void StartMultiplayerClient()
         {
             string raw = (ipInput != null && !string.IsNullOrWhiteSpace(ipInput.text)) ? ipInput.text.Trim() : "localhost";
@@ -490,6 +404,12 @@ namespace MinecraftClone.UI
             if (string.IsNullOrEmpty(nick))
             {
                 if (statusText != null) statusText.text = "Введите ник!";
+                return;
+            }
+
+            if (NetworkClient.active)
+            {
+                ConnectionMessage.Show("Подключение уже идёт. Подожди или нажми «Назад».");
                 return;
             }
 
@@ -503,8 +423,15 @@ namespace MinecraftClone.UI
                 port = parsedPort;
             }
 
+            if (idx > 0 && raw.IndexOf(':') == idx && !ushort.TryParse(raw.Substring(idx + 1), out _))
+            {
+                ConnectionMessage.Show("Неверный порт. Формат: 192.168.0.5:7777 (порт необязателен).");
+                return;
+            }
+
             PlayerPrefs.SetString("LastIP", raw);
             PlayerPrefs.SetString("PlayerNickname", nick);
+
             PlayerPrefs.Save();
 
             if (NetworkManager.singleton == null)
@@ -519,6 +446,22 @@ namespace MinecraftClone.UI
             NetworkManager.singleton.StartClient();
 
             if (statusText != null) statusText.text = "Подключение...";
+            StartCoroutine(ConnectWatchdog(ip, port));
+        }
+
+        // если за 12 секунд подключиться не вышло, не оставляем игрока гадать
+        private IEnumerator ConnectWatchdog(string address, ushort port)
+        {
+            float t = 0f;
+            while (t < 12f)
+            {
+                if (!NetworkClient.active || NetworkClient.isConnected) yield break;
+                t += Time.unscaledDeltaTime;
+                yield return null;
+            }
+            NetworkManager.singleton.StopClient();
+            if (statusText != null) statusText.text = "";
+            ConnectionMessage.Show($"Сервер {address}:{port} не отвечает 12 секунд. Проверь IP и порт, запущен ли хост, не блокирует ли его брандмауэр.");
         }
 
         public void QuitGame()

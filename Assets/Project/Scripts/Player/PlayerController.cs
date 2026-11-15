@@ -3,6 +3,8 @@ using MinecraftClone.Core;
 using MinecraftClone.Management;
 using MinecraftClone.UI;
 using MinecraftClone.ScriptableObjects;
+using Mirror;
+using MinecraftClone.Networking;
 
 namespace MinecraftClone.Player
 {
@@ -55,6 +57,15 @@ namespace MinecraftClone.Player
 
         private Vector3 _knock;
         private const float KnockDecay = 20f;
+        [Header("Player Push")]
+        [Tooltip("Ближе этого расстояния игроки начинают отталкиваться")]
+        public float playerPushRadius = 0.8f;
+        [Tooltip("Скорость отталкивания (блоков/с) при полном совпадении позиций")]
+        public float playerPushSpeed = 1.5f;
+
+        private NetworkPlayer _selfNet;
+        private NetworkPlayer[] _allPlayers = new NetworkPlayer[0];
+        private float _allPlayersTime = -10f;
 
         [Header("Stuck In Blocks")]
         public float stuckSpeedMultiplier = 0.5f;
@@ -387,6 +398,7 @@ namespace MinecraftClone.Player
                 if (stepV > 0f) { finalMoveDirection.y = stepV; velocity.y = 0f; }
             }
 
+            finalMoveDirection += GetPlayerPush();
             finalMoveDirection += _knock;
             _knock = Vector3.MoveTowards(_knock, Vector3.zero, KnockDecay * Time.deltaTime);
             MoveSubstepped(finalMoveDirection * Time.deltaTime);
@@ -403,6 +415,44 @@ namespace MinecraftClone.Player
                 if ((f & CollisionFlags.Above) != 0 && velocity.y > 0f) velocity.y = 0f;
                 if ((f & (CollisionFlags.Above | CollisionFlags.Below)) != 0) break;
             }
+        }
+
+        // Лёгкое отталкивание от других игроков. Проходить сквозь них можно, но они «ощущаются».
+        private Vector3 GetPlayerPush()
+        {
+            if (!NetworkClient.active) return Vector3.zero;   // одиночная игра
+
+            if (_selfNet == null) _selfNet = GetComponent<NetworkPlayer>();
+            if (_selfNet == null || !_selfNet.isLocalPlayer) return Vector3.zero;
+
+            if (Time.unscaledTime - _allPlayersTime > 0.5f)
+            {
+                _allPlayers = FindObjectsByType<NetworkPlayer>(FindObjectsSortMode.None);
+                _allPlayersTime = Time.unscaledTime;
+            }
+
+            Vector3 me = transform.position;
+            Vector3 push = Vector3.zero;
+
+            foreach (var other in _allPlayers)
+            {
+                if (other == null || other == _selfNet) continue;
+
+                Vector3 d = me - other.transform.position;
+                if (Mathf.Abs(d.y) > 1.7f) continue;          // один над другим: не толкаем
+                d.y = 0f;
+
+                float dist = d.magnitude;
+                if (dist >= playerPushRadius) continue;
+
+                // точно в одной точке: направление выбираем по netId, чтобы у двоих оно было противоположным
+                Vector3 dir = dist > 0.01f ? d / dist
+                            : (_selfNet.netId < other.netId ? Vector3.right : Vector3.left);
+
+                float k = 1f - dist / playerPushRadius;       // 0 на границе, 1 при полном перекрытии
+                push += dir * (playerPushSpeed * k);
+            }
+            return push;
         }
 
         // Вертикальная скорость подъёма на ступеньку до 0.5 блока (плита, полублок -> блок). 0 = подъёма нет.

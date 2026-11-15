@@ -53,6 +53,7 @@ namespace MinecraftClone.Networking
         [SerializeField] private string mainMenuSceneName = "MainMenu";
         public static bool ExpectedDisconnect;
         public static string LastError = "";
+        private bool _wasConnected;
         // склад каждого подключённого игрока на сервере (ключ: ник в нижнем регистре)
         private readonly Dictionary<string, ItemStack[]> _serverInventories = new Dictionary<string, ItemStack[]>();
         private static string NickKey(string nick) => nick.ToLowerInvariant();
@@ -325,7 +326,10 @@ namespace MinecraftClone.Networking
                 if (string.Equals(n, cleanNick, System.StringComparison.OrdinalIgnoreCase)) { nickTaken = true; break; }
             if (nickTaken)
             {
-                conn.Send(new RejectConnectionMessage { Reason = "Игрок с таким ником уже в игре!" });
+                conn.Send(new RejectConnectionMessage { Reason = $"Ник «{cleanNick}» уже занят другим игроком. Смени ник и зайди снова." });
+                Debug.LogWarning($"[Net] Вход отклонён: ник '{cleanNick}' уже занят ({conn.address})");
+                if (NetworkServer.localConnection != null)
+                    Reply(NetworkServer.localConnection, $"Вход игрока {cleanNick} отклонён: такой ник уже в игре", 2);
                 StartCoroutine(DisconnectWithDelay(conn));
                 return;
             }
@@ -820,6 +824,7 @@ namespace MinecraftClone.Networking
         public override void OnStartClient()
         {
             base.OnStartClient();
+            _wasConnected = false;
 
             // Регистрируем сетевые хэндлеры ДО момента подключения к серверу,
             // чтобы сообщения не терялись при получении
@@ -839,7 +844,35 @@ namespace MinecraftClone.Networking
         public override void OnClientConnect()
         {
             base.OnClientConnect();
+            _wasConnected = true;
             StartCoroutine(JoinSequence());
+        }
+
+        public override void OnClientError(TransportError error, string reason)
+        {
+            base.OnClientError(error, reason);
+            Debug.LogWarning($"[Net] Ошибка клиента: {error}: {reason}");
+
+            string a = networkAddress;
+            string msg;
+            switch (error)
+            {
+                case TransportError.DnsResolve:
+                    msg = $"Не удалось найти адрес «{a}». Проверь, что IP или имя введены без ошибок."; break;
+                case TransportError.Refused:
+                    msg = $"Сервер {a} отклонил подключение. Проверь порт и что мир открыт для сети."; break;
+                case TransportError.Timeout:
+                    msg = $"Сервер {a} не отвечает. Проверь IP, порт (по умолчанию 7777) и брандмауэр у хоста."; break;
+                case TransportError.ConnectionClosed:
+                    msg = "Соединение закрыто сервером."; break;
+                case TransportError.Congestion:
+                    msg = "Слишком большая нагрузка на сеть, соединение разорвано."; break;
+                case TransportError.InvalidReceive:
+                    msg = "От сервера пришли некорректные данные (возможно, у вас разные версии игры)."; break;
+                default:
+                    msg = $"Сетевая ошибка: {reason}"; break;
+            }
+            if (string.IsNullOrEmpty(LastError)) LastError = msg;   // причину от сервера (бан, ник) не затираем
         }
 
         private IEnumerator JoinSequence()
@@ -874,7 +907,11 @@ namespace MinecraftClone.Networking
             ExpectedDisconnect = false;
             if (NetworkServer.active) return; // хост: выходом занимается меню паузы
 
-            if (!expected && string.IsNullOrEmpty(LastError)) LastError = "Соединение с сервером потеряно";
+            if (!expected && string.IsNullOrEmpty(LastError))
+                LastError = _wasConnected
+                    ? "Соединение с сервером потеряно."
+                    : $"Не удалось подключиться к {networkAddress}. Проверь IP, порт и что хост запущен.";
+            if (!expected) ConnectionMessage.Show(LastError);
 
             RuntimeLoadingScreen.Hide();
             if (WorldManager.Instance != null) WorldManager.Instance.ClearWorld();
