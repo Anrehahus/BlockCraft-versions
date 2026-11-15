@@ -62,6 +62,22 @@ namespace MinecraftClone.Generation
             float hillsHeight = 65f + (Mathf.PerlinNoise((x + seed + 200) * 0.02f, (z + seed + 200) * 0.02f) * 16f);
 
             float finalHeight = Mathf.Lerp(plainsHeight, hillsHeight, biomeNoise);
+
+            // --- Скалы: крупные участки, где земля резко поднимается плато ---
+            const float CliffThreshold = 0.60f;  // выше значение = скал меньше
+            const float CliffEdgeWidth = 0.035f; // меньше = круче обрыв
+            const float CliffMinLift = 24f;    // минимальная высота скалы над равниной
+            const float CliffExtraLift = 14f;    // добавка к высоте от места к месту
+
+            float cliffNoise = Mathf.PerlinNoise((x + seed + 300) * 0.004f, (z + seed + 300) * 0.004f);
+            float cliffMask = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(CliffThreshold, CliffThreshold + CliffEdgeWidth, cliffNoise));
+
+            if (cliffMask > 0f)
+            {
+                float liftNoise = Mathf.PerlinNoise((x + seed + 400) * 0.01f, (z + seed + 400) * 0.01f);
+                finalHeight += cliffMask * (CliffMinLift + liftNoise * CliffExtraLift);
+            }
+
             return Mathf.Clamp(Mathf.FloorToInt(finalHeight), 1, config.ChunkHeight - 2);
         }
     }
