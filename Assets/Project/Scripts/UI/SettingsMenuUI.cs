@@ -24,7 +24,11 @@ namespace MinecraftClone.UI
         private Texture2D _tNormal, _tHover;
         private Texture2D _track, _trackHover, _handle, _handleHover;
 
-        public static void Open(Action onClose)
+        private bool _dirt;
+        private Sprite[] _dirtSprites;
+        private int[] _dirtIdx;
+
+        public static void Open(Action onClose, bool dirtBackground = false)
         {
             if (_inst == null)
             {
@@ -36,6 +40,8 @@ namespace MinecraftClone.UI
             _inst._onClose = onClose;
             _inst._rebinding = null;
             _inst._msg = "";
+            _inst._dirt = dirtBackground;
+            _inst._dirtIdx = null;
             IsOpen = true;
         }
 
@@ -134,14 +140,38 @@ namespace MinecraftClone.UI
             GUI.color = Color.white;
         }
 
+        private void DrawDirt()
+        {
+            if (_dirtSprites == null) _dirtSprites = Resources.LoadAll<Sprite>("Panorama");
+            if (_dirtSprites.Length == 0) { Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0.2f, 0.14f, 0.1f)); return; }
+
+            float ts = Mathf.Round(256f * Screen.height / 1080f);
+            int cols = Mathf.CeilToInt(Screen.width / ts), rows = Mathf.CeilToInt(Screen.height / ts);
+            if (_dirtIdx == null || _dirtIdx.Length != cols * rows)
+            {
+                _dirtIdx = new int[cols * rows];
+                for (int i = 0; i < _dirtIdx.Length; i++) _dirtIdx[i] = UnityEngine.Random.Range(0, _dirtSprites.Length);
+            }
+            GUI.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+            for (int y = 0; y < rows; y++)
+                for (int x = 0; x < cols; x++)
+                {
+                    Sprite s = _dirtSprites[_dirtIdx[y * cols + x]];
+                    Texture2D t = s.texture; Rect r = s.textureRect;
+                    GUI.DrawTextureWithTexCoords(new Rect(x * ts, y * ts, ts, ts), t,
+                        new Rect(r.x / t.width, r.y / t.height, r.width / t.width, r.height / t.height));
+                }
+            GUI.color = Color.white;
+        }
+
         private float Slider(Rect r, float v, float k)
         {
             int id = GUIUtility.GetControlID(FocusType.Passive);
             Event e = Event.current;
 
             float over = Mathf.Max(2f, Mathf.Round(r.height * 0.18f));   // на сколько ползунок выступает сверху и снизу
-            float hh = r.height + over * 2f;                       // высота ползунка
-            float hw = Mathf.Round(hh * 8f / 20f);                   // ширина с пропорциями текстуры 8x20
+            float hh = r.height + over * 2f;                        // высота ползунка
+            float hw = Mathf.Round(hh * 8f / 20f);                    // ширина с пропорциями текстуры 8x20
             Rect hit = new Rect(r.x, r.y - over, r.width, hh);
             float Calc() => Mathf.Clamp01((e.mousePosition.x - r.x - hw / 2f) / (r.width - hw));
 
@@ -192,7 +222,11 @@ namespace MinecraftClone.UI
             _label.fontSize = Mathf.RoundToInt(18 * k);
             _title.fontSize = Mathf.RoundToInt(32 * k);
 
-            if (e.type == EventType.Repaint) Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.65f));
+            if (e.type == EventType.Repaint)
+            {
+                if (_dirt) DrawDirt();
+                else Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.65f));
+            }
 
             float bw = Mathf.Min(400f, Screen.width * 0.6f), bh = 42f, gap = 8f * k;
             float cx = Screen.width / 2f;

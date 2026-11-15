@@ -127,13 +127,14 @@ namespace MinecraftClone.UI
                 }
             }
 
+            if (multiplayerPanel != null) BuildDirtBackground(multiplayerPanel.transform);
             BuildInPlaceDeleteUI();
         }
 
         private void OpenSettings()
         {
             if (mainMenuPanel != null) mainMenuPanel.SetActive(false); // чтобы кнопки под настройками не нажимались
-            MinecraftClone.UI.SettingsMenuUI.Open(ShowMainMenu);
+            MinecraftClone.UI.SettingsMenuUI.Open(ShowMainMenu, true);
         }
 
         public void ResetCursor()
@@ -174,6 +175,7 @@ namespace MinecraftClone.UI
             rect.anchorMax = Vector2.one;
             rect.offsetMin = Vector2.zero;
             rect.offsetMax = Vector2.zero;
+            BuildDirtBackground(inPlaceDeleteContainer.transform);
 
             TMP_FontAsset tmpFontAsset = null;
             TMP_FontAsset[] allTmpFonts = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
@@ -201,24 +203,24 @@ namespace MinecraftClone.UI
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
 
-            CreateMinecraftButton(inPlaceDeleteContainer.transform, "OKButton", "Удалить", new Vector2(-120, -60), new Vector2(180, 50), () => {
+            CreateMinecraftButton(inPlaceDeleteContainer.transform, "OKButton", "Удалить", new Vector2(-170, -60), new Vector2(320, 48), () => {
                 SaveSystem.DeleteSlot(slotPendingDelete);
                 HideInPlaceDeleteUI();
                 UpdateWorldSlotButtons();
                 isDeleteMode = false;
                 if (statusText != null) statusText.text = "Мир удален";
-            });
+            }, tmpFontAsset);
 
-            CreateMinecraftButton(inPlaceDeleteContainer.transform, "CancelButton", "Отмена", new Vector2(120, -60), new Vector2(180, 50), () => {
+            CreateMinecraftButton(inPlaceDeleteContainer.transform, "CancelButton", "Отмена", new Vector2(170, -60), new Vector2(320, 48), () => {
                 HideInPlaceDeleteUI();
                 isDeleteMode = false;
                 if (statusText != null) statusText.text = "";
-            });
+            }, tmpFontAsset);
 
             inPlaceDeleteContainer.SetActive(false);
         }
 
-        private Button CreateMinecraftButton(Transform parent, string name, string label, Vector2 anchoredPos, Vector2 size, System.Action onClick)
+        private Button CreateMinecraftButton(Transform parent, string name, string label, Vector2 anchoredPos, Vector2 size, System.Action onClick, TMP_FontAsset font = null)
         {
             GameObject btnObj = new GameObject(name);
             btnObj.transform.SetParent(parent, false);
@@ -249,7 +251,8 @@ namespace MinecraftClone.UI
             textObj.transform.SetParent(btnObj.transform, false);
             TextMeshProUGUI tmp = textObj.AddComponent<TextMeshProUGUI>();
             tmp.text = label;
-            tmp.fontSize = 20;
+            tmp.fontSize = 24;                          // было 20
+            if (font != null) tmp.font = font;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
 
@@ -259,6 +262,7 @@ namespace MinecraftClone.UI
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
 
+            btnObj.AddComponent<MinecraftButtonHover>();   // перед return btn; даёт тень, hover и рамку
             return btn;
         }
 
@@ -462,6 +466,38 @@ namespace MinecraftClone.UI
             NetworkManager.singleton.StopClient();
             if (statusText != null) statusText.text = "";
             ConnectionMessage.Show($"Сервер {address}:{port} не отвечает 12 секунд. Проверь IP и порт, запущен ли хост, не блокирует ли его брандмауэр.");
+        }
+
+        private static void BuildDirtBackground(Transform parent)
+        {
+            if (parent.Find("DirtGrid") != null) return;
+            Sprite[] sprites = Resources.LoadAll<Sprite>("Panorama");
+            if (sprites == null || sprites.Length == 0) return;
+
+            const float tile = 256f; const int cols = 14, rows = 8;
+            var gridGo = new GameObject("DirtGrid", typeof(RectTransform));
+            gridGo.transform.SetParent(parent, false);
+            gridGo.transform.SetAsFirstSibling();            // позади всего остального
+            var rt = (RectTransform)gridGo.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(cols * tile, rows * tile);
+            rt.anchoredPosition = Vector2.zero;
+
+            var layout = gridGo.AddComponent<GridLayoutGroup>();
+            layout.cellSize = new Vector2(tile, tile);
+            layout.childAlignment = TextAnchor.MiddleCenter;
+            layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            layout.constraintCount = cols;
+
+            for (int i = 0; i < cols * rows; i++)
+            {
+                var t = new GameObject("Tile_" + i, typeof(RectTransform), typeof(Image));
+                t.transform.SetParent(gridGo.transform, false);
+                var img = t.GetComponent<Image>();
+                img.sprite = sprites[UnityEngine.Random.Range(0, sprites.Length)];
+                img.color = new Color(0.45f, 0.45f, 0.45f, 1f);
+                img.raycastTarget = false;
+            }
         }
 
         public void QuitGame()

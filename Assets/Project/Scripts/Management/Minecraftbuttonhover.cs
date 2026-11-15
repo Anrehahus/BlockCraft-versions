@@ -66,6 +66,8 @@ namespace MinecraftClone.UI
                 _baseColor = Color.white;
                 _img.type = Image.Type.Sliced;
                 _btn.transition = Selectable.Transition.None;
+                _img.overrideSprite = null;                            // сброс остатков SpriteSwap
+                _img.canvasRenderer.SetColor(Color.white);            // сброс остатков ColorTint
             }
         }
 
@@ -164,6 +166,8 @@ namespace MinecraftClone.UI
 
             if (_useSprites && _img != null)
             {
+                if (_img.overrideSprite != null) _img.overrideSprite = null;
+
                 Sprite s = _normal;
                 if (!ok && _disabled != null) s = _disabled;
                 else if (ok && _over) s = _hover;
