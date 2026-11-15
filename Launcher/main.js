@@ -163,13 +163,14 @@ function parseGame(...names) {
     const s = normName(raw);
     let m = /pre[\s_-]*classic[\s_-]*rd[\s_-]*(\d+)/i.exec(s);
     if (m) return { kind: 0, nums: [parseInt(m[1], 10)], suffix: '', label: 'Pre-classic rd-' + m[1] };
-	    m = /indev[\s_-]*(\d+(?:\.\d+)*)\s*([a-z]?)/i.exec(s);
+	        m = /indev[\s_-]*(\d+(?:\.\d+)*)\s*([a-z]?)(?:[\s_-]*(\d{8})(?:[\s_-]*(\d{4}))?)?/i.exec(s);
     if (m) {
+      const build = m[3] ? m[3] + (m[4] ? '-' + m[4] : '') : '';
       return {
         kind: 2,
-        nums: m[1].split('.').map((n) => parseInt(n, 10)),
+        nums: [...m[1].split('.').map((n) => parseInt(n, 10)), m[3] ? parseInt(m[3], 10) : 0, m[4] ? parseInt(m[4], 10) : 0],
         suffix: m[2].toLowerCase(),
-        label: 'Indev ' + m[1] + m[2].toLowerCase(),
+        label: 'Indev ' + m[1] + m[2].toLowerCase() + (build ? ' ' + build : ''),
       };
     }
     m = /classic[\s_-]*(\d+(?:\.\d+)*)\s*([a-z]?)/i.exec(s);
