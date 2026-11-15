@@ -16,12 +16,11 @@ using MinecraftClone.UI;
 using MinecraftClone.Networking;
 using MinecraftClone.Effects;
 using MinecraftClone.Audio;
-using MinecraftClone.Player;
 using MinecraftClone.Items;
 
 namespace MinecraftClone.Management
 {
-    public class WorldManager : MonoBehaviour, IBlockReader
+    public class WorldManager : MonoBehaviour, IBlockReader, ITorchSource
     {
         public static WorldManager Instance { get; private set; }
 
@@ -177,6 +176,23 @@ namespace MinecraftClone.Management
                             ApplyBlockChange(x, y, z, BlockType.Air, false, dirty);
                     }
             foreach (var c in dirty) RebuildChunkMesh(c);
+        }
+
+        public void CollectTorches(int chunkX, int chunkZ, List<Vector3Int> result)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dz = -1; dz <= 1; dz++)
+                    if (loadedChunks.TryGetValue(new Vector2Int(chunkX + dx, chunkZ + dz), out ChunkData c))
+                        c.CollectTorches(result);
+        }
+
+        public bool HasTorchSupport(int x, int y, int z, BlockType torch)
+        {
+            Vector3Int s = new Vector3Int(x, y, z) + torch.TorchSupportOffset();
+            BlockType b = GetBlockAtWorldPosition(s.x, s.y, s.z);
+            if (b == BlockType.Air || b == BlockType.Water || b == BlockType.Lava
+                || b.IsPlant() || b.IsSign() || b.IsTorch()) return false;
+            return blockDatabase != null && blockDatabase.TryGetValue(b, out BlockDataSO d) && d != null && d.IsSolid;
         }
 
         private void Awake()
@@ -1162,6 +1178,12 @@ namespace MinecraftClone.Management
                 for (int i = (int)BlockType.SignStanding1; i <= (int)BlockType.SignWallNegZ; i++)
                     blockDatabase[(BlockType)i] = signData;
             }
+
+            if (blockDatabase.TryGetValue(BlockType.Torch, out BlockDataSO torchData) && torchData != null)
+            {
+                for (int i = (int)BlockType.TorchWallPosX; i <= (int)BlockType.TorchWallNegZ; i++)
+                    blockDatabase[(BlockType)i] = torchData;
+            }
         }
 
         private void BuildTextureAtlas()
@@ -1415,6 +1437,12 @@ namespace MinecraftClone.Management
                 if (!HasSignSupport(worldX, worldY, worldZ, newType)) return false;
             }
 
+            if (newType.IsTorch())
+            {
+                if (currentBlock != BlockType.Air) return false;
+                if (!HasTorchSupport(worldX, worldY, worldZ, newType)) return false;
+            }
+
             // чистый клиент: локальная проверка пройдена, отправляем запрос серверу.
             // Блок изменится у нас, когда сервер подтвердит и разошлёт изменение всем.
             if (NetworkClient.active && !NetworkServer.active)
@@ -1459,6 +1487,7 @@ namespace MinecraftClone.Management
 
         private void SpawnBreakEffect(Vector3Int pos, BlockType oldType)
         {
+            if (oldType.IsTorch()) return;   // у факела частиц нет
             if (blockDatabase == null || !blockDatabase.TryGetValue(oldType, out BlockDataSO d) || d == null) return;
 
             Texture2D tex = d.TopTexture != null ? d.TopTexture : d.SideTexture;
@@ -1523,20 +1552,13 @@ namespace MinecraftClone.Management
                 if (rebuildMesh)
                 {
                     TriggerChunkUpdate(chunkPos);
-
-                    if (localX == 0) TriggerChunkUpdate(new Vector2Int(chunkX - 1, chunkZ));
-                    if (localX == chunkSize - 1) TriggerChunkUpdate(new Vector2Int(chunkX + 1, chunkZ));
-                    if (localZ == 0) TriggerChunkUpdate(new Vector2Int(chunkX, chunkZ - 1));
-                    if (localZ == chunkSize - 1) TriggerChunkUpdate(new Vector2Int(chunkX, chunkZ + 1));
+                    ForEachLightNeighbour(chunkX, chunkZ, localX, localZ, chunkSize, p => TriggerChunkUpdate(p));
                 }
                 else if (dirtyChunks != null)
                 {
                     AddChunkToDirtyIfLoaded(chunkPos, dirtyChunks);
 
-                    if (localX == 0) AddChunkToDirtyIfLoaded(new Vector2Int(chunkX - 1, chunkZ), dirtyChunks);
-                    if (localX == chunkSize - 1) AddChunkToDirtyIfLoaded(new Vector2Int(chunkX + 1, chunkZ), dirtyChunks);
-                    if (localZ == 0) AddChunkToDirtyIfLoaded(new Vector2Int(chunkX, chunkZ - 1), dirtyChunks);
-                    if (localZ == chunkSize - 1) AddChunkToDirtyIfLoaded(new Vector2Int(chunkX, chunkZ + 1), dirtyChunks);
+                    ForEachLightNeighbour(chunkX, chunkZ, localX, localZ, chunkSize, p => AddChunkToDirtyIfLoaded(p, dirtyChunks));
                 }
             }
         }
@@ -1556,6 +1578,20 @@ namespace MinecraftClone.Management
             {
                 dirtyChunks.Add(chunkPos);
             }
+        }
+
+        // Свет доходит до 9 блоков, поэтому пересобираем и соседние чанки (включая диагональные) в радиусе света
+        private void ForEachLightNeighbour(int cx, int cz, int lx, int lz, int size, Action<Vector2Int> action)
+        {
+            const int reach = 9;
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    if (dx == 0 && dz == 0) continue;
+                    bool nearX = dx == 0 || (dx < 0 ? lx < reach : lx >= size - reach);
+                    bool nearZ = dz == 0 || (dz < 0 ? lz < reach : lz >= size - reach);
+                    if (nearX && nearZ) action(new Vector2Int(cx + dx, cz + dz));
+                }
         }
 
         private void TriggerChunkUpdate(Vector2Int chunkPos)
@@ -1578,7 +1614,7 @@ namespace MinecraftClone.Management
             return blockDatabase != null && blockDatabase.TryGetValue(b, out BlockDataSO d) && d != null && d.IsSolid;
         }
 
-        // Убрать таблички, которые остались без опоры
+        // Убрать таблички и факелы, которые остались без опоры
         private void CheckSignsAround(Vector3Int pos)
         {
             Vector3Int[] dirs = { Vector3Int.up, Vector3Int.down, Vector3Int.left, Vector3Int.right, Vector3Int.forward, Vector3Int.back };
@@ -1588,6 +1624,11 @@ namespace MinecraftClone.Management
                 BlockType t = GetBlockAtWorldPosition(p.x, p.y, p.z);
                 if (t.IsSign() && !HasSignSupport(p.x, p.y, p.z, t))
                     ApplyBlockChange(p.x, p.y, p.z, BlockType.Air, true);
+                if (t.IsTorch() && !HasTorchSupport(p.x, p.y, p.z, t))
+                {
+                    ApplyBlockChange(p.x, p.y, p.z, BlockType.Air, true);
+                    if (ItemDropSystem.Instance != null) ItemDropSystem.Instance.ServerDrop(t, p);   // факел выпадает
+                }
             }
         }
 

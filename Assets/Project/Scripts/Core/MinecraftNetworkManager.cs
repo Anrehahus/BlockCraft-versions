@@ -786,12 +786,7 @@ namespace MinecraftClone.Networking
                     {
                         if (arg1 == "") { Reply(conn, "Использование: /give <блок> [кол-во]. Пример: /give StoneSlab 64", 2); return; }
 
-                        MinecraftClone.Items.ItemDef found = null;
-                        foreach (var d in MinecraftClone.Items.ItemRegistry.All)
-                            if (string.Equals(d.Key, arg1, StringComparison.OrdinalIgnoreCase)
-                                || string.Equals(d.Key, "block/" + arg1, StringComparison.OrdinalIgnoreCase)
-                                || string.Equals(d.Name, arg1, StringComparison.OrdinalIgnoreCase))
-                            { found = d; break; }
+                        MinecraftClone.Items.ItemDef found = MinecraftClone.Items.ItemRegistry.FindForCommand(arg1);
 
                         if (found == null) { Reply(conn, $"Предмет «{arg1}» не найден", 2); return; }
 

@@ -12,9 +12,64 @@ namespace MinecraftClone.Rendering
         BlockType GetBlockAtWorldPosition(int worldX, int worldY, int worldZ);
     }
 
+    // Поиск факелов (источников света) в чанке и его 8 соседях, в мировых координатах
+    public interface ITorchSource
+    {
+        void CollectTorches(int chunkX, int chunkZ, List<Vector3Int> result);
+    }
+
+    // Размеры и поворот факела (в блоках), общие для меша и хитбокса
+    public static class TorchGeometry
+    {
+        public const float Half = 0.0625f;      // 2 пикселя из 16
+        public const float Height = 0.625f;     // 10 пикселей
+        public const float TiltDegrees = 20f;   // наклон факела на стене (в оригинале 22.5°)
+        private const float BaseY = 0.22f;      // высота центра низа настенного факела
+
+        private static float Rad => TiltDegrees * Mathf.Deg2Rad;
+
+        // центр низа факела в клетке (ось поворота). У настенного низ утоплен в блок-опору примерно наполовину
+        public static Vector3 Base(BlockType t)
+        {
+            if (!t.IsWallTorch()) return new Vector3(0.5f, 0f, 0.5f);
+            float d = 0.5f;   // ось на плоскости стены: задняя половина низа внутри блока
+            return new Vector3(0.5f, BaseY, 0.5f) - t.TorchLean() * d;
+        }
+
+        // Точка факела в координатах клетки. dx, dz: смещение от оси факела (оси мира), y: высота вдоль факела.
+        // Настенный факел поворачивается целиком (а не скашивается), как в оригинале.
+        public static Vector3 Point(BlockType t, float dx, float y, float dz)
+        {
+            Vector3 b = Base(t);
+            if (!t.IsWallTorch()) return b + new Vector3(dx, y, dz);
+
+            Vector3 lean = t.TorchLean();
+            Vector3 side = new Vector3(Mathf.Abs(lean.z), 0f, Mathf.Abs(lean.x));
+            float u = dx * lean.x + dz * lean.z;    // вдоль наклона
+            float w = dx * side.x + dz * side.z;    // вбок
+            float c = Mathf.Cos(Rad), s = Mathf.Sin(Rad);
+            return b + lean * (u * c + y * s) + Vector3.up * (y * c - u * s) + side * w;
+        }
+
+        public static void Bounds(BlockType t, out Vector3 min, out Vector3 max)
+        {
+            min = new Vector3(1f, 1f, 1f);
+            max = Vector3.zero;
+            for (int i = 0; i < 8; i++)
+            {
+                Vector3 p = Point(t, (i & 1) == 0 ? -Half : Half, (i & 2) == 0 ? 0f : Height, (i & 4) == 0 ? -Half : Half);
+                min = Vector3.Min(min, p);
+                max = Vector3.Max(max, p);
+            }
+            const float pad = 0.08f;   // чуть шире, чтобы легче целиться
+            min = new Vector3(Mathf.Max(0f, min.x - pad), Mathf.Max(0f, min.y), Mathf.Max(0f, min.z - pad));
+            max = new Vector3(Mathf.Min(1f, max.x + pad), Mathf.Min(1f, max.y), Mathf.Min(1f, max.z + pad));
+        }
+    }
+
     // Снимок чанка и его 8 соседей: ссылки на массивы блоков, собранные на ОСНОВНОМ потоке.
     // Фоновый поток читает только их и не трогает словари WorldManager.
-    public sealed class ChunkSnapshot : IBlockReader
+    public sealed class ChunkSnapshot : IBlockReader, ITorchSource
     {
         private readonly ChunkData[] _chunks = new ChunkData[9];
         private readonly int[] _versions = new int[9];
@@ -42,6 +97,12 @@ namespace MinecraftClone.Rendering
             return false;
         }
 
+        public void CollectTorches(int chunkX, int chunkZ, List<Vector3Int> result)
+        {
+            for (int i = 0; i < 9; i++)
+                if (_chunks[i] != null) _chunks[i].CollectTorches(result);
+        }
+
         public BlockType GetBlockAtWorldPosition(int worldX, int worldY, int worldZ)
         {
             if (worldY < 0 || worldY >= _h) return BlockType.Air;
@@ -66,7 +127,7 @@ namespace MinecraftClone.Rendering
     public static class ChunkUV
     {
         private const int Faces = 8;
-        private const int MaxTypes = 64;
+        private const int MaxTypes = 128;
         private static Rect[] _table = NewTable();
 
         private static Rect[] NewTable()
@@ -125,20 +186,21 @@ namespace MinecraftClone.Rendering
 
         // ---------- Освещение (уровни 0..9) ----------
         private const int LightReach = 9;    // свет проходит максимум 9 блоков
-        // яркость по уровнь: 0 = почти чёрный, 9 = как раньше. Подгоняется под вкус
+        // яркость по уровню: 0 = почти чёрный, 9 = как раньше. Подгоняется под вкус
         public static readonly float[] LightBrightness =
             { 0.22f, 0.27f, 0.33f, 0.40f, 0.48f, 0.57f, 0.67f, 0.78f, 0.89f, 1f };
 
         private byte[] _opac, _light;        // непрозрачность и уровень света региона (чанк + 9 блоков вокруг)
         private int[] _top;                  // верхний блок, перекрывающий небо, по колонкам региона (-1 = открыто)
         private readonly List<int> _lightQueue = new List<int>();
+        private readonly List<Vector3Int> _torches = new List<Vector3Int>();
         private int _rw, _rh, _rx0, _rz0, _ox, _oz;
         private float _curLight = 1f;
 
         // 0 = пропускает свет без потерь, 1 = гасит на 1 дополнительно, 2 = не пропускает
         private static byte Opacity(BlockType t)
         {
-            if (t == BlockType.Air || t == BlockType.Glass || t.IsPlant() || t.IsSign()) return 0;
+            if (t == BlockType.Air || t == BlockType.Glass || t.IsPlant() || t.IsSign() || t.IsTorch()) return 0;
             if (t == BlockType.Water || t == BlockType.Lava || t == BlockType.OakLeaves || t == BlockType.StoneSlab) return 1;
             return 2;
         }
@@ -191,6 +253,20 @@ namespace MinecraftClone.Rendering
                     int yEnd = Mathf.Min(h - 1, Mathf.Max(maxN, t + 1));
                     for (int y = t + 1; y <= yEnd; y++) _lightQueue.Add((y * _rw + rz) * _rw + rx);
                 }
+
+            // 2b. факелы: источники уровня 9
+            _torches.Clear();
+            if (world is ITorchSource ts) ts.CollectTorches(cd.Position.x, cd.Position.y, _torches);
+            for (int k = 0; k < _torches.Count; k++)
+            {
+                Vector3Int p = _torches[k];
+                int trx = p.x - _rx0, trz = p.z - _rz0;
+                if (trx < 0 || trz < 0 || trx >= _rw || trz >= _rw || p.y < 0 || p.y >= h) continue;
+                if (p.y > _top[trz * _rw + trx]) continue;          // над землёй там и так 9
+                int ti = (p.y * _rw + trz) * _rw + trx;
+                _light[ti] = 9;
+                _lightQueue.Add(ti);
+            }
 
             // 3. растекание: -1 за каждый блок
             for (int head = 0; head < _lightQueue.Count; head++)
@@ -307,6 +383,12 @@ namespace MinecraftClone.Rendering
                 return;
             }
 
+            if (type.IsTorch())
+            {
+                AddTorchData(x, y, z, type);
+                return;
+            }
+
             if (IsPlantBlock(type))
             {
                 AddPlantData(x, y, z, type);
@@ -379,7 +461,7 @@ namespace MinecraftClone.Rendering
 
         private bool ShouldRenderFace(BlockType current, BlockType neighbor)
         {
-            bool seeThrough = neighbor == BlockType.Air || IsPlantBlock(neighbor) || neighbor.IsSign();
+            bool seeThrough = neighbor == BlockType.Air || IsPlantBlock(neighbor) || neighbor.IsSign() || neighbor.IsTorch();
 
             if (current == BlockType.Water)
                 return seeThrough || neighbor == BlockType.Lava;
@@ -558,6 +640,46 @@ namespace MinecraftClone.Rendering
             return new Rect(tex.x + u0 * tex.width, tex.y + v0 * tex.height, (u1 - u0) * tex.width, (v1 - v0) * tex.height);
         }
 
+        // Часть текстуры факела по пикселям (сетка 16x16, отсчёт от левого верхнего угла)
+        private static Rect Sub16(Rect tex, int px, int py, int pw, int ph)
+        {
+            float u0 = px / 16f, u1 = (px + pw) / 16f;
+            float v1 = 1f - py / 16f, v0 = 1f - (py + ph) / 16f;
+            return new Rect(tex.x + u0 * tex.width, tex.y + v0 * tex.height, (u1 - u0) * tex.width, (v1 - v0) * tex.height);
+        }
+
+        private void AddTorchData(int x, int y, int z, BlockType type)
+        {
+            Vector3 origin = new Vector3(x, y, z);
+            float hw = TorchGeometry.Half, H = TorchGeometry.Height;
+
+            // угол: ix/iz = 0|1, iy = 0 (низ) | 1 (верх); настенный факел повёрнут целиком
+            Vector3 C(int ix, int iy, int iz) =>
+                origin + TorchGeometry.Point(type, ix == 0 ? -hw : hw, iy == 0 ? 0f : H, iz == 0 ? -hw : hw);
+
+            Rect tex = ChunkUV.Get(BlockType.Torch, 4);
+            Rect side = Sub16(tex, 7, 6, 2, 10);
+            Rect top = Sub16(tex, 7, 6, 2, 2);
+
+            AddTorchQuad(C(0, 0, 0), C(0, 1, 0), C(1, 1, 0), C(1, 0, 0), side);   // -Z
+            AddTorchQuad(C(1, 0, 1), C(1, 1, 1), C(0, 1, 1), C(0, 0, 1), side);   // +Z
+            AddTorchQuad(C(0, 0, 1), C(0, 1, 1), C(0, 1, 0), C(0, 0, 0), side);   // -X
+            AddTorchQuad(C(1, 0, 0), C(1, 1, 0), C(1, 1, 1), C(1, 0, 1), side);   // +X
+            AddTorchQuad(C(0, 1, 0), C(0, 1, 1), C(1, 1, 1), C(1, 1, 0), top);    // верх
+        }
+
+        private void AddTorchQuad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, Rect uv)
+        {
+            int v = Vertices.Count;
+            Vertices.Add(p0); Vertices.Add(p1); Vertices.Add(p2); Vertices.Add(p3);
+            Vector3 n = Vector3.Cross(p1 - p0, p2 - p1).normalized;
+            for (int k = 0; k < 4; k++) { Normals.Add(n); Colors.Add(White); }   // факел светится сам: полная яркость
+            Uvs.Add(new Vector2(uv.xMin, uv.yMin)); Uvs.Add(new Vector2(uv.xMin, uv.yMax));
+            Uvs.Add(new Vector2(uv.xMax, uv.yMax)); Uvs.Add(new Vector2(uv.xMax, uv.yMin));
+            CutoutTriangles.Add(v); CutoutTriangles.Add(v + 1); CutoutTriangles.Add(v + 2);
+            CutoutTriangles.Add(v + 2); CutoutTriangles.Add(v + 3); CutoutTriangles.Add(v);
+        }
+
         private void AddSignBox(Vector3 c, Vector3 f, float hw, float hh, float hd, Rect front, Rect edge, Rect topBottom)
         {
             Vector3 up = Vector3.up;
@@ -608,7 +730,7 @@ namespace MinecraftClone.Rendering
 
             if (IsFluidType(above)) return 1f;   // столб жидкости
 
-            bool blockAbove = above != BlockType.Air && !IsPlantBlock(above) && !above.IsSign();
+            bool blockAbove = above != BlockType.Air && !IsPlantBlock(above) && !above.IsSign() && !above.IsTorch();
             if (blockAbove)
             {
                 // блок погружён: жидкость над ним или рядом с ним на его уровне

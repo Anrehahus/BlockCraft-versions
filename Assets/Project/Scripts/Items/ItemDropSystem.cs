@@ -260,7 +260,7 @@ namespace MinecraftClone.Items
 
             BlockType b = wm.GetBlockAtWorldPosition(x, y, z);
             if (b == BlockType.Air || b == BlockType.Water || b == BlockType.Lava) return false;
-            if (b.IsPlant() || b.IsSign()) return false;
+            if (b.IsPlant() || b.IsSign() || b.IsTorch()) return false;
 
             if (wm.BlockDatabase != null && wm.BlockDatabase.TryGetValue(b, out BlockDataSO d) && d != null)
                 return d.IsSolid;
@@ -276,7 +276,7 @@ namespace MinecraftClone.Items
         {
             ItemDef def = ItemRegistry.Get(itemId);
             if (def == null) return false;
-            return def.Texture != null || def.Block.IsPlant() || def.Block.IsSign();
+            return def.Texture != null || def.Block.IsPlant() || def.Block.IsSign() || def.Block.IsTorch();
         }
 
         public Mesh GetMesh(int itemId)
@@ -305,10 +305,19 @@ namespace MinecraftClone.Items
                 }
 
                 Rect r = SafeUV(uvMap, tex);
-                Vector3 a = new Vector3(-0.5f, -0.5f, 0f), b = new Vector3(-0.5f, 0.5f, 0f);
-                Vector3 c = new Vector3(0.5f, 0.5f, 0f), e = new Vector3(0.5f, -0.5f, 0f);
-                AddFace(v, t, uv, col, a, b, c, e, r, 255, false);
-                AddFace(v, t, uv, col, e, c, b, a, r, 255, true);
+                if (def.Texture == null && def.Block.IsSign())
+                {
+                    // табличка: доска сверху, палка снизу (как в иконке хотбара), а не вся текстура 32x32
+                    AddFlatQuad(v, t, uv, col, -0.5f, 0.5f, 0f, 0.5f, SubRect(r, 2, 2, 24, 12));
+                    AddFlatQuad(v, t, uv, col, -0.0417f, 0.0417f, -0.5f, 0f, SubRect(r, 2, 16, 2, 14));
+                }
+                else
+                {
+                    Vector3 a = new Vector3(-0.5f, -0.5f, 0f), b = new Vector3(-0.5f, 0.5f, 0f);
+                    Vector3 c = new Vector3(0.5f, 0.5f, 0f), e = new Vector3(0.5f, -0.5f, 0f);
+                    AddFace(v, t, uv, col, a, b, c, e, r, 255, false);
+                    AddFace(v, t, uv, col, e, c, b, a, r, 255, true);
+                }
             }
             else
             {
@@ -346,6 +355,23 @@ namespace MinecraftClone.Items
             mesh.RecalculateBounds();
             _meshes[itemId] = mesh;
             return mesh;
+        }
+
+        private static void AddFlatQuad(List<Vector3> v, List<int> t, List<Vector2> uv, List<Color32> col,
+                                        float x0, float x1, float y0, float y1, Rect r)
+        {
+            Vector3 a = new Vector3(x0, y0, 0f), b = new Vector3(x0, y1, 0f);
+            Vector3 c = new Vector3(x1, y1, 0f), e = new Vector3(x1, y0, 0f);
+            AddFace(v, t, uv, col, a, b, c, e, r, 255, false);
+            AddFace(v, t, uv, col, e, c, b, a, r, 255, true);
+        }
+
+        // часть текстуры 32x32 по пикселям (отсчёт от левого верхнего угла)
+        private static Rect SubRect(Rect tex, int px, int py, int pw, int ph)
+        {
+            float u0 = px / 32f, u1 = (px + pw) / 32f;
+            float v1 = 1f - py / 32f, v0 = 1f - (py + ph) / 32f;
+            return new Rect(tex.x + u0 * tex.width, tex.y + v0 * tex.height, (u1 - u0) * tex.width, (v1 - v0) * tex.height);
         }
 
         private static Texture2D Pick(Texture2D first, Texture2D second) => first != null ? first : second;

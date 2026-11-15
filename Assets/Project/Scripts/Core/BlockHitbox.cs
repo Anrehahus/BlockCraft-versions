@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using MinecraftClone.Management;
+using MinecraftClone.Rendering;
 
 namespace MinecraftClone.Core
 {
@@ -22,6 +23,12 @@ namespace MinecraftClone.Core
             {
                 min = Vector3.zero;
                 max = new Vector3(1f, 0.5f, 1f);
+                return true;
+            }
+
+            if (t.IsTorch())
+            {
+                TorchGeometry.Bounds(t, out min, out max);
                 return true;
             }
 

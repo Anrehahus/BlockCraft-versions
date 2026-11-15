@@ -45,5 +45,16 @@ namespace MinecraftClone.Core
                    y < 0 || y >= Height ||
                    z < 0 || z >= Width;
         }
+
+        // мировые координаты всех факелов чанка (для расчёта света)
+        public void CollectTorches(System.Collections.Generic.List<Vector3Int> result)
+        {
+            int ox = Position.x * Width, oz = Position.y * Width;
+            for (int x = 0; x < Width; x++)
+                for (int y = 0; y < Height; y++)
+                    for (int z = 0; z < Width; z++)
+                        if (Blocks[x, y, z] >= BlockType.Torch)   // факелы идут последними в enum
+                            result.Add(new Vector3Int(ox + x, y, oz + z));
+        }
     }
 }

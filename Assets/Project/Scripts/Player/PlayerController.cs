@@ -89,10 +89,10 @@ namespace MinecraftClone.Player
             playerCamera = GetComponentInChildren<Camera>();
             if (controller != null)
             {
-                controller.radius = 0.3f;                    // ширина 0.6
+                controller.radius = 0.3f;                   // ширина 0.6
                 controller.height = 1.8f;
                 controller.center = new Vector3(0f, 0.9f, 0f);  // pivot игрока у ног
-                controller.skinWidth = 0.03f;                    // маленький «зазор», чтобы не было ложного отступа от стен
+                controller.skinWidth = 0.03f;                   // маленький «зазор», чтобы не было ложного отступа от стен
                 controller.stepOffset = 0.1f;
             }
         }
@@ -170,7 +170,7 @@ namespace MinecraftClone.Player
 
         private bool IsSolidBlockType(BlockType t)
         {
-            if (t == BlockType.Air || t == BlockType.Water || t == BlockType.Lava || t.IsPlant() || t.IsSign()) return false;
+            if (t == BlockType.Air || t == BlockType.Water || t == BlockType.Lava || t.IsPlant() || t.IsSign() || t.IsTorch()) return false;
             var db = WorldManager.Instance.BlockDatabase;
             if (db != null && db.TryGetValue(t, out BlockDataSO data) && data != null) return data.IsSolid;
             return true;
@@ -246,7 +246,7 @@ namespace MinecraftClone.Player
             {
                 int cy = fy + d.y;
                 Vector3 target = (d.x == 0 && d.z == 0)
-                    ? new Vector3(pos.x, cy + 0.02f, pos.z)                        // вверх/вниз: X и Z не меняем
+                    ? new Vector3(pos.x, cy + 0.02f, pos.z)                    // вверх/вниз: X and Z не меняем
                     : new Vector3(fx + d.x + 0.5f, cy + 0.02f, fz + d.z + 0.5f);  // в сторону: центр соседней клетки
 
                 if (!HasClearance(target)) continue;
@@ -280,7 +280,7 @@ namespace MinecraftClone.Player
             }
             if (tex == null) tex = Texture2D.blackTexture;
 
-            GUI.depth = 100;                            // позади интерфейса
+            GUI.depth = 100;                    // позади интерфейса
             GUI.color = new Color(0.08f, 0.08f, 0.08f, 1f);    // «очень-очень тёмная» текстура
             GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), tex, ScaleMode.StretchToFill);
             GUI.color = Color.white;
@@ -439,7 +439,7 @@ namespace MinecraftClone.Player
                 if (other == null || other == _selfNet) continue;
 
                 Vector3 d = me - other.transform.position;
-                if (Mathf.Abs(d.y) > 1.7f) continue;          // один над другим: не толкаем
+                if (Mathf.Abs(d.y) > 1.7f) continue;         // один над другим: не толкаем
                 d.y = 0f;
 
                 float dist = d.magnitude;
@@ -447,9 +447,9 @@ namespace MinecraftClone.Player
 
                 // точно в одной точке: направление выбираем по netId, чтобы у двоих оно было противоположным
                 Vector3 dir = dist > 0.01f ? d / dist
-                            : (_selfNet.netId < other.netId ? Vector3.right : Vector3.left);
+                        : (_selfNet.netId < other.netId ? Vector3.right : Vector3.left);
 
-                float k = 1f - dist / playerPushRadius;       // 0 на границе, 1 при полном перекрытии
+                float k = 1f - dist / playerPushRadius;        // 0 на границе, 1 при полном перекрытии
                 push += dir * (playerPushSpeed * k);
             }
             return push;

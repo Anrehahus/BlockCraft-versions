@@ -76,7 +76,7 @@ namespace MinecraftClone.UI
             float u = Scale;                        // один "пиксель" оригинала на экране
             float barH = 22f * u;
             float barW = barH * _bar.width / _bar.height;      // ширина берётся из пропорций вашей текстуры
-            float k = barW / 182f;                           // горизонтальный шаг
+            float k = barW / 182f;                             // горизонтальный шаг
             float x0 = (Screen.width - barW) / 2f;
             float y0 = Screen.height - barH;
 
@@ -161,7 +161,7 @@ namespace MinecraftClone.UI
             Color32[] px = new Color32[IconSize * IconSize];
 
             if (type.IsSign()) DrawSign(px, side);
-            else if (type.IsPlant()) DrawFlat(px, top);
+            else if (type.IsPlant() || type.IsTorch()) DrawFlat(px, top);
             else DrawCube(px, top, side, type == BlockType.StoneSlab ? 0.5f : 1f);
 
             Texture2D tex = new Texture2D(IconSize, IconSize, TextureFormat.RGBA32, false);

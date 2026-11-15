@@ -15,6 +15,7 @@ namespace MinecraftClone.Items
         public BlockType Block;      // какой блок ставит (Air = не ставится)
         public float FoodHeal;       // >0: съедобное, столько здоровья восстанавливает
         public Texture2D Texture;    // картинка у предметов, которые не блоки
+        public string Alias;         // короткое имя для команды /give (необязательно)
     }
 
     // Список всех предметов. Собирается один раз при старте мира (WorldManager.Awake).
@@ -50,6 +51,7 @@ namespace MinecraftClone.Items
                     BlockDataSO d = blockDb[t];
                     if (d == null || t == BlockType.Air || t == BlockType.Bedrock || t == BlockType.Water || t == BlockType.Lava) continue;
                     if (t.IsSign() && t != BlockType.SignStanding0) continue;   // табличка одна, а не 12
+                    if (t.IsTorch() && t != BlockType.Torch) continue;           // факел один, а не 5
 
                     if (t == BlockType.StoneSlabDouble) continue;
 
@@ -59,7 +61,8 @@ namespace MinecraftClone.Items
                         Key = "block/" + t,
                         Name = string.IsNullOrEmpty(d.BlockName) ? t.ToString() : d.BlockName,
                         MaxStack = DefaultStack,
-                        Block = t
+                        Block = t,
+                        Alias = t == BlockType.SignStanding0 ? "oaksign" : null
                     });
                 }
             }
@@ -109,6 +112,29 @@ namespace MinecraftClone.Items
 
         public static ItemDef Get(int id) => _byId.TryGetValue(id, out ItemDef d) ? d : null;
         public static ItemDef Find(string key) => !string.IsNullOrEmpty(key) && _byKey.TryGetValue(key, out ItemDef d) ? d : null;
+        // Поиск предмета для команды /give: ключ, ключ блока, короткое имя (alias) или отображаемое имя
+        public static ItemDef FindForCommand(string arg)
+        {
+            if (string.IsNullOrWhiteSpace(arg)) return null;
+            arg = arg.Trim();
+
+            // сначала точное короткое имя, чтобы oaksign выигрывал у остальных совпадений
+            foreach (var d in _all)
+                if (!string.IsNullOrEmpty(d.Alias) && string.Equals(d.Alias, arg, System.StringComparison.OrdinalIgnoreCase)) return d;
+
+            foreach (var d in _all)
+            {
+                // у предметов с коротким именем (табличка) остальные названия не работают
+                if (!string.IsNullOrEmpty(d.Alias)) continue;
+
+                if (string.Equals(d.Key, arg, System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(d.Key, "block/" + arg, System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(d.Name, arg, System.StringComparison.OrdinalIgnoreCase)) return d;
+            }
+
+            return null;
+        }
+
         public static int IdOf(string key) { var d = Find(key); return d != null ? d.Id : 0; }
         public static string KeyOf(int id) { var d = Get(id); return d != null ? d.Key : ""; }
 
@@ -117,6 +143,7 @@ namespace MinecraftClone.Items
         {
             if (broken == BlockType.StoneSlabDouble) broken = BlockType.StoneSlab;
             if (broken.IsSign()) broken = BlockType.SignStanding0;
+            if (broken.IsTorch()) broken = BlockType.Torch;
             return _byBlock.TryGetValue(broken, out ItemDef d) ? d.Id : 0;
         }
 

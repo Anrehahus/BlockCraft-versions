@@ -150,8 +150,8 @@ namespace MinecraftClone.Player
                     if (solidOnly)
                     {
                         ok = _worldManager.BlockDatabase != null
-                           && _worldManager.BlockDatabase.TryGetValue(b, out BlockDataSO data)
-                           && data != null && data.IsSolid;
+                            && _worldManager.BlockDatabase.TryGetValue(b, out BlockDataSO data)
+                            && data != null && data.IsSolid;
                     }
                     if (ok)
                     {
@@ -206,7 +206,7 @@ namespace MinecraftClone.Player
             Vector3Int camCell = Vector3Int.FloorToInt(cameraTransform.position);
             BlockType camBlock = _worldManager.GetBlockAtWorldPosition(camCell.x, camCell.y, camCell.z);
             if (camBlock != BlockType.Air && camBlock != BlockType.Water && camBlock != BlockType.Lava
-                && !camBlock.IsPlant() && !camBlock.IsSign())
+                && !camBlock.IsPlant() && !camBlock.IsSign() && !camBlock.IsTorch())
             {
                 _selectedBlockPos = camCell;      // камера внутри блока: целимся именно в него
                 _hasTargetBlock = true;
@@ -351,6 +351,16 @@ namespace MinecraftClone.Player
                     selectedType = BlockTypeUtil.WallSignFromNormal(normal);   // на боковую грань
                 }
 
+                if (_worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType)) ConsumeSelected();
+                return;
+            }
+
+            if (selectedType.IsTorch())
+            {
+                if (normal.y < 0) return;   // на потолок нельзя
+                if (_worldManager.GetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z) != BlockType.Air) return;
+
+                selectedType = normal.y > 0 ? BlockType.Torch : BlockTypeUtil.WallTorchFromNormal(normal);
                 if (_worldManager.SetBlockAtWorldPosition(blockPos.x, blockPos.y, blockPos.z, selectedType)) ConsumeSelected();
                 return;
             }

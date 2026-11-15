@@ -45,8 +45,8 @@ namespace MinecraftClone.Core
         RedWool,
         BlackWool,
         SignStanding0, SignStanding1, SignStanding2, SignStanding3,
-        SignStanding4, SignStanding5, SignStanding6, SignStanding7,   // стоящая, поворот i*45°
-        SignWallPosX, SignWallNegX, SignWallPosZ, SignWallNegZ,       // на стене, смотрит в сторону оси
+        SignStanding4, SignStanding5, SignStanding6, SignStanding7,    // стоящая, поворот i*45°
+        SignWallPosX, SignWallNegX, SignWallPosZ, SignWallNegZ,        // на стене, смотрит в сторону оси
         StoneSlab, StoneSlabDouble,
         IronBlock,
         Tnt,
@@ -54,6 +54,7 @@ namespace MinecraftClone.Core
         Bricks,
         Bookshelf,
         Obsidian,
+        Torch, TorchWallPosX, TorchWallNegX, TorchWallPosZ, TorchWallNegZ,    // факел: на земле / на стене
     }
 
     public static class BlockTypeUtil
@@ -66,6 +67,9 @@ namespace MinecraftClone.Core
 
         public static bool IsSign(this BlockType t) => t >= BlockType.SignStanding0 && t <= BlockType.SignWallNegZ;
         public static bool IsStandingSign(this BlockType t) => t >= BlockType.SignStanding0 && t <= BlockType.SignStanding7;
+
+        public static bool IsTorch(this BlockType t) => t >= BlockType.Torch && t <= BlockType.TorchWallNegZ;
+        public static bool IsWallTorch(this BlockType t) => t > BlockType.Torch && t <= BlockType.TorchWallNegZ;
 
         // Куда смотрит лицевая сторона (в сторону читающего)
         public static Vector3 SignFacing(this BlockType t)
@@ -104,6 +108,34 @@ namespace MinecraftClone.Core
             if (n.x < 0) return BlockType.SignWallNegX;
             if (n.z > 0) return BlockType.SignWallPosZ;
             return BlockType.SignWallNegZ;
+        }
+
+        // в какую сторону наклонён факел на стене (от стены к игроку)
+        public static Vector3 TorchLean(this BlockType t)
+        {
+            switch (t)
+            {
+                case BlockType.TorchWallPosX: return Vector3.right;
+                case BlockType.TorchWallNegX: return Vector3.left;
+                case BlockType.TorchWallPosZ: return Vector3.forward;
+                case BlockType.TorchWallNegZ: return Vector3.back;
+                default: return Vector3.zero;
+            }
+        }
+
+        public static Vector3Int TorchSupportOffset(this BlockType t)
+        {
+            if (!t.IsWallTorch()) return Vector3Int.down;
+            Vector3 f = t.TorchLean();
+            return new Vector3Int(-Mathf.RoundToInt(f.x), 0, -Mathf.RoundToInt(f.z));
+        }
+
+        public static BlockType WallTorchFromNormal(Vector3Int n)
+        {
+            if (n.x > 0) return BlockType.TorchWallPosX;
+            if (n.x < 0) return BlockType.TorchWallNegX;
+            if (n.z > 0) return BlockType.TorchWallPosZ;
+            return BlockType.TorchWallNegZ;
         }
     }
 }
