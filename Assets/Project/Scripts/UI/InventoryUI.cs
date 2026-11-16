@@ -16,17 +16,22 @@ namespace MinecraftClone.UI
 
         private const int Cols = 9;
         private const float Pad = 7f, Cell = 18f, Gap = 8f;
-        private const float PanelW = 176f;
+        private const float PanelW = 176f, SurvH = 166f;
+        private const float SurvMainY = 83f, SurvHotbarY = 141f;   // верх рядов слотов на текстуре
 
         private static bool Creative => PlayerBlockInteraction.CreativeInventory;
         private static int Rows => Creative ? 6 : PlayerInventory.MainSize / Cols;
-        private static float PanelH => Pad + Rows * Cell + Gap + Cell + Pad;
+        private static float PanelH => Creative ? Pad + Rows * Cell + Gap + Cell + Pad : SurvH;
+        private static float RowY(int r) => Creative ? Pad + Cell * r : SurvMainY + Cell * r;
+        private static float HotbarY => Creative ? Pad + Rows * Cell + Gap : SurvHotbarY;
 
         private readonly List<int> _palette = new List<int>();   // палитра креатива: номера предметов
         private int _scrollRow;
         private ItemStack _cursor;                                           // стак «в руке» у курсора
         private GUIStyle _style;
         private Font _font;
+        private Texture2D _bg;
+        private InventoryPlayerPreview _preview;
 
         private static bool Allowed()
         {
@@ -45,6 +50,9 @@ namespace MinecraftClone.UI
                 if (GameSettings.Pressed(GameSettings.Bind.Inventory) && Allowed()) Open();
                 return;
             }
+
+            Cursor.lockState = CursorLockMode.None;   // что-то могло снова заблокировать курсор
+            Cursor.visible = true;
 
             if (GameSettings.Pressed(GameSettings.Bind.Inventory) || Input.GetKeyDown(KeyCode.Escape) || !Allowed())
             {
@@ -73,6 +81,7 @@ namespace MinecraftClone.UI
             _scrollRow = 0;
             _cursor = default;
             IsOpen = true;
+            if (!Creative) StartPreview();
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
@@ -81,8 +90,25 @@ namespace MinecraftClone.UI
         {
             ReturnCursor();
             IsOpen = false;
+            StopPreview();
             ClosedFrame = Time.frameCount;
         }
+
+        private void StartPreview()
+        {
+            if (_bg == null)
+            {
+                _bg = Resources.Load<Texture2D>("UI/inventory_survival");
+                if (_bg != null) _bg.filterMode = FilterMode.Point;
+                else Debug.LogWarning("[InventoryUI] Нет Resources/UI/inventory_survival.png");
+            }
+            var hb = PlayerHotbarUI.Instance;
+            var pm = (hb != null && hb.Player != null) ? hb.Player.GetComponentInParent<PlayerModel>() : null;
+            if (_preview == null) _preview = new GameObject("InventoryPlayerPreview").AddComponent<InventoryPlayerPreview>();
+            _preview.Show(pm);
+        }
+
+        private void StopPreview() { if (_preview != null) _preview.Hide(); }
 
         // Стак из руки возвращается на склад (при закрытии инвентаря)
         private void ReturnCursor()
@@ -91,13 +117,21 @@ namespace MinecraftClone.UI
             _cursor = default;
         }
 
-        private void OnDisable() { if (IsOpen) ReturnCursor(); IsOpen = false; }
-        private void OnDestroy() { if (IsOpen) ReturnCursor(); IsOpen = false; }
+        private void OnDisable() { if (IsOpen) { ReturnCursor(); StopPreview(); } IsOpen = false; }
+        private void OnDestroy() { if (IsOpen) ReturnCursor(); IsOpen = false; if (_preview != null) Destroy(_preview.gameObject); }
 
         // ---------- Клики по слотам ----------
 
+        private static bool CanPlace(int slot, int itemId)
+        {
+            if (slot < PlayerInventory.ArmorStart) return true;
+            return ItemRegistry.ArmorOf(itemId) == (ArmorSlot)(slot - PlayerInventory.ArmorStart + 1);
+        }
+
         private void LeftClick(int i)
         {
+            if (!_cursor.IsEmpty && !CanPlace(i, _cursor.Id)) return;
+
             if (Creative)
             {
                 if (!_cursor.IsEmpty) { PlayerInventory.Set(i, _cursor); _cursor = default; }
@@ -134,6 +168,8 @@ namespace MinecraftClone.UI
 
         private void RightClick(int i)
         {
+            if (!_cursor.IsEmpty && !CanPlace(i, _cursor.Id)) return;
+
             if (Creative)
             {
                 PlayerInventory.Set(i, default);
@@ -206,16 +242,18 @@ namespace MinecraftClone.UI
             return new Rect(x0 + (Pad + Cell * col) * s, y0 + yUnits * s, Cell * s, Cell * s);
         }
 
-        // Что под курсором: слот склада/хотбара или предмет палитры (креатив)
         private void FindHover(Vector2 m, float x0, float y0, float s, out int slot, out int palette)
         {
             slot = -1; palette = -1;
-            float hotbarY = Pad + Rows * Cell + Gap;
+
+            if (!Creative)
+                for (int a = 0; a < PlayerInventory.ArmorSize; a++)
+                    if (CellRect(x0, y0, s, 0, Pad + Cell * a).Contains(m)) { slot = PlayerInventory.ArmorStart + a; return; }
 
             for (int r = 0; r < Rows; r++)
                 for (int c = 0; c < Cols; c++)
                 {
-                    if (!CellRect(x0, y0, s, c, Pad + Cell * r).Contains(m)) continue;
+                    if (!CellRect(x0, y0, s, c, RowY(r)).Contains(m)) continue;
 
                     if (Creative)
                     {
@@ -227,7 +265,7 @@ namespace MinecraftClone.UI
                 }
 
             for (int c = 0; c < PlayerInventory.HotbarSize; c++)
-                if (CellRect(x0, y0, s, c, hotbarY).Contains(m)) { slot = c; return; }
+                if (CellRect(x0, y0, s, c, HotbarY).Contains(m)) { slot = c; return; }
         }
 
         private void DrawStack(PlayerHotbarUI hb, WorldManager wm, Rect cell, float s, int itemId, int count)
@@ -248,16 +286,17 @@ namespace MinecraftClone.UI
 
             GUI.depth = 5;
             Event e = Event.current;
+            Vector2 mouse = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);   // вместо e.mousePosition
 
             float s = Mathf.Clamp(Mathf.FloorToInt(Screen.height / 200f), 2, 8);
             float x0 = Mathf.Round((Screen.width - PanelW * s) / 2f);
             float y0 = Mathf.Round((Screen.height - PanelH * s) / 2f);
-            float hotbarY = Pad + Rows * Cell + Gap;
+            float hotbarY = HotbarY;
 
             // ---------- Клики ----------
             if (e.type == EventType.MouseDown)
             {
-                FindHover(e.mousePosition, x0, y0, s, out int slot, out int palette);
+                FindHover(mouse, x0, y0, s, out int slot, out int palette);
 
                 if (palette >= 0 && e.button == 0) _cursor = new ItemStack(_palette[palette], 1);
                 else if (slot >= 0)
@@ -277,24 +316,50 @@ namespace MinecraftClone.UI
             Fill(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, 0.5f));
 
             Rect panel = new Rect(x0, y0, PanelW * s, PanelH * s);
-            Fill(panel, Color.black);
-            Fill(new Rect(panel.x + s, panel.y + s, panel.width - 2 * s, panel.height - 2 * s), new Color(0.78f, 0.78f, 0.78f, 1f));
-            Fill(new Rect(panel.x + s, panel.y + s, panel.width - 2 * s, s), Color.white);
-            Fill(new Rect(panel.x + s, panel.y + s, s, panel.height - 2 * s), Color.white);
-            Fill(new Rect(panel.x + s, panel.yMax - 2 * s, panel.width - 2 * s, s), new Color(0.35f, 0.35f, 0.35f, 1f));
-            Fill(new Rect(panel.xMax - 2 * s, panel.y + s, s, panel.height - 2 * s), new Color(0.35f, 0.35f, 0.35f, 1f));
+            bool tex = !Creative && _bg != null;
+            if (tex)
+            {
+                GUI.DrawTextureWithTexCoords(panel, _bg, new Rect(0f, 1f - SurvH / _bg.height, PanelW / _bg.width, SurvH / _bg.height));
+                if (_preview != null)
+                    _preview.Draw(new Rect(x0 + 26f * s, y0 + 8f * s, 49f * s, 70f * s),
+                                  new Vector2(x0 + 50.5f * s, y0 + 22f * s), mouse, s);
+            }
+            else
+            {
+                Fill(panel, Color.black);
+                Fill(new Rect(panel.x + s, panel.y + s, panel.width - 2 * s, panel.height - 2 * s), new Color(0.78f, 0.78f, 0.78f, 1f));
+                Fill(new Rect(panel.x + s, panel.y + s, panel.width - 2 * s, s), Color.white);
+                Fill(new Rect(panel.x + s, panel.y + s, s, panel.height - 2 * s), Color.white);
+                Fill(new Rect(panel.x + s, panel.yMax - 2 * s, panel.width - 2 * s, s), new Color(0.35f, 0.35f, 0.35f, 1f));
+                Fill(new Rect(panel.xMax - 2 * s, panel.y + s, s, panel.height - 2 * s), new Color(0.35f, 0.35f, 0.35f, 1f));
+            }
 
-            Vector2 mouse = e.mousePosition;
             FindHover(mouse, x0, y0, s, out int hoverSlot, out int hoverPalette);
 
             int hoverId = 0;
+
+            // слоты брони: шлем, нагрудник, поножи, ботинки
+            if (!Creative)
+                for (int a = 0; a < PlayerInventory.ArmorSize; a++)
+                {
+                    Rect cell = CellRect(x0, y0, s, 0, Pad + Cell * a);
+                    if (!tex) DrawSlot(cell, s);
+                    int si = PlayerInventory.ArmorStart + a;
+                    ItemStack st = PlayerInventory.Get(si);
+                    if (!st.IsEmpty) DrawStack(hb, wm, cell, s, st.Id, st.Count);
+                    if (hoverSlot == si)
+                    {
+                        Fill(new Rect(cell.x + s, cell.y + s, cell.width - 2 * s, cell.height - 2 * s), new Color(1f, 1f, 1f, 0.35f));
+                        if (!st.IsEmpty) hoverId = st.Id;
+                    }
+                }
 
             // верхняя часть: склад (27 слотов) или палитра креатива
             for (int r = 0; r < Rows; r++)
                 for (int c = 0; c < Cols; c++)
                 {
-                    Rect cell = CellRect(x0, y0, s, c, Pad + Cell * r);
-                    DrawSlot(cell, s);
+                    Rect cell = CellRect(x0, y0, s, c, RowY(r));
+                    if (!tex) DrawSlot(cell, s);
 
                     int itemId = 0;
                     int count = 1;
@@ -326,7 +391,7 @@ namespace MinecraftClone.UI
             for (int c = 0; c < PlayerInventory.HotbarSize; c++)
             {
                 Rect cell = CellRect(x0, y0, s, c, hotbarY);
-                DrawSlot(cell, s);
+                if (!tex) DrawSlot(cell, s);
 
                 ItemStack st = PlayerInventory.Get(c);
                 if (!st.IsEmpty) DrawStack(hb, wm, cell, s, st.Id, st.Count);

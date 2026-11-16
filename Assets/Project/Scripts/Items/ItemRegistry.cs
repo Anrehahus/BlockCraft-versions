@@ -8,14 +8,15 @@ namespace MinecraftClone.Items
     // Готовое описание предмета в игре
     public sealed class ItemDef
     {
-        public int Id;               // номер на время игры: склад, предметы в мире, сеть
-        public string Key;           // стабильное имя для сохранений: "block/Stone", "raw_pork"
+        public int Id;             // номер на время игры: склад, предметы в мире, сеть
+        public string Key;         // стабильное имя для сохранений: "block/Stone", "raw_pork"
         public string Name;
         public int MaxStack;
         public BlockType Block;      // какой блок ставит (Air = не ставится)
         public float FoodHeal;       // >0: съедобное, столько здоровья восстанавливает
         public Texture2D Texture;    // картинка у предметов, которые не блоки
         public string Alias;         // короткое имя для команды /give (необязательно)
+        public ArmorSlot Armor;      // слот брони, если предмет является броней
     }
 
     // Список всех предметов. Собирается один раз при старте мира (WorldManager.Awake).
@@ -35,7 +36,7 @@ namespace MinecraftClone.Items
 
         public static bool Ready { get; private set; }
         public static IReadOnlyList<ItemDef> All => _all;
-        public static IEnumerable<Texture2D> Textures => _textures;   // для атласа
+        public static IEnumerable<Texture2D> Textures => _textures;    // для атласа
 
         public static void Build(Dictionary<BlockType, BlockDataSO> blockDb)
         {
@@ -51,7 +52,7 @@ namespace MinecraftClone.Items
                     BlockDataSO d = blockDb[t];
                     if (d == null || t == BlockType.Air || t == BlockType.Bedrock || t == BlockType.Water || t == BlockType.Lava) continue;
                     if (t.IsSign() && t != BlockType.SignStanding0) continue;   // табличка одна, а не 12
-                    if (t.IsTorch() && t != BlockType.Torch) continue;           // факел один, а не 5
+                    if (t.IsTorch() && t != BlockType.Torch) continue;            // факел один, а не 5
 
                     if (t == BlockType.StoneSlabDouble) continue;
 
@@ -62,7 +63,8 @@ namespace MinecraftClone.Items
                         Name = string.IsNullOrEmpty(d.BlockName) ? t.ToString() : d.BlockName,
                         MaxStack = DefaultStack,
                         Block = t,
-                        Alias = t == BlockType.SignStanding0 ? "oaksign" : null
+                        Alias = t == BlockType.SignStanding0 ? "oaksign" : null,
+                        Armor = ArmorSlot.None
                     });
                 }
             }
@@ -89,7 +91,8 @@ namespace MinecraftClone.Items
                     MaxStack = Mathf.Max(1, so.MaxStack),
                     Block = so.PlaceBlock,
                     FoodHeal = Mathf.Max(0f, so.FoodHeal),
-                    Texture = so.Texture
+                    Texture = so.Texture,
+                    Armor = so.Armor
                 });
                 if (so.Texture != null) _textures.Add(so.Texture);
             }
@@ -151,6 +154,7 @@ namespace MinecraftClone.Items
         public static BlockType BlockOf(int id) { var d = Get(id); return d != null ? d.Block : BlockType.Air; }
 
         public static int MaxStackOf(int id) { var d = Get(id); return d != null ? d.MaxStack : DefaultStack; }
+        public static ArmorSlot ArmorOf(int id) { var d = Get(id); return d != null ? d.Armor : ArmorSlot.None; }
         public static float FoodHealOf(int id) { var d = Get(id); return d != null ? d.FoodHeal : 0f; }
 
         // Предметы, на которые ссылается код

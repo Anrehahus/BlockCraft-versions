@@ -15,13 +15,16 @@ namespace MinecraftClone.Player
         public bool IsEmpty => Id <= 0 || Count <= 0;
     }
 
-    // Склад игрока: 9 слотов хотбара (индексы 0..8) и 27 слотов инвентаря (9..35, ряды сверху вниз).
+    // Склад игрока: 9 слотов хотбара (индексы 0..8), 27 слотов инвентаря (9..35) и 4 слота брони (36..39).
     // Статический: у каждого клиента свой. На сервере копию хранит MinecraftNetworkManager по нику.
     public static class PlayerInventory
     {
         public const int HotbarSize = 9;
         public const int MainSize = 27;
-        public const int Size = HotbarSize + MainSize;
+        public const int StorageSize = HotbarSize + MainSize;   // 36: хотбар + склад
+        public const int ArmorSize = 4;
+        public const int ArmorStart = StorageSize;              // 36..39: шлем, нагрудник, поножи, ботинки
+        public const int Size = StorageSize + ArmorSize;
 
         private static readonly ItemStack[] _slots = new ItemStack[Size];
 
@@ -92,7 +95,7 @@ namespace MinecraftClone.Player
 
             int max = ItemRegistry.MaxStackOf(id);
             int room = 0;
-            for (int i = 0; i < Size; i++)
+            for (int i = 0; i < StorageSize; i++)
             {
                 if (_slots[i].IsEmpty) room += max;
                 else if (_slots[i].Id == id) room += Math.Max(0, max - _slots[i].Count);
@@ -111,7 +114,7 @@ namespace MinecraftClone.Player
 
             int max = ItemRegistry.MaxStackOf(id);
 
-            for (int i = 0; i < Size && count > 0; i++)
+            for (int i = 0; i < StorageSize && count > 0; i++)
             {
                 if (_slots[i].IsEmpty || _slots[i].Id != id || _slots[i].Count >= max) continue;
                 int move = Math.Min(count, max - _slots[i].Count);
@@ -119,7 +122,7 @@ namespace MinecraftClone.Player
                 count -= move;
             }
 
-            for (int i = 0; i < Size && count > 0; i++)
+            for (int i = 0; i < StorageSize && count > 0; i++)
             {
                 if (!_slots[i].IsEmpty) continue;
                 int put = Math.Min(count, max);

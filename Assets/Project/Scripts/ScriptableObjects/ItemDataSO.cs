@@ -3,6 +3,8 @@ using MinecraftClone.Core;
 
 namespace MinecraftClone.Items
 {
+    public enum ArmorSlot { None = 0, Helmet = 1, Chestplate = 2, Leggings = 3, Boots = 4 }
+
     // Описание предмета, который не является блоком (еда, инструменты, материалы).
     // Ассеты кладутся в папку Resources/Items: реестр находит их сам, ничего никуда добавлять не нужно.
     // Предметы-блоки отдельно создавать не надо: их реестр делает из BlockDataSO автоматически.
@@ -22,6 +24,8 @@ namespace MinecraftClone.Items
         public float FoodHeal;
         [Tooltip("Какой блок ставит по ПКМ. Air = в мир не ставится.")]
         public BlockType PlaceBlock = BlockType.Air;
+        [Tooltip("В какой слот брони можно положить. None = не броня.")]
+        public ArmorSlot Armor = ArmorSlot.None;
 
 #if UNITY_EDITOR
         // Текстура должна быть читаемой (иконка и атлас), без сжатия и с резкими пикселями
@@ -33,9 +37,9 @@ namespace MinecraftClone.Items
             var imp = UnityEditor.AssetImporter.GetAtPath(path) as UnityEditor.TextureImporter;
             if (imp == null) return;
 
-            bool ok = imp.isReadable && imp.filterMode == FilterMode.Point && !imp.mipmapEnabled
-                      && imp.textureCompression == UnityEditor.TextureImporterCompression.Uncompressed;
-            if (ok) return;
+            bool boolOk = imp.isReadable && imp.filterMode == FilterMode.Point && !imp.mipmapEnabled
+                        && imp.textureCompression == UnityEditor.TextureImporterCompression.Uncompressed;
+            if (boolOk) return;
 
             UnityEditor.EditorApplication.delayCall += () =>
             {

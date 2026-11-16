@@ -215,7 +215,7 @@ namespace MinecraftClone.Items
 
         private void Update()
         {
-            if (_items.Count == 0 || InventoryUI.IsOpen) return;   // при открытом инвентаре не подбираем
+            if (_items.Count == 0) return;
             if (WorldManager.Instance == null || !WorldManager.Instance.IsWorldReady) return;
             if (PlayerHealth.Local != null && PlayerHealth.Local.IsDead) return;   // мёртвый ничего не подбирает
 

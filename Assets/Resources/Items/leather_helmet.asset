@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba1265af3575cba41b28e9d93359937a, type: 3}
+  m_Name: leather_helmet
+  m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
+  Key: leather_helmet
+  DisplayName: "\u041A\u043E\u0436\u0430\u043D\u044B\u0439 \u0448\u043B\u0435\u043C"
+  Texture: {fileID: 2800000, guid: 8a75c1d5ec14e80449ed67025a176f62, type: 3}
+  MaxStack: 1
+  FoodHeal: 0
+  PlaceBlock: 0
+  Armor: 1
