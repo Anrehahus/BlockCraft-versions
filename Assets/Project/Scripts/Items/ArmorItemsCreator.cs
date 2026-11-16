@@ -56,6 +56,44 @@ public static class ArmorItemsCreator
         Debug.Log("[Armor] Создано/обновлено предметов брони: " + Defs.Length);
     }
 
+    private static readonly (string key, string name, int stack)[] Misc =
+{
+    ("apple",       "Яблоко",          99),
+    ("iron_sword",  "Железный меч",    1),
+    ("iron_shovel", "Железная лопата", 1),
+};
+
+    [MenuItem("Minecraft/Create Misc Items")]
+    public static void CreateMisc()
+    {
+        Directory.CreateDirectory(AssetDir);
+        foreach (var d in Misc)
+        {
+            string iconPath = $"{IconDir}/{d.key}.png";
+            PrepareIcon(iconPath);
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+            if (tex == null) Debug.LogWarning($"[Items] Нет иконки {iconPath}");
+
+            string assetPath = $"{AssetDir}/{d.key}.asset";
+            var so = AssetDatabase.LoadAssetAtPath<ItemDataSO>(assetPath);
+            if (so == null)
+            {
+                so = ScriptableObject.CreateInstance<ItemDataSO>();
+                AssetDatabase.CreateAsset(so, assetPath);
+            }
+
+            so.Key = d.key;
+            so.DisplayName = d.name;
+            so.Texture = tex;
+            so.MaxStack = d.stack;
+            so.Armor = ArmorSlot.None;
+            EditorUtility.SetDirty(so);
+        }
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log("[Items] Создано/обновлено предметов: " + Misc.Length);
+    }
+
     private static void PrepareIcon(string path)
     {
         var imp = AssetImporter.GetAtPath(path) as TextureImporter;

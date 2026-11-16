@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: iron_leggings
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: iron_leggings
-  DisplayName: "\u0416\u0435\u043B\u0435\u0437\u043D\u044B\u0435 \u043F\u043E\u043D\u043E\u0436\u0438"
-  Texture: {fileID: 0}
+  DisplayName: iron leggings
+  Texture: {fileID: 2800000, guid: 3098592efdb7923479ab58e1e07f1343, type: 3}
   MaxStack: 1
   FoodHeal: 0
   PlaceBlock: 0
