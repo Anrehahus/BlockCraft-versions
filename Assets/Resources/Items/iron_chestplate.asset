@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: iron_chestplate
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: iron_chestplate
-  DisplayName: iron chestplate
+  DisplayName: Iron chestplate
   Texture: {fileID: 2800000, guid: fc2cf8a3859bd4347849b507655a955a, type: 3}
   MaxStack: 1
   FoodHeal: 0

@@ -53,7 +53,7 @@ namespace MinecraftClone.Core
             for (int x = 0; x < Width; x++)
                 for (int y = 0; y < Height; y++)
                     for (int z = 0; z < Width; z++)
-                        if (Blocks[x, y, z] >= BlockType.Torch)   // факелы идут последними в enum
+                        if (Blocks[x, y, z] >= BlockType.Torch || Blocks[x, y, z] == BlockType.Lava)
                             result.Add(new Vector3Int(ox + x, y, oz + z));
         }
     }

@@ -32,6 +32,8 @@ namespace MinecraftClone.Core
                 return true;
             }
 
+            if (t.IsFire()) { min = Vector3.zero; max = Vector3.one; return false; }
+
             if (t.IsPlant())
             {
                 if (!_plants.TryGetValue(t, out Box box))

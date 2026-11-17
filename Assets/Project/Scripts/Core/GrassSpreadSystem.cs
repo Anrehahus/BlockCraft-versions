@@ -13,7 +13,7 @@ namespace MinecraftClone.Mobs
         private const int Radius = 16;
         private const int VerticalRange = 8;
         private const float SpreadChance = 0.3f;   // шанс на каждую подходящую выборку
-        private const int MinLightToSpread = 4;   // уровень света 0..9: при меньшем трава не распространяется
+        private const int MinLightToSpread = 9;   // уровень света 0..9: при меньшем трава не распространяется
 
         private static GrassSpreadSystem _instance;
         private float _timer;

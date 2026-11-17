@@ -255,6 +255,7 @@ namespace MinecraftClone.Player
         private const float DrownDamage = 2f;     // 1 сердце
         private const float DrownInterval = 1f;   // потом каждую секунду
         private const float LavaDamage = 4f;      // 2 сердца за каждые 0.5 с
+        private const float FireDamage = 1f;      // полсердца за каждые 0.5 с (как в игре)
         private float _airTimer;
         private float _drownTimer;
 
@@ -271,6 +272,12 @@ namespace MinecraftClone.Player
                 BlockAt(wm, p + Vector3.up * 0.9f) == BlockType.Lava ||
                 BlockAt(wm, p + Vector3.up * EyeHeight) == BlockType.Lava)
                 TakeEnvironmentalDamage(LavaDamage);
+
+            // огонь: достаточно, чтобы он был у ног, тела или головы
+            if (BlockAt(wm, p + Vector3.up * 0.1f).IsFire() ||
+                BlockAt(wm, p + Vector3.up * 0.9f).IsFire() ||
+                BlockAt(wm, p + Vector3.up * EyeHeight).IsFire())
+                TakeEnvironmentalDamage(FireDamage);
 
             // вода: считается только с головой
             if (BlockAt(wm, p + Vector3.up * EyeHeight) == BlockType.Water)

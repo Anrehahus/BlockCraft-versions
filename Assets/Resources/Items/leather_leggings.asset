@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: leather_leggings
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: leather_leggings
-  DisplayName: leather leggings
+  DisplayName: Leather leggings
   Texture: {fileID: 2800000, guid: 924fb4cce23fac947bc7afb12d4f1c2d, type: 3}
   MaxStack: 1
   FoodHeal: 0

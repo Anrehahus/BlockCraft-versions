@@ -144,6 +144,7 @@ namespace MinecraftClone.Items
         // Что выпадает из сломанного блока (0 = ничего)
         public static int IdForBlock(BlockType broken)
         {
+            if (broken.IsFire()) return 0;
             if (broken == BlockType.StoneSlabDouble) broken = BlockType.StoneSlab;
             if (broken.IsSign()) broken = BlockType.SignStanding0;
             if (broken.IsTorch()) broken = BlockType.Torch;

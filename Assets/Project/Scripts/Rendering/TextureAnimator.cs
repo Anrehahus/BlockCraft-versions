@@ -13,7 +13,7 @@ namespace MinecraftClone.Rendering
         private int _index;
         private float _timer;
 
-        public void Init(Texture2D atlas, Rect uvRect, Texture2D strip, float frameTime)
+        public void Init(Texture2D atlas, Rect uvRect, Texture2D strip, float frameTime, int startFrame = 0)
         {
             this.frameTime = frameTime;
             _atlas = atlas;
@@ -38,6 +38,9 @@ namespace MinecraftClone.Rendering
                 t.Apply(false, true);   // true: освободить CPU-копию кадра
                 _frameTex[i] = t;
             }
+
+            _index = ((startFrame % count) + count) % count;
+            Graphics.CopyTexture(_frameTex[_index], 0, 0, 0, 0, _size, _size, _atlas, 0, 0, _x, _y);
         }
 
         private void Update()

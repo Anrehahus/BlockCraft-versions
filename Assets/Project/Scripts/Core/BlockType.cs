@@ -55,6 +55,7 @@ namespace MinecraftClone.Core
         Bookshelf,
         Obsidian,
         Torch, TorchWallPosX, TorchWallNegX, TorchWallPosZ, TorchWallNegZ,    // факел: на земле / на стене
+        Fire,
     }
 
     public static class BlockTypeUtil
@@ -62,8 +63,10 @@ namespace MinecraftClone.Core
         public static bool IsPlant(this BlockType t)
         {
             return t == BlockType.OakSapling || t == BlockType.BrownMushroom ||
-                   t == BlockType.RedMushroom || t == BlockType.Dandelion || t == BlockType.Poppy;
+                   t == BlockType.RedMushroom || t == BlockType.Dandelion || t == BlockType.Poppy ||
+                   t == BlockType.Fire;
         }
+        public static bool IsFire(this BlockType t) => t == BlockType.Fire;
 
         public static bool IsSign(this BlockType t) => t >= BlockType.SignStanding0 && t <= BlockType.SignWallNegZ;
         public static bool IsStandingSign(this BlockType t) => t >= BlockType.SignStanding0 && t <= BlockType.SignStanding7;
@@ -137,5 +140,17 @@ namespace MinecraftClone.Core
             if (n.z > 0) return BlockType.TorchWallPosZ;
             return BlockType.TorchWallNegZ;
         }
+
+        // Шанс сгореть за тик (0 = не горит)
+        public static float BurnChance(this BlockType t)
+        {
+            if (t == BlockType.OakLeaves) return 0.12f;
+            if (t == BlockType.OakPlanks || t == BlockType.Bookshelf || t.IsSign()) return 0.06f;
+            if (t == BlockType.OakLog) return 0.035f;
+            if (t >= BlockType.WhiteWool && t <= BlockType.BlackWool) return 0.10f;
+            if (t.IsPlant() && !t.IsFire()) return 0.20f;
+            return 0f;
+        }
+        public static bool IsFlammable(this BlockType t) => t.BurnChance() > 0f;
     }
 }

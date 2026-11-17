@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: iron_boots
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: iron_boots
-  DisplayName: iron boots
+  DisplayName: Iron boots
   Texture: {fileID: 2800000, guid: 90beb4216bef3a84e9dc3b311b2505b4, type: 3}
   MaxStack: 1
   FoodHeal: 0

@@ -17,13 +17,13 @@ namespace MinecraftClone.Mobs
 
         [SyncVar] private string _mobId;
         [SyncVar] private int _chargeDirSync;        // что видят клиенты: +1 заряжается, -1 (или 0) разряжается
-        private int _chargeDirLocal;                  // что знает тот, кто управляет мобом (сервер или одиночная игра)
-        private bool _offline;                        // одиночная игра без Mirror: моб сам себе сервер
+        private int _chargeDirLocal;                 // что знает тот, кто управляет мобом (сервер или одиночная игра)
+        private bool _offline;                       // одиночная игра без Mirror: моб сам себе сервер
 
         [SyncVar] private bool _attackingSync;      // для клиентов: моб сейчас атакует (анимация рук)
         private bool _attackingLocal;
 
-        [SyncVar] private int _hitCountSync;        // счётчик ударов: по его изменению клиенты запускают анимацию
+        [SyncVar] private int _hitCountSync;         // счётчик ударов: по его изменению клиенты запускают анимацию
         private int _hitCountLocal;
 
         public int HitCount => RunsLogic ? _hitCountLocal : _hitCountSync;
@@ -52,6 +52,7 @@ namespace MinecraftClone.Mobs
         private const float KnockbackDecay = 20f;
         private const float HopSpeed = 3.5f;
         private const float HurtCooldown = 0.4f;
+        private const float FireDamage = 1f;   // как у игрока: полсердца за тик неуязвимости
 
         private float _health;
         private float _hurtImmuneUntil;
@@ -216,6 +217,17 @@ namespace MinecraftClone.Mobs
                 return;
             }
 
+            // огонь: если он в клетке у ног, середины или головы моба, моб получает урон
+            {
+                float h = Data.Height;
+                Vector3 fp = transform.position;
+                var wmF = WorldManager.Instance;
+                if (IsFireAt(wmF, fp + Vector3.up * 0.1f) ||
+                    IsFireAt(wmF, fp + Vector3.up * (h * 0.5f)) ||
+                    IsFireAt(wmF, fp + Vector3.up * Mathf.Max(0.1f, h - 0.1f)))
+                    ServerTakeDamage(FireDamage, fp, null, true);
+            }
+
             UpdateTarget(dt);
 
             _wishDir = Vector3.zero;
@@ -241,6 +253,12 @@ namespace MinecraftClone.Mobs
                 transform.rotation = Quaternion.RotateTowards(
                     transform.rotation, Quaternion.LookRotation(face), TurnSpeed * dt);
             }
+        }
+
+        private static bool IsFireAt(WorldManager wm, Vector3 p)
+        {
+            return wm.GetBlockAtWorldPosition(Mathf.FloorToInt(p.x), Mathf.FloorToInt(p.y), Mathf.FloorToInt(p.z))
+                   == MinecraftClone.Core.BlockType.Fire;
         }
 
         private void UpdateTarget(float dt)
@@ -365,7 +383,7 @@ namespace MinecraftClone.Mobs
         }
 
         // Урон мобу. Вызывается только на сервере (в одиночной игре это сам игрок).
-        public void ServerTakeDamage(float amount, Vector3 sourcePos, PlayerHealth attacker)
+        public void ServerTakeDamage(float amount, Vector3 sourcePos, PlayerHealth attacker, bool noKnockback = false)
         {
             if (_dyingLocal) return;
             if (!RunsLogic || _dead || Data == null || Motor == null || amount <= 0f) return;
@@ -389,11 +407,14 @@ namespace MinecraftClone.Mobs
             }
 
             // толчок от атакующего и небольшой прыжок
-            Vector3 dir = transform.position - sourcePos;
-            dir.y = 0f;
-            dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : -transform.forward;
-            _knock = dir * KnockbackSpeed;
-            Motor.Hop(HopSpeed);
+            if (!noKnockback)
+            {
+                Vector3 dir = transform.position - sourcePos;
+                dir.y = 0f;
+                dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : -transform.forward;
+                _knock = dir * KnockbackSpeed;
+                Motor.Hop(HopSpeed);
+            }
 
             // «мстящие» мобы начинают преследовать обидчика
             if (Data.Targeting == TargetMode.Retaliate && attacker != null)

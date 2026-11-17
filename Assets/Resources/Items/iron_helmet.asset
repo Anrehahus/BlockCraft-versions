@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: iron_helmet
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: iron_helmet
-  DisplayName: iron helmet
+  DisplayName: Iron helmet
   Texture: {fileID: 2800000, guid: 707c72025abbcb14ca99e46bb3079f57, type: 3}
   MaxStack: 1
   FoodHeal: 0

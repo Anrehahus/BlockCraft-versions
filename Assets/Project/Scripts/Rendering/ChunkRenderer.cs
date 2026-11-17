@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using MinecraftClone.Core;
+using MinecraftClone.Physics;
 
 namespace MinecraftClone.Rendering
 {
@@ -84,9 +85,9 @@ namespace MinecraftClone.Rendering
 
         public int GetLight(int lx, int y, int lz)
         {
-            if (_lightGrid == null) return 9;
+            if (_lightGrid == null) return 15;
             int w = _lightW, h = _lightGrid.Length / (w * w);
-            if (y >= h) return 9;
+            if (y >= h) return 15;
             if (y < 0) y = 0;
             lx = Mathf.Clamp(lx, 0, w - 1); lz = Mathf.Clamp(lz, 0, w - 1);
             return _lightGrid[(y * w + lz) * w + lx];
@@ -136,6 +137,7 @@ namespace MinecraftClone.Rendering
             }
 
             SyncSignLabels(g.SignsNow);
+            FireSystem.SetChunkFires(this, g.FiresNow, transform.position);
 
             chunkMesh.Clear();
             chunkMesh.SetVertices(g.Vertices);
@@ -250,6 +252,7 @@ namespace MinecraftClone.Rendering
 
         public void ClearMesh()
         {
+            FireSystem.ClearChunk(this);
             BuildTicket++;   // результаты фоновых сборок для этого чанка больше не нужны
             _solidApplied = false;
             _plantApplied = false;

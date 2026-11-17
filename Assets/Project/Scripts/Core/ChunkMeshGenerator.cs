@@ -179,16 +179,18 @@ namespace MinecraftClone.Rendering
         public readonly List<int> WaterTriangles = new List<int>();
         public readonly List<int> LavaTriangles = new List<int>();
         public readonly Dictionary<Vector3Int, BlockType> SignsNow = new Dictionary<Vector3Int, BlockType>();
+        public readonly List<Vector3Int> FiresNow = new List<Vector3Int>();   // огонь чанка (локальные координаты)
         public ulong SolidHash, PlantHash;
 
         public byte[] ChunkLight;      // свет клеток самого чанка, индекс (y*w+z)*w+x
         public int LightWidth;
 
-        // ---------- Освещение (уровни 0..9) ----------
-        private const int LightReach = 9;    // свет проходит максимум 9 блоков
-        // яркость по уровню: 0 = почти чёрный, 9 = как раньше. Подгоняется под вкус
+        // ---------- Освещение (уровни 0..15) ----------
+        public const int MaxLight = 15;      // небо, лава, огонь
+        public const int TorchLight = 14;
+        private const int LightReach = MaxLight;
         public static readonly float[] LightBrightness =
-            { 0.22f, 0.27f, 0.33f, 0.40f, 0.48f, 0.57f, 0.67f, 0.78f, 0.89f, 1f };
+            { 0.20f, 0.24f, 0.28f, 0.33f, 0.37f, 0.43f, 0.48f, 0.53f, 0.59f, 0.64f, 0.70f, 0.76f, 0.82f, 0.88f, 0.94f, 1.00f };
 
         private byte[] _opac, _light;        // непрозрачность и уровень света региона (чанк + 9 блоков вокруг)
         private int[] _top;                  // верхний блок, перекрывающий небо, по колонкам региона (-1 = открыто)
@@ -200,7 +202,7 @@ namespace MinecraftClone.Rendering
         // 0 = пропускает свет без потерь, 1 = гасит на 1 дополнительно, 2 = не пропускает
         private static byte Opacity(BlockType t)
         {
-            if (t == BlockType.Air || t == BlockType.Glass || t.IsPlant() || t.IsSign() || t.IsTorch()) return 0;
+            if (t == BlockType.Air || t == BlockType.Glass || t.IsPlant() || t.IsSign() || t.IsTorch() || t.IsFire()) return 0;
             if (t == BlockType.Water || t == BlockType.Lava || t == BlockType.OakLeaves || t == BlockType.StoneSlab) return 1;
             return 2;
         }
@@ -231,7 +233,7 @@ namespace MinecraftClone.Rendering
             }
             for (int i = 0; i < total; i++) { _opac[i] = 255; _light[i] = 0; }
 
-            // 1. высота «потолка» каждой колонки: выше неё небо, уровень 9
+            // 1. высота «потолка» каждой колонки: выше неё небо, уровень MaxLight
             for (int rz = 0; rz < _rw; rz++)
                 for (int rx = 0; rx < _rw; rx++)
                 {
@@ -254,17 +256,19 @@ namespace MinecraftClone.Rendering
                     for (int y = t + 1; y <= yEnd; y++) _lightQueue.Add((y * _rw + rz) * _rw + rx);
                 }
 
-            // 2b. факелы: источники уровня 9
+            // 2b. источники света: факел 14, лава и огонь 15
             _torches.Clear();
             if (world is ITorchSource ts) ts.CollectTorches(cd.Position.x, cd.Position.y, _torches);
             for (int k = 0; k < _torches.Count; k++)
             {
                 Vector3Int p = _torches[k];
+                int emit = Emission(world.GetBlockAtWorldPosition(p.x, p.y, p.z));
+                if (emit == 0) continue;
                 int trx = p.x - _rx0, trz = p.z - _rz0;
                 if (trx < 0 || trz < 0 || trx >= _rw || trz >= _rw || p.y < 0 || p.y >= h) continue;
-                if (p.y > _top[trz * _rw + trx]) continue;          // над землёй там и так 9
+                if (p.y > _top[trz * _rw + trx]) continue;          // над землёй там и так MaxLight
                 int ti = (p.y * _rw + trz) * _rw + trx;
-                _light[ti] = 9;
+                if (emit > _light[ti]) _light[ti] = (byte)emit;
                 _lightQueue.Add(ti);
             }
 
@@ -273,14 +277,14 @@ namespace MinecraftClone.Rendering
             {
                 int i = _lightQueue[head];
                 int rx = i % _rw, rz = (i / _rw) % _rw, y = i / cols;
-                int L = y > _top[rz * _rw + rx] ? 9 : _light[i];
+                int L = y > _top[rz * _rw + rx] ? MaxLight : _light[i];
                 if (L <= 1) continue;
 
                 for (int d = 0; d < 6; d++)
                 {
                     int nx = rx + Directions[d].x, ny = y + Directions[d].y, nz = rz + Directions[d].z;
                     if (nx < 0 || nx >= _rw || nz < 0 || nz >= _rw || ny < 0 || ny >= h) continue;
-                    if (ny > _top[nz * _rw + nx]) continue;          // небо, там и так 9
+                    if (ny > _top[nz * _rw + nx]) continue;          // небо, там и так MaxLight
                     byte o = OpacAt(nx, ny, nz, world);
                     if (o == 2) continue;
                     int nl = L - 1 - o;
@@ -298,20 +302,27 @@ namespace MinecraftClone.Rendering
                         ChunkLight[(y * w + z) * w + x] = (byte)LightAt(_ox + x, y, _oz + z);
         }
 
+        private static int Emission(BlockType t)
+        {
+            if (t == BlockType.Lava || t.IsFire()) return MaxLight;
+            if (t.IsTorch()) return TorchLight;
+            return 0;
+        }
+
         // уровень света клетки в мировых координатах
         private int LightAt(int wx, int y, int wz)
         {
-            if (y >= _rh) return 9;
+            if (y >= _rh) return MaxLight;
             if (y < 0) return 0;
             int rx = wx - _rx0, rz = wz - _rz0;
-            if (rx < 0 || rz < 0 || rx >= _rw || rz >= _rw) return 9;
-            if (y > _top[rz * _rw + rx]) return 9;
+            if (rx < 0 || rz < 0 || rx >= _rw || rz >= _rw) return MaxLight;
+            if (y > _top[rz * _rw + rx]) return MaxLight;
             return _light[(y * _rw + rz) * _rw + rx];
         }
 
         public void Build(ChunkData chunkData, IBlockReader world)
         {
-            Vertices.Clear(); Uvs.Clear(); Normals.Clear(); Colors.Clear(); SignsNow.Clear();
+            Vertices.Clear(); Uvs.Clear(); Normals.Clear(); Colors.Clear(); SignsNow.Clear(); FiresNow.Clear();
             SolidTriangles.Clear(); CutoutTriangles.Clear(); CollisionTriangles.Clear(); PlantTriangles.Clear();
             WaterTriangles.Clear(); LavaTriangles.Clear();
             SolidHash = 0; PlantHash = 0;
@@ -389,6 +400,13 @@ namespace MinecraftClone.Rendering
                 return;
             }
 
+            if (type.IsFire())
+            {
+                FiresNow.Add(new Vector3Int(x, y, z));
+                AddFireData(x, y, z, world);
+                return;
+            }
+
             if (IsPlantBlock(type))
             {
                 AddPlantData(x, y, z, type);
@@ -456,12 +474,12 @@ namespace MinecraftClone.Rendering
         // «дырок» текстуры, добавьте его сюда.
         private static bool IsCutoutType(BlockType t)
         {
-            return t == BlockType.OakLeaves || t == BlockType.Glass || t.IsPlant() || t.IsSign();
+            return t == BlockType.OakLeaves || t == BlockType.Glass || t.IsPlant() || t.IsSign() || t.IsFire();
         }
 
         private bool ShouldRenderFace(BlockType current, BlockType neighbor)
         {
-            bool seeThrough = neighbor == BlockType.Air || IsPlantBlock(neighbor) || neighbor.IsSign() || neighbor.IsTorch();
+            bool seeThrough = neighbor == BlockType.Air || IsPlantBlock(neighbor) || neighbor.IsSign() || neighbor.IsTorch() || neighbor.IsFire();
 
             if (current == BlockType.Water)
                 return seeThrough || neighbor == BlockType.Lava;
@@ -577,6 +595,50 @@ namespace MinecraftClone.Rendering
             // Диагональ 2
             AddQuad(blockPos, new Vector3(0, 0, 1), new Vector3(1, 1, 0), new Vector3(1, 0, 0), new Vector3(0, 1, 1), uvRect, pcol);
             AddQuad(blockPos, new Vector3(1, 0, 0), new Vector3(0, 1, 1), new Vector3(0, 0, 1), new Vector3(1, 1, 0), uvRect, pcol);
+        }
+
+        private void AddFireData(int x, int y, int z, IBlockReader world)
+        {
+            Vector3 p = new Vector3(x, y, z);
+            Rect a = ChunkUV.Get(BlockType.Fire, 0);   // fire_layer_0
+            Rect b = ChunkUV.Get(BlockType.Fire, 4);   // fire_layer_1
+            BlockType below = world.GetBlockAtWorldPosition(_ox + x, y - 1, _oz + z);
+            bool solidBelow = below != BlockType.Air && below != BlockType.Water && below != BlockType.Lava
+                              && !below.IsPlant() && !below.IsSign() && !below.IsTorch();
+            bool pX = world.GetBlockAtWorldPosition(_ox + x + 1, y, _oz + z).IsFlammable();
+            bool nX = world.GetBlockAtWorldPosition(_ox + x - 1, y, _oz + z).IsFlammable();
+            bool pZ = world.GetBlockAtWorldPosition(_ox + x, y, _oz + z + 1).IsFlammable();
+            bool nZ = world.GetBlockAtWorldPosition(_ox + x, y, _oz + z - 1).IsFlammable();
+            bool up = world.GetBlockAtWorldPosition(_ox + x, y + 1, _oz + z).IsFlammable();
+            bool sides = pX || nX || pZ || nZ || up;
+            // на твёрдом основании (или совсем без соседей): крест из диагоналей
+            if (solidBelow || !sides)
+            {
+                AddQuad(p, new Vector3(0, 0, 0), new Vector3(1, 1, 1), new Vector3(1, 0, 1), new Vector3(0, 1, 0), a, White);
+                AddQuad(p, new Vector3(1, 0, 1), new Vector3(0, 1, 0), new Vector3(0, 0, 0), new Vector3(1, 1, 1), a, White);
+                AddQuad(p, new Vector3(0, 0, 1), new Vector3(1, 1, 0), new Vector3(1, 0, 0), new Vector3(0, 1, 1), b, White);
+                AddQuad(p, new Vector3(1, 0, 0), new Vector3(0, 1, 1), new Vector3(0, 0, 1), new Vector3(1, 1, 0), b, White);
+            }
+            // на боку горючего блока: плоскость вплотную к его стене
+            const float e = 0.04f;
+            if (pX) AddFirePlane(p, new Vector3(1 - e, 0, 0), new Vector3(1 - e, 1, 1), new Vector3(1 - e, 0, 1), new Vector3(1 - e, 1, 0), a);
+            if (nX) AddFirePlane(p, new Vector3(e, 0, 0), new Vector3(e, 1, 1), new Vector3(e, 0, 1), new Vector3(e, 1, 0), b);
+            if (pZ) AddFirePlane(p, new Vector3(0, 0, 1 - e), new Vector3(1, 1, 1 - e), new Vector3(1, 0, 1 - e), new Vector3(0, 1, 1 - e), b);
+            if (nZ) AddFirePlane(p, new Vector3(0, 0, e), new Vector3(1, 1, e), new Vector3(1, 0, e), new Vector3(0, 1, e), a);
+            // под нижней стороной горючего блока: плоскость вплотную к потолку (два слоя)
+            if (up)
+            {
+                float u1 = 1f - e, u2 = 1f - 2f * e;
+                AddFirePlane(p, new Vector3(0, u1, 0), new Vector3(1, u1, 1), new Vector3(1, u1, 0), new Vector3(0, u1, 1), a);
+                AddFirePlane(p, new Vector3(0, u2, 0), new Vector3(1, u2, 1), new Vector3(1, u2, 0), new Vector3(0, u2, 1), b);
+            }
+        }
+
+        // двусторонняя плоскость огня
+        private void AddFirePlane(Vector3 o, Vector3 v0, Vector3 v1, Vector3 v2, Vector3 v3, Rect uv)
+        {
+            AddQuad(o, v0, v1, v2, v3, uv, White);
+            AddQuad(o, v2, v3, v0, v1, uv, White);
         }
 
         private void AddQuad(Vector3 offset, Vector3 v0, Vector3 v1, Vector3 v2, Vector3 v3, Rect uvRect, Color32 col)

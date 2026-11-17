@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: chainmail_leggings
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: chainmail_leggings
-  DisplayName: chainmail leggings
+  DisplayName: Chainmail leggings
   Texture: {fileID: 2800000, guid: f83a2a334047dea46817241eecb68242, type: 3}
   MaxStack: 1
   FoodHeal: 0

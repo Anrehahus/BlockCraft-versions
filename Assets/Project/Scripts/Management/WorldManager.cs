@@ -88,6 +88,8 @@ namespace MinecraftClone.Management
 
         [SerializeField] private Texture2D waterAnimationStrip;
         [SerializeField] private Texture2D lavaAnimationStrip;
+        [SerializeField] private Texture2D fireAnimationStrip0;   // fire_0.png 16x512
+        [SerializeField] private Texture2D fireAnimationStrip1;   // fire_1.png 16x512
 
         private Dictionary<BlockType, BlockDataSO> blockDatabase;
         private Dictionary<Vector2Int, ChunkData> loadedChunks = new Dictionary<Vector2Int, ChunkData>();
@@ -1212,6 +1214,7 @@ namespace MinecraftClone.Management
                 ApplyAtlas(lavaMaterial);
                 SetupBlockAnimation(BlockType.Water, waterAnimationStrip, 0.1f);
                 SetupBlockAnimation(BlockType.Lava, lavaAnimationStrip, 0.15f);
+                SetupFireAnimation();
             }
         }
 
@@ -1235,6 +1238,50 @@ namespace MinecraftClone.Management
 
             gameObject.AddComponent<TextureAnimator>().Init(stitcher.AtlasTexture, uv, strip, frameTime);
             Debug.Log($"[Anim] Анимация {type} запущена, текстура '{baseTex.name}'.");
+        }
+
+        private void SetupFireAnimation()
+        {
+            if (blockDatabase == null || !blockDatabase.TryGetValue(BlockType.Fire, out BlockDataSO d) || d == null)
+            { Debug.LogWarning("[Anim] Fire: BlockDataSO не найден в Block Types у WorldManager."); return; }
+            if (fireAnimationStrip0 == null) fireAnimationStrip0 = FindFireStrip("fire_0");
+            if (fireAnimationStrip1 == null) fireAnimationStrip1 = FindFireStrip("fire_1");
+            Debug.Log($"[Anim] Fire: top={(d.TopTexture ? d.TopTexture.name : "null")}, side={(d.SideTexture ? d.SideTexture.name : "null")}, " +
+                      $"ленты: {(fireAnimationStrip0 ? fireAnimationStrip0.name : "НЕ НАЗНАЧЕНА")}, {(fireAnimationStrip1 ? fireAnimationStrip1.name : "НЕ НАЗНАЧЕНА")}");
+            AnimateRegion(d.TopTexture, fireAnimationStrip0, 0.05f, "Fire/0", 16);
+            AnimateRegion(d.SideTexture, fireAnimationStrip1, 0.05f, "Fire/1", 0);
+        }
+
+        private static Texture2D FindFireStrip(string name)
+        {
+            // 1) из Resources (работает и в билде, если положить ленты в Assets/Resources)
+            Texture2D t = Resources.Load<Texture2D>(name);
+            if (t != null) return t;
+#if UNITY_EDITOR
+            // 2) в редакторе — поиск по всему проекту
+            foreach (string guid in UnityEditor.AssetDatabase.FindAssets(name + " t:Texture2D"))
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                if (System.IO.Path.GetFileNameWithoutExtension(path) == name)
+                    return UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            }
+#endif
+            return null;
+        }
+
+        private void AnimateRegion(Texture2D baseTex, Texture2D strip, float frameTime, string label, int startFrame = 0)
+        {
+            if (strip == null || baseTex == null)
+            { Debug.LogWarning($"[Anim] {label}: нет ленты или текстуры блока."); return; }
+            if (baseTex.width != baseTex.height)
+            {
+                Debug.LogError($"[Anim] {label}: у блока Fire вместо кадра назначена лента {baseTex.name} ({baseTex.width}x{baseTex.height}). Запустите Minecraft → Setup Fire.");
+                return;
+            }
+            if (!stitcher.UVMap.TryGetValue(baseTex.name, out Rect uv))
+            { Debug.LogWarning($"[Anim] {label}: текстура {baseTex.name} не найдена в атласе."); return; }
+            gameObject.AddComponent<TextureAnimator>().Init(stitcher.AtlasTexture, uv, strip, frameTime, startFrame);
+            Debug.Log($"[Anim] {label}: анимация запущена, область '{baseTex.name}', кадров {strip.height / strip.width}.");
         }
 
         public Vector2Int GetChunkCoordFromPosition(Vector3 position)
@@ -1400,11 +1447,11 @@ namespace MinecraftClone.Management
 
         public int GetLightAtWorldPosition(Vector3 p)
         {
-            if (worldConfig == null) return 9;
+            if (worldConfig == null) return 15;
             int size = worldConfig.ChunkWidth;
             int x = Mathf.FloorToInt(p.x), y = Mathf.FloorToInt(p.y), z = Mathf.FloorToInt(p.z);
             var cp = new Vector2Int(Mathf.FloorToInt((float)x / size), Mathf.FloorToInt((float)z / size));
-            if (!chunkRenderers.TryGetValue(cp, out ChunkRenderer r) || r == null) return 9;
+            if (!chunkRenderers.TryGetValue(cp, out ChunkRenderer r) || r == null) return 15;
             return r.GetLight(GetLocalCoord(x, size), y, GetLocalCoord(z, size));
         }
 
@@ -1424,7 +1471,12 @@ namespace MinecraftClone.Management
                     return false;
             }
 
-            if (newType.IsPlant())
+            if (newType.IsFire())
+            {
+                if (currentBlock != BlockType.Air) return false;
+                if (!FireSystem.CanExistAt(this, worldX, worldY, worldZ)) return false;
+            }
+            else if (newType.IsPlant())
             {
                 if (currentBlock != BlockType.Air) return false;
                 BlockType blockBelow = GetBlockAtWorldPosition(worldX, worldY - 1, worldZ);
@@ -1487,7 +1539,7 @@ namespace MinecraftClone.Management
 
         private void SpawnBreakEffect(Vector3Int pos, BlockType oldType)
         {
-            if (oldType.IsTorch()) return;   // у факела частиц нет
+            if (oldType.IsTorch() || oldType.IsFire()) return;   // у факела и огня частиц нет
             if (blockDatabase == null || !blockDatabase.TryGetValue(oldType, out BlockDataSO d) || d == null) return;
 
             Texture2D tex = d.TopTexture != null ? d.TopTexture : d.SideTexture;
@@ -1580,10 +1632,10 @@ namespace MinecraftClone.Management
             }
         }
 
-        // Свет доходит до 9 блоков, поэтому пересобираем и соседние чанки (включая диагональные) в радиусе света
+        // Свет доходит до 15 блоков, поэтому пересобираем и соседние чанки (включая диагональные) в радиусе света
         private void ForEachLightNeighbour(int cx, int cz, int lx, int lz, int size, Action<Vector2Int> action)
         {
-            const int reach = 9;
+            const int reach = 15;
             for (int dx = -1; dx <= 1; dx++)
                 for (int dz = -1; dz <= 1; dz++)
                 {

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: leather_chestplate
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: leather_chestplate
-  DisplayName: leather chestplate
+  DisplayName: Leather chestplate
   Texture: {fileID: 2800000, guid: ec6d6e7d3c970f647a07cc54a89b071d, type: 3}
   MaxStack: 1
   FoodHeal: 0

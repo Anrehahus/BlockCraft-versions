@@ -115,6 +115,15 @@ namespace MinecraftClone.Items
             if (_sys.IsChunkLoaded(Mathf.FloorToInt(_pos.x), Mathf.FloorToInt(_pos.z)))
                 Simulate(dt);
 
+            // огонь: предмет, оказавшийся в клетке с огнём, сгорает (решает сервер / одиночная игра)
+            if (Authoritative && WorldManager.Instance != null &&
+                WorldManager.Instance.GetBlockAtWorldPosition(
+                    Mathf.FloorToInt(_pos.x), Mathf.FloorToInt(_pos.y), Mathf.FloorToInt(_pos.z)) == BlockType.Fire)
+            {
+                _sys.ServerRemove(Id);
+                return;
+            }
+
             if (_pos.y < -20f)
             {
                 if (Authoritative) _sys.ServerRemove(Id); else Destroy(gameObject);

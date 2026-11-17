@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: leather_helmet
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: leather_helmet
-  DisplayName: leather helmet
+  DisplayName: Leather helmet
   Texture: {fileID: 2800000, guid: 8a75c1d5ec14e80449ed67025a176f62, type: 3}
   MaxStack: 1
   FoodHeal: 0

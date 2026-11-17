@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: chainmail_helmet
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: chainmail_helmet
-  DisplayName: chainmail helmet
+  DisplayName: Chainmail helmet
   Texture: {fileID: 2800000, guid: bd31cb35dcb8d83439a2eb077f3ed065, type: 3}
   MaxStack: 1
   FoodHeal: 0
