@@ -56,11 +56,14 @@ public static class ArmorItemsCreator
         Debug.Log("[Armor] Создано/обновлено предметов брони: " + Defs.Length);
     }
 
-    private static readonly (string key, string name, int stack)[] Misc =
+    private static readonly (string key, string name, int stack, ToolKind tool)[] Misc =
 {
-    ("apple",       "Яблоко",          99),
-    ("iron_sword",  "Железный меч",    1),
-    ("iron_shovel", "Железная лопата", 1),
+    ("apple",           "Яблоко",           99, ToolKind.None),
+    ("iron_sword",      "Железный меч",     1,  ToolKind.None),
+    ("iron_shovel",     "Железная лопата",  1,  ToolKind.None),
+    ("flint_and_steel", "Огниво",           1,  ToolKind.FlintAndSteel),
+    ("iron_axe",        "Железный топор",   1,  ToolKind.Axe),
+    ("iron_pickaxe",    "Железная кирка",   1,  ToolKind.Pickaxe),
 };
 
     [MenuItem("Minecraft/Create Misc Items")]
@@ -87,6 +90,8 @@ public static class ArmorItemsCreator
             so.Texture = tex;
             so.MaxStack = d.stack;
             so.Armor = ArmorSlot.None;
+            so.Tool = d.tool;          // добавить
+            so.MiningSpeed = 4f;       // добавить
             EditorUtility.SetDirty(so);
         }
         AssetDatabase.SaveAssets();

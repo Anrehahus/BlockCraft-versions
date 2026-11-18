@@ -60,6 +60,14 @@ namespace MinecraftClone.Player
 
         private float _actionTimer = 0f; // Таймер для зажатия клавиш
 
+        private BlockBreakOverlay _breakOverlay;
+        private Vector3Int _breakPos;
+        private BlockType _breakType;
+        private bool _isBreaking;
+        private float _breakProgress;
+        private float _breakDelay;   // пауза после сломанного блока
+        private float _mobLock;      // пока бьём моба, блок за ним не трогаем
+
         public BlockType CurrentSelectedBlock => PlayerInventory.HotbarDef(_selectedBlockIndex)?.Block ?? BlockType.Air;
         public int SelectedSlot => _selectedBlockIndex;
 
@@ -83,6 +91,7 @@ namespace MinecraftClone.Player
                 GameObject outlineGO = new GameObject("BlockOutline");
                 outlineRenderer = outlineGO.AddComponent<BlockOutlineRenderer>();
             }
+            _breakOverlay = new GameObject("BlockBreakOverlay").AddComponent<BlockBreakOverlay>();
         }
 
         private void Update()
@@ -97,6 +106,7 @@ namespace MinecraftClone.Player
             {
                 if (outlineRenderer != null) outlineRenderer.Hide();
                 _hasTargetBlock = false;
+                ResetBreak();
                 return;
             }
 
@@ -105,6 +115,9 @@ namespace MinecraftClone.Player
             {
                 _actionTimer -= Time.deltaTime;
             }
+
+            if (_breakDelay > 0f) _breakDelay -= Time.deltaTime;
+            if (_mobLock > 0f) _mobLock -= Time.deltaTime;
 
             HandleScrollWheel();
             if (GameSettings.Pressed(GameSettings.Bind.Drop)) DropHeldItem();
@@ -245,22 +258,20 @@ namespace MinecraftClone.Player
                 _actionTimer = 0f;
             }
 
-            // ЛКМ — Разрушение (работает при зажатии GetMouseButton)
+            // ЛКМ — удар по мобу / поэтапное ломание блока
             if (Input.GetMouseButton(0))
             {
                 if (_actionTimer <= 0f)
                 {
                     if (_netPlayer != null) _netPlayer.NotifySwing();
-
-                    if (!TryAttackMob() && _hasTargetBlock)
-                    {
-                        BreakBlock(_selectedBlockPos);
-                    }
-                    _actionTimer = actionInterval; // Сброс таймера на 0.25 сек
+                    _actionTimer = actionInterval;
+                    if (TryAttackMob()) { ResetBreak(); _mobLock = actionInterval; }
                 }
+                if (_mobLock <= 0f) ContinueBreaking();
             }
+            else ResetBreak();
 
-            // ПКМ — Установка / Еда (работает при зажатии GetMouseButton)
+            // ПКМ — еда / огниво / установка блока (работает при зажатии)
             if (Input.GetMouseButton(1))
             {
                 if (_actionTimer <= 0f)
@@ -273,6 +284,12 @@ namespace MinecraftClone.Player
                         if (!CreativeInventory) PlayerInventory.ConsumeFromHotbar(_selectedBlockIndex, 1);
                         _actionTimer = 0.8f;               // пауза между порциями
                     }
+                    else if (def != null && def.Tool == ToolKind.FlintAndSteel)
+                    {
+                        if (_netPlayer != null) _netPlayer.NotifySwing();
+                        TryIgnite();
+                        _actionTimer = actionInterval;
+                    }
                     else
                     {
                         if (_netPlayer != null) _netPlayer.NotifySwing();
@@ -281,6 +298,62 @@ namespace MinecraftClone.Player
                     }
                 }
             }
+        }
+
+        private void ContinueBreaking()
+        {
+            if (!_hasTargetBlock) { ResetBreak(); return; }
+            if (_breakDelay > 0f) return;
+
+            Vector3Int pos = _selectedBlockPos;
+            BlockType type = _worldManager.GetBlockAtWorldPosition(pos.x, pos.y, pos.z);
+            if (type == BlockType.Air) { ResetBreak(); return; }
+            if (type == BlockType.Tnt) { BreakBlock(pos); return; }   // поджиг по клику, как раньше
+
+            if (_worldManager.BlockDatabase != null
+                && _worldManager.BlockDatabase.TryGetValue(type, out BlockDataSO d) && d != null && !d.IsBreakable)
+            { ResetBreak(); return; }
+
+            if (!_isBreaking || pos != _breakPos || type != _breakType)
+            { _isBreaking = true; _breakPos = pos; _breakType = type; _breakProgress = 0f; }
+
+            float time = CreativeInventory ? 0f : ToolRules.BreakTime(type, PlayerInventory.HotbarDef(_selectedBlockIndex));
+            _breakProgress += time <= 0f ? 1f : Time.deltaTime / time;
+
+            if (_breakProgress >= 1f)
+            {
+                BreakBlock(pos);
+                ResetBreak();
+                _breakDelay = actionInterval;
+                return;
+            }
+
+            if (_breakOverlay != null)
+            {
+                if (!BlockHitbox.TryGetBounds(type, out Vector3 bmin, out Vector3 bmax)) { bmin = Vector3.zero; bmax = Vector3.one; }
+                _breakOverlay.Show(pos, bmin, bmax, _breakProgress);
+            }
+        }
+
+        private void ResetBreak()
+        {
+            _isBreaking = false;
+            _breakProgress = 0f;
+            if (_breakOverlay != null) _breakOverlay.Hide();
+        }
+
+        private void TryIgnite()
+        {
+            if (cameraTransform == null || _worldManager == null) return;
+            Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
+            if (!VoxelRaycast(ray, reachDistance, true, out Vector3Int hit, out Vector3Int normal)) return;
+
+            if (_worldManager.GetBlockAtWorldPosition(hit.x, hit.y, hit.z) == BlockType.Tnt)
+            { MinecraftClone.Physics.TntSystem.RequestIgnite(hit); return; }
+
+            Vector3Int p = hit + normal;
+            if (_worldManager.GetBlockAtWorldPosition(p.x, p.y, p.z) == BlockType.Air)
+                _worldManager.SetBlockAtWorldPosition(p.x, p.y, p.z, BlockType.Fire);   // проверку опоры делает сам SetBlock
         }
 
         private void TryPlaceBlock()
@@ -437,5 +510,7 @@ namespace MinecraftClone.Player
             if (_netPlayer != null) _netPlayer.NotifySwing();
             ItemDropSystem.Instance.RequestDrop(itemId, 1, pos, vel);
         }
+
+        private void OnDestroy() { if (_breakOverlay != null) Destroy(_breakOverlay.gameObject); }
     }
 }

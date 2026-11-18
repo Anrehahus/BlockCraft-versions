@@ -13,9 +13,11 @@ MonoBehaviour:
   m_Name: iron_shovel
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: iron_shovel
-  DisplayName: Iron shovel
+  DisplayName: "\u0416\u0435\u043B\u0435\u0437\u043D\u0430\u044F \u043B\u043E\u043F\u0430\u0442\u0430"
   Texture: {fileID: 2800000, guid: e29c000942169d348886b8f644ed581c, type: 3}
   MaxStack: 1
+  Tool: 0
+  MiningSpeed: 4
   FoodHeal: 0
   PlaceBlock: 0
   Armor: 0

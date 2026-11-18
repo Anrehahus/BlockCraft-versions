@@ -345,8 +345,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: d82ec32ed721a2f4f8a6b914601e3597, type: 2}
   waterAnimationStrip: {fileID: 2800000, guid: e2dc62552126b94448c061a9529dbaa7, type: 3}
   lavaAnimationStrip: {fileID: 2800000, guid: 41a055a500169704cad710f015e974cd, type: 3}
-  fireAnimationStrip0: {fileID: 0}
-  fireAnimationStrip1: {fileID: 0}
+  fireAnimationStrip0: {fileID: 2800000, guid: 6efecd0892dea2844a564ab35c525b5b, type: 3}
+  fireAnimationStrip1: {fileID: 2800000, guid: 5d33c9d85a736664caa4fd11e6795a1b, type: 3}
   collisionRadiusChunks: 3
 --- !u!4 &577380496
 Transform:
@@ -375,7 +375,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f40f8f3a7fe68ce4f9665fdec47abe24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.UI.DebugInfoUI
-  gameVersion: Minecraft Indev 0.31 20100109-1939
+  gameVersion: Minecraft Indev 0.31 20100110
   customFont: {fileID: 12800000, guid: 137924745e2665348887e144f9cefb97, type: 3}
   fontSize: 24
   textColor: {r: 1, g: 1, b: 1, a: 1}

@@ -13,9 +13,11 @@ MonoBehaviour:
   m_Name: apple
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Items.ItemDataSO
   Key: apple
-  DisplayName: Apple
-  Texture: {fileID: 2800000, guid: d6608a4cd68da0045b252bfb9b524f20, type: 3}
+  DisplayName: "\u042F\u0431\u043B\u043E\u043A\u043E"
+  Texture: {fileID: 0}
   MaxStack: 99
+  Tool: 0
+  MiningSpeed: 4
   FoodHeal: 0
   PlaceBlock: 0
   Armor: 0

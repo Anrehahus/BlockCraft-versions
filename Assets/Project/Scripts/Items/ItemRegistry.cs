@@ -8,6 +8,8 @@ namespace MinecraftClone.Items
     // Готовое описание предмета в игре
     public sealed class ItemDef
     {
+        public ToolKind Tool;
+        public float MiningSpeed = 1f;
         public int Id;             // номер на время игры: склад, предметы в мире, сеть
         public string Key;         // стабильное имя для сохранений: "block/Stone", "raw_pork"
         public string Name;
@@ -92,7 +94,9 @@ namespace MinecraftClone.Items
                     Block = so.PlaceBlock,
                     FoodHeal = Mathf.Max(0f, so.FoodHeal),
                     Texture = so.Texture,
-                    Armor = so.Armor
+                    Armor = so.Armor,
+                    Tool = so.Tool,
+                    MiningSpeed = Mathf.Max(1f, so.MiningSpeed)
                 });
                 if (so.Texture != null) _textures.Add(so.Texture);
             }

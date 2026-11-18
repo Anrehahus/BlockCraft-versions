@@ -175,6 +175,9 @@ namespace MinecraftClone.Networking
             NetworkServer.RegisterHandler<ItemPickupRequestMessage>(OnServerItemPickup);
             NetworkServer.RegisterHandler<ItemDropRequestMessage>(OnServerItemDrop);
             NetworkServer.RegisterHandler<InventorySyncMessage>(OnServerInventorySync);
+
+            // Регистрация серверной части синхронизации разрушения
+            BreakSync.RegisterServer();
         }
 
         public override void OnServerConnect(NetworkConnectionToClient conn)
@@ -851,6 +854,9 @@ namespace MinecraftClone.Networking
             NetworkClient.RegisterHandler<ItemRemoveMessage>(OnClientItemRemove);
             NetworkClient.RegisterHandler<InventorySyncMessage>(OnClientInventory);
             NetworkClient.RegisterHandler<ItemPickupGrantMessage>(OnClientItemGrant);
+
+            // Регистрация клиентской части синхронизации разрушения
+            BreakSync.RegisterClient();
         }
 
         public override void OnClientConnect()
