@@ -68,6 +68,10 @@ namespace MinecraftClone.Player
         private float _breakDelay;   // пауза после сломанного блока
         private float _mobLock;      // пока бьём моба, блок за ним не трогаем
 
+        private int _sentStage = -1;
+        private Vector3Int _sentPos;
+        private float _sentTime;
+
         public BlockType CurrentSelectedBlock => PlayerInventory.HotbarDef(_selectedBlockIndex)?.Block ?? BlockType.Air;
         public int SelectedSlot => _selectedBlockIndex;
 
@@ -333,6 +337,13 @@ namespace MinecraftClone.Player
                 if (!BlockHitbox.TryGetBounds(type, out Vector3 bmin, out Vector3 bmax)) { bmin = Vector3.zero; bmax = Vector3.one; }
                 _breakOverlay.Show(pos, bmin, bmax, _breakProgress);
             }
+
+            int stage = Mathf.Clamp((int)(_breakProgress * 10f), 0, 9);
+            if (stage != _sentStage || pos != _sentPos || Time.time - _sentTime > 1f)   // при смене стадии и раз в секунду
+            {
+                _sentStage = stage; _sentPos = pos; _sentTime = Time.time;
+                BreakSync.Send(pos, stage);
+            }
         }
 
         private void ResetBreak()
@@ -340,6 +351,7 @@ namespace MinecraftClone.Player
             _isBreaking = false;
             _breakProgress = 0f;
             if (_breakOverlay != null) _breakOverlay.Hide();
+            if (_sentStage >= 0) { BreakSync.Send(_sentPos, -1); _sentStage = -1; }   // сообщаем, что перестали ломать
         }
 
         private void TryIgnite()
