@@ -138,6 +138,7 @@ namespace MinecraftClone.Rendering
 
             SyncSignLabels(g.SignsNow);
             FireSystem.SetChunkFires(this, g.FiresNow, transform.position);
+            FireSystem.SetChunkLavas(this, g.LavasNow, transform.position);
 
             chunkMesh.Clear();
             chunkMesh.SetVertices(g.Vertices);

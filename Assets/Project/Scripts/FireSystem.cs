@@ -18,11 +18,17 @@ namespace MinecraftClone.Physics
         private const float SpreadChance = 0.5f;
         private const int MaxFiresPerTick = 300;
 
+        private const int LavaSamples = 40;            // сколько клеток лавы проверяется за тик (0.5 с)
+        private const int LavaTries = 3;               // попыток поджечь на каждую
+        private const float LavaIgniteChance = 0.25f;
+
         private static readonly Dictionary<ChunkRenderer, Vector3Int[]> Chunks = new Dictionary<ChunkRenderer, Vector3Int[]>();
+        private static readonly Dictionary<ChunkRenderer, Vector3Int[]> LavaChunks = new Dictionary<ChunkRenderer, Vector3Int[]>();
         private static FireSystem _instance;
 
         private readonly Dictionary<Vector3Int, int> _age = new Dictionary<Vector3Int, int>();
         private readonly List<Vector3Int> _snapshot = new List<Vector3Int>();
+        private readonly List<Vector3Int> _lavas = new List<Vector3Int>();
         private readonly List<ChunkRenderer> _dead = new List<ChunkRenderer>();
         private readonly HashSet<Vector2Int> _dirty = new HashSet<Vector2Int>();
         private float _timer;
@@ -33,7 +39,7 @@ namespace MinecraftClone.Physics
         };
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { Chunks.Clear(); _instance = null; }
+        private static void ResetStatics() { Chunks.Clear(); LavaChunks.Clear(); _instance = null; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Create()
@@ -56,7 +62,25 @@ namespace MinecraftClone.Physics
             Chunks[r] = arr;
         }
 
-        public static void ClearChunk(ChunkRenderer r) { if (r != null) Chunks.Remove(r); }
+        public static void SetChunkLavas(ChunkRenderer r, List<Vector3Int> local, Vector3 chunkOrigin)
+        {
+            if (r == null) return;
+            if (local.Count == 0) { LavaChunks.Remove(r); return; }
+            int ox = Mathf.RoundToInt(chunkOrigin.x), oz = Mathf.RoundToInt(chunkOrigin.z);
+            var arr = new Vector3Int[local.Count];
+            for (int i = 0; i < arr.Length; i++)
+                arr[i] = new Vector3Int(ox + local[i].x, local[i].y, oz + local[i].z);
+            LavaChunks[r] = arr;
+        }
+
+        public static void ClearChunk(ChunkRenderer r)
+        {
+            if (r != null)
+            {
+                Chunks.Remove(r);
+                LavaChunks.Remove(r);
+            }
+        }
 
         // Огонь можно поставить: снизу твёрдый блок или рядом горючий
         public static bool CanExistAt(WorldManager wm, int x, int y, int z)
@@ -75,6 +99,8 @@ namespace MinecraftClone.Physics
             WorldManager wm = WorldManager.Instance;
             if (wm == null || wm.BlockDatabase == null) return;
 
+            IgniteFromLava(wm);
+
             _snapshot.Clear();
             _dead.Clear();
             foreach (var kv in Chunks)
@@ -89,6 +115,40 @@ namespace MinecraftClone.Physics
             _dirty.Clear();
             foreach (var pos in _snapshot) Tick(wm, pos);
             foreach (var c in _dirty) wm.RebuildChunkMesh(c);
+        }
+
+        private void IgniteFromLava(WorldManager wm)
+        {
+            _lavas.Clear();
+            _dead.Clear();
+            foreach (var kv in LavaChunks)
+            {
+                if (kv.Key == null) { _dead.Add(kv.Key); continue; }
+                _lavas.AddRange(kv.Value);
+            }
+            foreach (var d in _dead) LavaChunks.Remove(d);
+            if (_lavas.Count == 0) return;
+
+            _dirty.Clear();
+            int n = Mathf.Min(LavaSamples, _lavas.Count);
+            for (int i = 0; i < n; i++)
+            {
+                Vector3Int lp = _lavas[Random.Range(0, _lavas.Count)];
+                if (!wm.IsChunkLoadedAtWorldPos(lp.x, lp.z)) continue;
+                if (wm.GetBlockAtWorldPosition(lp.x, lp.y, lp.z) != BlockType.Lava) continue;
+
+                for (int t = 0; t < LavaTries; t++)
+                {
+                    // клетка рядом с лавой и на 0..2 выше, как в оригинале
+                    Vector3Int cell = lp + new Vector3Int(Random.Range(-1, 2), Random.Range(0, 3), Random.Range(-1, 2));
+                    if (wm.GetBlockAtWorldPosition(cell.x, cell.y, cell.z) != BlockType.Air) continue;
+                    if (!HasFlammableNeighbour(wm, cell)) continue;
+                    if (Random.value > LavaIgniteChance) continue;
+                    Put(wm, cell, BlockType.Fire);
+                }
+            }
+            foreach (var ch in _dirty) wm.RebuildChunkMesh(ch);
+            _dirty.Clear();
         }
 
         private void Tick(WorldManager wm, Vector3Int pos)

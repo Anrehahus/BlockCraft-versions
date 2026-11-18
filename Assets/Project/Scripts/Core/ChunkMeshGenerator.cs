@@ -180,6 +180,7 @@ namespace MinecraftClone.Rendering
         public readonly List<int> LavaTriangles = new List<int>();
         public readonly Dictionary<Vector3Int, BlockType> SignsNow = new Dictionary<Vector3Int, BlockType>();
         public readonly List<Vector3Int> FiresNow = new List<Vector3Int>();   // огонь чанка (локальные координаты)
+        public readonly List<Vector3Int> LavasNow = new List<Vector3Int>();   // лава рядом с горючим (локальные координаты)
         public ulong SolidHash, PlantHash;
 
         public byte[] ChunkLight;      // свет клеток самого чанка, индекс (y*w+z)*w+x
@@ -322,7 +323,7 @@ namespace MinecraftClone.Rendering
 
         public void Build(ChunkData chunkData, IBlockReader world)
         {
-            Vertices.Clear(); Uvs.Clear(); Normals.Clear(); Colors.Clear(); SignsNow.Clear(); FiresNow.Clear();
+            Vertices.Clear(); Uvs.Clear(); Normals.Clear(); Colors.Clear(); SignsNow.Clear(); FiresNow.Clear(); LavasNow.Clear();
             SolidTriangles.Clear(); CutoutTriangles.Clear(); CollisionTriangles.Clear(); PlantTriangles.Clear();
             WaterTriangles.Clear(); LavaTriangles.Clear();
             SolidHash = 0; PlantHash = 0;
@@ -388,6 +389,9 @@ namespace MinecraftClone.Rendering
         ChunkData chunkData,
         IBlockReader world)
         {
+            if (type == BlockType.Lava && LavaNearFlammable(x, y, z, world))
+                LavasNow.Add(new Vector3Int(x, y, z));
+
             if (type.IsSign())
             {
                 AddSignData(x, y, z, type);
@@ -462,6 +466,17 @@ namespace MinecraftClone.Rendering
                         AddFaceData(x, y, z, i, type, fluidTop, neighborTop);
                 }
             }
+        }
+
+        private bool LavaNearFlammable(int x, int y, int z, IBlockReader world)
+        {
+            int wx = _ox + x, wz = _oz + z;
+            if (world.GetBlockAtWorldPosition(wx, y + 1, wz) == BlockType.Lava) return false;   // лава под лавой ничего не поджигает
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = 0; dy <= 2; dy++)
+                    for (int dz = -1; dz <= 1; dz++)
+                        if (world.GetBlockAtWorldPosition(wx + dx, y + dy, wz + dz).IsFlammable()) return true;
+            return false;
         }
 
         private bool IsPlantBlock(BlockType type)
