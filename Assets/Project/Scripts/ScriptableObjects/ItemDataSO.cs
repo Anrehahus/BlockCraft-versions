@@ -4,7 +4,7 @@ using MinecraftClone.Core;
 namespace MinecraftClone.Items
 {
     public enum ArmorSlot { None = 0, Helmet = 1, Chestplate = 2, Leggings = 3, Boots = 4 }
-    public enum ToolKind { None = 0, Axe = 1, Pickaxe = 2, FlintAndSteel = 3 }
+    public enum ToolKind { None = 0, Axe = 1, Pickaxe = 2, FlintAndSteel = 3, Shovel = 4 }
     // Описание предмета, который не является блоком (еда, инструменты, материалы).
     // Ассеты кладутся в папку Resources/Items: реестр находит их сам, ничего никуда добавлять не нужно.
     // Предметы-блоки отдельно создавать не надо: их реестр делает из BlockDataSO автоматически.

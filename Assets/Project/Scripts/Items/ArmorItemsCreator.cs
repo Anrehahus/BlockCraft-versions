@@ -56,14 +56,14 @@ public static class ArmorItemsCreator
         Debug.Log("[Armor] Создано/обновлено предметов брони: " + Defs.Length);
     }
 
-    private static readonly (string key, string name, int stack, ToolKind tool)[] Misc =
+    private static readonly (string key, string name, int stack, ToolKind tool, float food)[] Misc =
 {
-    ("apple",           "Яблоко",           99, ToolKind.None),
-    ("iron_sword",      "Железный меч",     1,  ToolKind.None),
-    ("iron_shovel",     "Железная лопата",  1,  ToolKind.None),
-    ("flint_and_steel", "Огниво",           1,  ToolKind.FlintAndSteel),
-    ("iron_axe",        "Железный топор",   1,  ToolKind.Axe),
-    ("iron_pickaxe",    "Железная кирка",   1,  ToolKind.Pickaxe),
+    ("apple",           "Яблоко",           1, ToolKind.None,          4f),   // 4 = два сердца
+    ("iron_sword",      "Железный меч",     1,  ToolKind.None,          0f),
+    ("iron_shovel",     "Железная лопата",  1,  ToolKind.Shovel,        0f),
+    ("flint_and_steel", "Огниво",           1,  ToolKind.FlintAndSteel, 0f),
+    ("iron_axe",        "Железный топор",   1,  ToolKind.Axe,           0f),
+    ("iron_pickaxe",    "Железная кирка",   1,  ToolKind.Pickaxe,       0f),
 };
 
     [MenuItem("Minecraft/Create Misc Items")]
@@ -91,6 +91,7 @@ public static class ArmorItemsCreator
             so.MaxStack = d.stack;
             so.Armor = ArmorSlot.None;
             so.Tool = d.tool;          // добавить
+            so.FoodHeal = d.food;
             so.MiningSpeed = 4f;       // добавить
             EditorUtility.SetDirty(so);
         }

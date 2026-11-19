@@ -52,6 +52,11 @@ namespace MinecraftClone.Items
                 case BlockType.GoldBlock:
                 case BlockType.Obsidian:
                     return ToolKind.Pickaxe;
+                case BlockType.Grass:
+                case BlockType.Dirt:
+                case BlockType.Sand:
+                case BlockType.Gravel:
+                    return ToolKind.Shovel;
                 default: return ToolKind.None;
             }
         }

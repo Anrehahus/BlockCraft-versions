@@ -15,9 +15,9 @@ MonoBehaviour:
   Key: apple
   DisplayName: "\u042F\u0431\u043B\u043E\u043A\u043E"
   Texture: {fileID: 0}
-  MaxStack: 99
+  MaxStack: 1
   Tool: 0
   MiningSpeed: 4
-  FoodHeal: 0
+  FoodHeal: 4
   PlaceBlock: 0
   Armor: 0
