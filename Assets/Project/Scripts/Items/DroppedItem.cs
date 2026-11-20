@@ -116,12 +116,16 @@ namespace MinecraftClone.Items
                 Simulate(dt);
 
             // огонь: предмет, оказавшийся в клетке с огнём, сгорает (решает сервер / одиночная игра)
-            if (Authoritative && WorldManager.Instance != null &&
-                WorldManager.Instance.GetBlockAtWorldPosition(
-                    Mathf.FloorToInt(_pos.x), Mathf.FloorToInt(_pos.y), Mathf.FloorToInt(_pos.z)) == BlockType.Fire)
+            // огонь и лава: предмет, оказавшийся в такой клетке, сгорает (решает сервер / одиночная игра)
+            if (Authoritative && WorldManager.Instance != null)
             {
-                _sys.ServerRemove(Id);
-                return;
+                BlockType inCell = WorldManager.Instance.GetBlockAtWorldPosition(
+                    Mathf.FloorToInt(_pos.x), Mathf.FloorToInt(_pos.y), Mathf.FloorToInt(_pos.z));
+                if (inCell == BlockType.Fire || inCell == BlockType.Lava)
+                {
+                    _sys.ServerRemove(Id);
+                    return;
+                }
             }
 
             if (_pos.y < -20f)

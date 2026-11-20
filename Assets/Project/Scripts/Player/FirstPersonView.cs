@@ -3,6 +3,7 @@ using Mirror;
 using MinecraftClone.Management;
 using MinecraftClone.Rendering;
 using MinecraftClone.Items;
+using MinecraftClone.Networking;
 
 namespace MinecraftClone.Player
 {
@@ -10,11 +11,6 @@ namespace MinecraftClone.Player
     // Добавляется автоматически вместе с PlayerModel.
     public class FirstPersonView : MonoBehaviour
     {
-        [Header("Рука (подгоните под вкус)")]
-        [SerializeField] private Vector3 armPosition = new Vector3(0.22f, -0.48f, 0.28f);
-        [SerializeField] private Vector3 armRotation = new Vector3(-150f, -15f, 0f);
-        [SerializeField] private float armScale = 1f;
-
         [Header("Покачивание при ходьбе")]
         [SerializeField] private float cameraBobX = 0.02f;
         [SerializeField] private float cameraBobY = 0.025f;
@@ -24,6 +20,9 @@ namespace MinecraftClone.Player
 
         [Header("Предмет в руке (подгоните под вкус)")]
         [SerializeField] private Vector3 heldArmOffset = new Vector3(0.56f, -0.52f, 0.72f);   // позиция предмета, как в оригинале
+
+        [Header("Рука (смещение относительно оригинала)")]
+        [SerializeField] private Vector3 armOffset = Vector3.zero;
 
         [SerializeField] private float heldReferenceFov = 70f;   // FOV, для которого рассчитана поза (как в оригинале)
         private Transform _itemRoot;
@@ -45,6 +44,7 @@ namespace MinecraftClone.Player
         private PlayerModel _model;
         private PlayerHealth _health;
         private NetworkIdentity _identity;
+        private NetworkPlayer _netPlayer;
         private CharacterController _controller;
         private Camera _cam;
 
@@ -73,6 +73,7 @@ namespace MinecraftClone.Player
             _model = GetComponent<PlayerModel>();
             _health = GetComponent<PlayerHealth>();
             _identity = GetComponent<NetworkIdentity>();
+            _netPlayer = GetComponent<NetworkPlayer>();
             _controller = GetComponent<CharacterController>();
             _cam = GetComponentInChildren<Camera>(true);
             _lastPos = transform.position;
@@ -83,6 +84,17 @@ namespace MinecraftClone.Player
         {
             if (_mat != null) Destroy(_mat);
             ClearHeldItem();
+        }
+
+        private void EnsureViewRoot()
+        {
+            if (_itemRoot == null)
+            {
+                _itemRoot = new GameObject("ViewRoot").transform;
+                _itemRoot.SetParent(_cam.transform, false);
+            }
+            float k = Mathf.Tan(_cam.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(heldReferenceFov * 0.5f * Mathf.Deg2Rad);
+            _itemRoot.localScale = new Vector3(k, k, 1f);
         }
 
         private void LateUpdate()
@@ -120,14 +132,15 @@ namespace MinecraftClone.Player
                 _cam.transform.localRotation = Quaternion.Euler(px, 0f, s * cameraRoll * camAmount);
             }
 
-            // рука
             // рука или предмет в руке
+            EnsureViewRoot();
             EnsureArm();
             if (_holder == null) return;
 
             int heldId = _interaction != null ? PlayerInventory.HotbarItem(_interaction.SelectedSlot) : 0;
+            if (_netPlayer != null) _netPlayer.SetHeldItem(heldId);   // другие игроки увидят
             bool hasItem = BindHeldItem(heldId);
-            _holder.gameObject.SetActive(!dead && !hasItem);   // есть предмет: руки нет, пусто: опять рука
+            _holder.gameObject.SetActive(!dead && !hasItem);
 
             float lightTarget = LightTint.Sample(_cam.transform.position);
             _handLight = _handLight < 0f ? lightTarget : Mathf.MoveTowards(_handLight, lightTarget, 4f * dt);
@@ -138,48 +151,41 @@ namespace MinecraftClone.Player
             }
             if (_itemMesh != null && Mathf.Abs(_handLight - _itemLightApplied) > 0.005f) ApplyItemLight();
 
-            Vector3 bob = new Vector3(s * armBobX, -Mathf.Abs(c) * armBobY, 0f) * _amount;
-            Vector3 pos = armPosition + bob;
-            Vector3 rot = armRotation;
+            // прогресс взмаха
             _swingP = -1f;
-
             if (_swing >= 0f)
             {
                 _swing += dt;
                 float p = _swing / SwingDuration;
-                if (p >= 1f) _swing = -1f;
-                else
-                {
-                    _swingP = p;
-                    float k = Mathf.Sin(p * Mathf.PI);
-                    rot.x += k * 50f;                                         // взмах руки
-                    pos += new Vector3(-0.06f * k, -0.04f * k, 0.12f * k);
-                }
+                if (p >= 1f) _swing = -1f; else _swingP = p;
             }
+            float sp = Mathf.Max(_swingP, 0f);
+            float sq = Mathf.Sqrt(sp);
+            float sinSq = Mathf.Sin(sp * sp * Mathf.PI);        // sin(p^2 * pi)
+            float sinR = Mathf.Sin(sq * Mathf.PI);              // sin(sqrt(p) * pi)
+            float sin2 = Mathf.Sin(sq * Mathf.PI * 2f);         // sin(sqrt(p) * 2pi)
+            float sinP = Mathf.Sin(sp * Mathf.PI);              // sin(p * pi)
 
-            _holder.localPosition = pos;
-            _holder.localRotation = Quaternion.Euler(rot);
+            Vector3 bob = new Vector3(s * armBobX, -Mathf.Abs(c) * armBobY, 0f) * _amount;
 
-            // предмет: взмах как в оригинале (сдвиг влево и вперёд + наклон верхом вперёд)
+            // рука: цепочка трансформаций оригинала
+            Vector3 armBase = new Vector3(0.64f - 0.3f * sinR, 0.4f * sin2 - 0.6f, 0.72f + 0.4f * sinP);
+            Quaternion aq = Quaternion.AngleAxis(-(45f + 70f * sinR), Vector3.up) * Quaternion.AngleAxis(-20f * sinSq, Vector3.forward);
+            Quaternion ard = Quaternion.AngleAxis(120f, Vector3.forward) * Quaternion.AngleAxis(-200f, Vector3.right) * Quaternion.AngleAxis(135f, Vector3.up);
+            Vector3 ainner = new Vector3(-1f, 3.6f, -3.5f) + ard * new Vector3(5.225f, 0.125f, 0f);
+            _holder.localPosition = armBase + armOffset + bob + aq * ainner;
+            _holder.localRotation = aq * ard * Quaternion.AngleAxis(180f, Vector3.forward);
+            _holder.localScale = Vector3.one * 1.1111f;   // наш пиксель скина 1.8/32 м, в оригинале 1/16 м
+
+            // предмет: поза и взмах оригинала
             if (_itemHolder != null)
             {
-                // проекция как у оригинала (FOV 70): растягиваем x и y пропорционально FOV камеры
-                float k = Mathf.Tan(_cam.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Tan(heldReferenceFov * 0.5f * Mathf.Deg2Rad);
-                _itemRoot.localScale = new Vector3(k, k, 1f);
-
-                float sp = Mathf.Max(_swingP, 0f);
-                float f = Mathf.Sin(sp * sp * Mathf.PI);
-                float f1 = Mathf.Sin(Mathf.Sqrt(sp) * Mathf.PI);
-
-                // взмах: сдвиг влево, вверх-вниз и вперёд
-                Vector3 swingPos = new Vector3(-0.4f * f1, 0.2f * Mathf.Sin(Mathf.Sqrt(sp) * Mathf.PI * 2f), 0.2f * Mathf.Sin(sp * Mathf.PI));
-                // взмах: наклон вокруг предмета (как в оригинале, 45° - 20° * f, -20° по Z, -80° по X)
-                Quaternion swingRot = Quaternion.AngleAxis(-(45f - 20f * f), Vector3.up)
-                                    * Quaternion.AngleAxis(-20f * f1, Vector3.forward)
-                                    * Quaternion.AngleAxis(80f * f1, Vector3.right)
+                Vector3 swingPos = new Vector3(-0.4f * sinR, 0.2f * sin2, 0.2f * sinP);
+                Quaternion swingRot = Quaternion.AngleAxis(-(45f - 20f * sinSq), Vector3.up)
+                                    * Quaternion.AngleAxis(-20f * sinR, Vector3.forward)
+                                    * Quaternion.AngleAxis(80f * sinR, Vector3.right)
                                     * Quaternion.AngleAxis(45f, Vector3.up);
 
-                // поза предмета в руке: инструменты и еда боком (Y 90, Z 25), блоки с поворотом 45°
                 Vector3 dispPos;
                 Quaternion dispRot;
                 if (_itemFlat)
@@ -231,8 +237,7 @@ namespace MinecraftClone.Player
 
             GameObject go = new GameObject("ViewArm");
             _holder = go.transform;
-            _holder.SetParent(_cam.transform, false);
-            _holder.localScale = Vector3.one * armScale;
+            _holder.SetParent(_itemRoot, false);
 
             go.AddComponent<MeshFilter>().sharedMesh = _srcMesh;
             MeshRenderer mr = go.AddComponent<MeshRenderer>();
@@ -269,14 +274,10 @@ namespace MinecraftClone.Player
             _itemId = id;
             _itemFlat = sys.IsFlat(id);
 
-            var root = new GameObject("ViewItemRoot");
-            _itemRoot = root.transform;
-            _itemRoot.SetParent(_cam.transform, false);
-
             var go = new GameObject("ViewItem");
             _itemHolder = go.transform;
             _itemHolder.SetParent(_itemRoot, false);
-            _itemHolder.localScale = Vector3.one * (_itemFlat ? 0.68f : 0.4f);   // масштабы оригинала
+            _itemHolder.localScale = Vector3.one * (_itemFlat ? 0.68f : 0.4f);
 
             _itemMesh = Instantiate(src);
             _itemBase = src.colors32;
@@ -296,10 +297,10 @@ namespace MinecraftClone.Player
 
         private void ClearHeldItem()
         {
-            if (_itemRoot != null) Destroy(_itemRoot.gameObject);   // вместе с предметом
+            if (_itemHolder != null) Destroy(_itemHolder.gameObject);
             if (_itemMat != null) Destroy(_itemMat);
             if (_itemMesh != null) Destroy(_itemMesh);
-            _itemRoot = null; _itemHolder = null; _itemMat = null; _itemMesh = null;
+            _itemHolder = null; _itemMat = null; _itemMesh = null;
             _itemId = 0;
         }
 

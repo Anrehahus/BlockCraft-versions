@@ -134,6 +134,40 @@ namespace MinecraftClone.Networking
             CmdSwing();
         }
 
+        // ---------- Предмет в руке (виден другим игрокам) ----------
+        [SyncVar(hook = nameof(OnHeldItemChanged))]
+        private int _heldItemSync;
+        private int _heldSent = -1;
+        public int HeldItemId => _heldItemSync;
+
+        // Вызывает владелец, когда меняется предмет в выбранном слоте
+        public void SetHeldItem(int id)
+        {
+            id = Mathf.Max(0, id);
+            if (id == _heldSent) return;
+
+            if (isServer)
+            {
+                _heldSent = id;
+                _heldItemSync = id;
+            }
+            else if (isLocalPlayer && NetworkClient.active && NetworkClient.ready)
+            {
+                _heldSent = id;
+                CmdSetHeldItem(id);
+            }
+        }
+
+        [Command]
+        private void CmdSetHeldItem(int id) => _heldItemSync = Mathf.Max(0, id);
+
+        private void OnHeldItemChanged(int oldId, int newId)
+        {
+            // При необходимости здесь можно обновить визуал предмета в руке у удалённого игрока (PlayerModel)
+            // var model = GetComponent<PlayerModel>();
+            // if (model != null && !isLocalPlayer) model.SetHeldItem(newId);
+        }
+
         [Command]
         private void CmdSwing() => RpcSwing();
 

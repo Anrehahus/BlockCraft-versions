@@ -279,5 +279,20 @@ namespace MinecraftClone.UI
             c.b = (byte)(c.b * shade);
             return c;
         }
+
+        // Геометрия хотбара: левый край, верхний край, шаг по X. Нужна, чтобы сердца точно ложились на него.
+        public static bool TryGetBar(out float x0, out float y0, out float k)
+        {
+            x0 = y0 = k = 0f;
+            PlayerHotbarUI hb = Instance;
+            if (hb == null || hb._bar == null) return false;
+            float u = Scale;
+            float barH = 22f * u;
+            float barW = barH * hb._bar.width / hb._bar.height;
+            x0 = (Screen.width - barW) / 2f;
+            y0 = Screen.height - barH;
+            k = barW / 182f;
+            return true;
+        }
     }
 }

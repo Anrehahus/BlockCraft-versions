@@ -6,6 +6,7 @@ using MinecraftClone.Management;
 using MinecraftClone.Audio;
 using MinecraftClone.Core;
 using MinecraftClone.Rendering;
+using MinecraftClone.Items;
 
 namespace MinecraftClone.Player
 {
@@ -45,6 +46,12 @@ namespace MinecraftClone.Player
         private float _lightShown = 1f;
         private bool _lightDirty = true;
 
+        private int _heldShown;
+        private Transform _heldTr;
+        private Mesh _heldMesh;
+        private Color32[] _heldBase, _heldTmp;
+        private float _heldLightApplied = -1f;
+
         public void Swing() { _swingTimer = 0f; }
 
         public void SetSkin(Texture2D tex)
@@ -81,6 +88,7 @@ namespace MinecraftClone.Player
 
         private void OnDestroy()
         {
+            ClearHeldItem();
             if (_material != null) Destroy(_material);
         }
 
@@ -230,12 +238,98 @@ namespace MinecraftClone.Player
             if (_material != null) LightTint.SetColor(_material, new Color(c.r * l, c.g * l, c.b * l, 1f));
         }
 
+        // Предмет в руке у чужого игрока: поза третьего лица из оригинала
+        private void UpdateHeldItem()
+        {
+            bool dead = _health != null && _health.IsDead;
+            int id = (!IsOwn && !dead && !_deathHidden && _netPlayer != null) ? _netPlayer.HeldItemId : 0;
+
+            if (id != _heldShown || (id > 0 && _heldTr == null))   // второе: модель пересобрана после смены скина
+            {
+                ClearHeldItem();
+                if (id > 0 && BuildHeldItem(id)) _heldShown = id;   // не вышло (атлас не готов): повторим в следующем кадре
+            }
+
+            if (_heldMesh != null && Mathf.Abs(_lightShown - _heldLightApplied) > 0.005f)
+            {
+                _heldLightApplied = _lightShown;
+                for (int i = 0; i < _heldBase.Length; i++)
+                {
+                    Color32 b = _heldBase[i];
+                    _heldTmp[i] = new Color32((byte)(b.r * _lightShown + 0.5f), (byte)(b.g * _lightShown + 0.5f), (byte)(b.b * _lightShown + 0.5f), 255);
+                }
+                _heldMesh.colors32 = _heldTmp;
+            }
+        }
+
+        private bool BuildHeldItem(int id)
+        {
+            var sys = ItemDropSystem.Instance;
+            var wm = WorldManager.Instance;
+            ItemDef def = ItemRegistry.Get(id);
+            if (sys == null || wm == null || def == null || wm.BlocksMaterial == null || _rightArm == null) return false;
+            Mesh src = sys.GetMesh(id);
+            if (src == null) return false;
+
+            // позы оригинала (в пикселях скина): блок, инструменты/оружие, остальные предметы
+            Vector3 dT; Quaternion rd; float s;
+            if (!sys.IsFlat(id))
+            {
+                dT = new Vector3(0f, 2.5f, 0f);
+                rd = Quaternion.AngleAxis(75f, Vector3.right) * Quaternion.AngleAxis(45f, Vector3.up);
+                s = 0.375f;
+            }
+            else if (def.Tool == ToolKind.Axe || def.Tool == ToolKind.Pickaxe || def.Tool == ToolKind.Shovel || def.Key.Contains("sword"))
+            {
+                dT = new Vector3(0f, 4f, 0.5f);
+                rd = Quaternion.AngleAxis(-90f, Vector3.up) * Quaternion.AngleAxis(55f, Vector3.forward);
+                s = 0.85f;
+            }
+            else
+            {
+                dT = new Vector3(0f, 3f, 1f);
+                rd = Quaternion.identity;
+                s = 0.55f;
+            }
+
+            Quaternion a = Quaternion.AngleAxis(-90f, Vector3.right) * Quaternion.AngleAxis(180f, Vector3.up);
+            Vector3 pos = -(a * (new Vector3(1f, 2f, -10f) + dT)) + new Vector3(-1f, 0f, 0f);
+
+            var go = new GameObject("HeldItem");
+            _heldTr = go.transform;
+            _heldTr.SetParent(_rightArm, false);
+            _heldTr.localPosition = pos * PX;
+            _heldTr.localRotation = a * rd * Quaternion.AngleAxis(180f, Vector3.forward);
+            _heldTr.localScale = Vector3.one * (16f * s * PX);
+
+            _heldMesh = Instantiate(src);
+            _heldBase = src.colors32;
+            _heldTmp = new Color32[_heldBase.Length];
+            _heldLightApplied = -1f;
+
+            go.AddComponent<MeshFilter>().sharedMesh = _heldMesh;
+            MeshRenderer mr = go.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = wm.BlocksMaterial;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            return true;
+        }
+
+        private void ClearHeldItem()
+        {
+            if (_heldTr != null) Destroy(_heldTr.gameObject);
+            if (_heldMesh != null) Destroy(_heldMesh);
+            _heldTr = null; _heldMesh = null;
+            _heldShown = 0;
+        }
+
         // ---------- Анимация ----------
 
         private void LateUpdate()
         {
             if (_head == null) return;
             UpdateTint();
+            UpdateHeldItem();
             if (UpdateDeath()) return;
 
             UpdateVisibility();
@@ -264,6 +358,7 @@ namespace MinecraftClone.Player
             _leftArm.localRotation = Quaternion.Euler(arm, 0f, 0f);
 
             float armX = -arm, armY = 0f;
+            if (_heldShown > 0) armX = armX * 0.5f - 18f;
             if (_swingTimer >= 0f)
             {
                 _swingTimer += dt;

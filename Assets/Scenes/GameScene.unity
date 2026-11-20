@@ -375,7 +375,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f40f8f3a7fe68ce4f9665fdec47abe24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.UI.DebugInfoUI
-  gameVersion: Minecraft Indev 0.31 20100110
+  gameVersion: Minecraft Indev 0.31 20100113-2015
   customFont: {fileID: 12800000, guid: 137924745e2665348887e144f9cefb97, type: 3}
   fontSize: 24
   textColor: {r: 1, g: 1, b: 1, a: 1}
@@ -394,6 +394,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Fluid.FluidSystem
   tickInterval: 0.15
+  lavaExtraDelay: 0.4
   maxWaterDistance: 7
   maxLavaDistance: 4
   maxNodesPerTick: 200

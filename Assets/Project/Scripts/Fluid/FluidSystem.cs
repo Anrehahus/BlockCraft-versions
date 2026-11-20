@@ -12,6 +12,7 @@ namespace MinecraftClone.Fluid
 
         [Header("Настройки жидкости")]
         [SerializeField] private float tickInterval = 0.08f;
+        [SerializeField] private float lavaExtraDelay = 0.4f; // лава медленнее воды
         [SerializeField] private int maxWaterDistance = 7;
         [SerializeField] private int maxLavaDistance = 4;
         [SerializeField] private int maxNodesPerTick = 250;
@@ -24,11 +25,13 @@ namespace MinecraftClone.Fluid
         {
             public Vector3Int Pos;
             public BlockType FluidType;
+            public float ReadyTime;
 
-            public FluidTask(Vector3Int pos, BlockType fluidType)
+            public FluidTask(Vector3Int pos, BlockType fluidType, float lavaDelay)
             {
                 Pos = pos;
                 FluidType = fluidType;
+                ReadyTime = fluidType == BlockType.Lava ? Time.time + lavaDelay : 0f;
             }
         }
 
@@ -40,6 +43,8 @@ namespace MinecraftClone.Fluid
         private readonly HashSet<Vector2Int> pendingRebuild = new HashSet<Vector2Int>();
         private readonly List<Vector2Int> rebuiltNow = new List<Vector2Int>();
 
+        private const int Falling = -1;
+
         private static readonly Vector3Int[] NeighborOffsets = {
             Vector3Int.up,
             Vector3Int.down,
@@ -47,6 +52,10 @@ namespace MinecraftClone.Fluid
             Vector3Int.right,
             Vector3Int.forward,
             Vector3Int.back
+        };
+
+        private static readonly Vector3Int[] HorizontalOffsets = {
+            Vector3Int.left, Vector3Int.right, Vector3Int.forward, Vector3Int.back
         };
 
         private void Awake()
@@ -75,7 +84,7 @@ namespace MinecraftClone.Fluid
 
             if (inQueue.Add(pos))
             {
-                updateQueue.Enqueue(new FluidTask(pos, fluidType));
+                updateQueue.Enqueue(new FluidTask(pos, fluidType, lavaExtraDelay));
             }
         }
 
@@ -98,7 +107,7 @@ namespace MinecraftClone.Fluid
             {
                 if (inQueue.Add(pos))
                 {
-                    updateQueue.Enqueue(new FluidTask(pos, type));
+                    updateQueue.Enqueue(new FluidTask(pos, type, lavaExtraDelay));
                 }
             }
             else
@@ -123,6 +132,7 @@ namespace MinecraftClone.Fluid
                     for (int i = 0; i < batch; i++)
                     {
                         FluidTask task = updateQueue.Dequeue();
+                        if (task.ReadyTime > Time.time) { updateQueue.Enqueue(task); continue; }
                         inQueue.Remove(task.Pos);
                         ProcessFluidNode(task, dirtyChunks);
                     }
@@ -148,10 +158,10 @@ namespace MinecraftClone.Fluid
 
         private void ProcessFluidNode(FluidTask task, HashSet<Vector2Int> dirtyChunks)
         {
-            if (WorldManager.Instance == null) return;
+            var wm = WorldManager.Instance;
+            if (wm == null) return;
 
-            BlockType currentType = WorldManager.Instance.GetBlockAtWorldPosition(task.Pos.x, task.Pos.y, task.Pos.z);
-
+            BlockType currentType = wm.GetBlockAtWorldPosition(task.Pos.x, task.Pos.y, task.Pos.z);
             if (currentType != task.FluidType)
             {
                 if (fluidLevels.ContainsKey(task.Pos))
@@ -162,22 +172,35 @@ namespace MinecraftClone.Fluid
                 return;
             }
 
-            int currentLevel = GetFluidLevel(task.Pos);
+            int level = GetFluidLevel(task.Pos);      // 0 = источник, -1 = падающая, 1..N = течение
+            bool isSource = level == 0;
             int maxDist = (task.FluidType == BlockType.Lava) ? maxLavaDistance : maxWaterDistance;
 
-            if (currentLevel > 0 && !HasValidFluidSource(task.Pos, task.FluidType, currentLevel))
+            // Высыхание: течение без питания исчезает
+            if (!isSource)
             {
-                WorldManager.Instance.ApplyBlockChange(task.Pos.x, task.Pos.y, task.Pos.z, BlockType.Air, false, dirtyChunks);
-                fluidLevels.Remove(task.Pos);
-                PropagateDrying(task.Pos, dirtyChunks);
-                return;
+                if (!HasValidFluidSource(task.Pos, task.FluidType, level))
+                {
+                    wm.ApplyBlockChange(task.Pos.x, task.Pos.y, task.Pos.z, BlockType.Air, false, dirtyChunks);
+                    fluidLevels.Remove(task.Pos);
+                    PropagateDrying(task.Pos, dirtyChunks);
+                    return;
+                }
+
+                // Если сверху жидкость — клетка становится падающей
+                Vector3Int up = task.Pos + Vector3Int.up;
+                if (level != Falling && wm.GetBlockAtWorldPosition(up.x, up.y, up.z) == task.FluidType)
+                {
+                    fluidLevels[task.Pos] = Falling;
+                    level = Falling;
+                }
             }
 
             BlockType oppositeType = (task.FluidType == BlockType.Water) ? BlockType.Lava : BlockType.Water;
             foreach (var offset in NeighborOffsets)
             {
                 Vector3Int nPos = task.Pos + offset;
-                BlockType nType = WorldManager.Instance.GetBlockAtWorldPosition(nPos.x, nPos.y, nPos.z);
+                BlockType nType = wm.GetBlockAtWorldPosition(nPos.x, nPos.y, nPos.z);
 
                 if (nType == oppositeType)
                 {
@@ -187,66 +210,67 @@ namespace MinecraftClone.Fluid
 
                     Vector3Int lavaPos = (task.FluidType == BlockType.Lava) ? task.Pos : nPos;
                     fluidLevels.Remove(lavaPos);
-                    WorldManager.Instance.ApplyBlockChange(lavaPos.x, lavaPos.y, lavaPos.z, resultStone, false, dirtyChunks);
+                    wm.ApplyBlockChange(lavaPos.x, lavaPos.y, lavaPos.z, resultStone, false, dirtyChunks);
 
                     if (lavaPos == task.Pos) return;
                 }
             }
 
-            // 1. ПОТОК ВНИЗ
+            // 1. ВНИЗ: новая клетка — падающая (при приземлении растечётся с полной силой)
             Vector3Int downPos = task.Pos + Vector3Int.down;
             if (CanFlowInto(downPos, task.FluidType))
             {
-                FlowTo(downPos, task.FluidType, 1, dirtyChunks);
+                FlowTo(downPos, task.FluidType, Falling, dirtyChunks);
                 return;
             }
 
-            // 2. ПОТОК В СТОРОНЫ
-            if (currentLevel >= maxDist) return;
+            // 2. В СТОРОНЫ: только источник или клетка на твёрдой опоре (не на жидкости)
+            BlockType below = wm.GetBlockAtWorldPosition(downPos.x, downPos.y, downPos.z);
+            bool blockedBelow = below != BlockType.Water && below != BlockType.Lava;
+            if (!isSource && !blockedBelow) return;
 
-            Vector3Int[] horizontalNeighbors = {
-                task.Pos + Vector3Int.left,
-                task.Pos + Vector3Int.right,
-                task.Pos + Vector3Int.forward,
-                task.Pos + Vector3Int.back
-            };
+            int spreadLevel = (level == Falling ? 0 : level) + 1;
+            if (spreadLevel > maxDist) return;
 
-            foreach (var nPos in horizontalNeighbors)
+            foreach (var offset in HorizontalOffsets)
             {
+                Vector3Int nPos = task.Pos + offset;
+
                 if (CanFlowInto(nPos, task.FluidType))
                 {
-                    int targetLevel = currentLevel + 1;
-                    if (!fluidLevels.TryGetValue(nPos, out int existingLevel) || targetLevel < existingLevel)
+                    FlowTo(nPos, task.FluidType, spreadLevel, dirtyChunks);
+                }
+                else if (wm.GetBlockAtWorldPosition(nPos.x, nPos.y, nPos.z) == task.FluidType)
+                {
+                    // более сильное течение перезаписывает более слабое
+                    int nl = GetFluidLevel(nPos);
+                    if (nl > spreadLevel)
                     {
-                        FlowTo(nPos, task.FluidType, targetLevel, dirtyChunks);
+                        fluidLevels[nPos] = spreadLevel;
+                        if (inQueue.Add(nPos))
+                            updateQueue.Enqueue(new FluidTask(nPos, task.FluidType, lavaExtraDelay));
                     }
                 }
             }
         }
 
-        private bool HasValidFluidSource(Vector3Int pos, BlockType type, int currentLevel)
+        private bool HasValidFluidSource(Vector3Int pos, BlockType type, int level)
         {
-            Vector3Int upPos = pos + Vector3Int.up;
-            if (WorldManager.Instance.GetBlockAtWorldPosition(upPos.x, upPos.y, upPos.z) == type)
-                return true;
+            var wm = WorldManager.Instance;
 
-            Vector3Int[] neighbors = {
-                pos + Vector3Int.left,
-                pos + Vector3Int.right,
-                pos + Vector3Int.forward,
-                pos + Vector3Int.back
-            };
+            Vector3Int up = pos + Vector3Int.up;
+            if (wm.GetBlockAtWorldPosition(up.x, up.y, up.z) == type) return true;
+            if (level == Falling) return false;
 
-            foreach (var nPos in neighbors)
+            foreach (var offset in HorizontalOffsets)
             {
-                if (WorldManager.Instance.GetBlockAtWorldPosition(nPos.x, nPos.y, nPos.z) == type)
-                {
-                    int neighborLevel = GetFluidLevel(nPos);
-                    if (neighborLevel < currentLevel)
-                        return true;
-                }
-            }
+                Vector3Int n = pos + offset;
+                if (wm.GetBlockAtWorldPosition(n.x, n.y, n.z) != type) continue;
 
+                int nl = GetFluidLevel(n);
+                if (nl == Falling) nl = 0;
+                if (nl < level) return true;
+            }
             return false;
         }
 
@@ -260,7 +284,7 @@ namespace MinecraftClone.Fluid
                 {
                     if (inQueue.Add(nPos))
                     {
-                        updateQueue.Enqueue(new FluidTask(nPos, type));
+                        updateQueue.Enqueue(new FluidTask(nPos, type, lavaExtraDelay));
                     }
                 }
             }
@@ -270,6 +294,7 @@ namespace MinecraftClone.Fluid
         {
             return fluidLevels.TryGetValue(pos, out int level) ? level : 0;
         }
+
         private bool CanFlowInto(Vector3Int target, BlockType fluidType)
         {
             if (WorldManager.Instance == null || WorldManager.Instance.Config == null) return false;
@@ -294,7 +319,7 @@ namespace MinecraftClone.Fluid
 
             if (inQueue.Add(targetPos))
             {
-                updateQueue.Enqueue(new FluidTask(targetPos, fluidType));
+                updateQueue.Enqueue(new FluidTask(targetPos, fluidType, lavaExtraDelay));
             }
         }
 
@@ -309,7 +334,7 @@ namespace MinecraftClone.Fluid
                         if (WorldManager.Instance.GetBlockAtWorldPosition(p.x, p.y, p.z) == BlockType.Water
                             && inQueue.Add(p))
                         {
-                            updateQueue.Enqueue(new FluidTask(p, BlockType.Water));
+                            updateQueue.Enqueue(new FluidTask(p, BlockType.Water, lavaExtraDelay));
                         }
                     }
         }

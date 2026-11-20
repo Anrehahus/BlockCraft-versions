@@ -444,17 +444,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0245b9d8f2d8f6249bc50d3c9e4e3c10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MinecraftClone.Player.FirstPersonView
-  armPosition: {x: 0.22, y: -0.48, z: 0.28}
-  armRotation: {x: -150, y: -15, z: 0}
-  armScale: 1
   cameraBobX: 0.02
   cameraBobY: 0.025
   cameraRoll: 0.5
   armBobX: 0.02
   armBobY: 0.025
-  blockItemPosition: {x: 0.42, y: -0.3, z: 0.8}
-  blockItemRotation: {x: 0, y: 35, z: 0}
-  blockItemScale: 0.34
-  flatItemPosition: {x: 0.45, y: -0.25, z: 0.8}
-  flatItemRotation: {x: 0, y: 160, z: 30}
-  flatItemScale: 0.5
+  heldArmOffset: {x: 0.56, y: -0.52, z: 0.72}
+  armOffset: {x: 0.15, y: 0, z: 0}
+  heldReferenceFov: 70

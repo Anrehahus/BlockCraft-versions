@@ -71,9 +71,10 @@ namespace MinecraftClone.UI
 
             GUI.depth = 10;   // под меню паузы и чатом
 
-            float u = PlayerHotbarUI.Scale;                                  // один "пиксель" оригинала на экране
-            float x0 = Mathf.Round((Screen.width - 182f * u) / 2f);          // левый край хотбара
-            float y0 = Mathf.Round(Screen.height - 39f * u);                 // над хотбаром
+            float u = PlayerHotbarUI.Scale;                                       // один "пиксель" оригинала на экране
+            if (!PlayerHotbarUI.TryGetBar(out float bx, out float by, out _)) return;
+            float x0 = Mathf.Round(bx);                                           // левый край = край хотбара
+            float y0 = Mathf.Round(by - 10f * u);                                 // низ сердец у верхней кромки хотбара (как в Beta, H-32)
 
             int hp = _shownHp;
             bool blinking = Time.unscaledTime < _blinkUntil;
